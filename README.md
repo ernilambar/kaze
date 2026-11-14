@@ -7,6 +7,7 @@ A simple text editor built with [Wails](https://wails.io) and
 
 - Go 1.26+
 - Node.js 20+
+- pnpm
 - Wails CLI v2: `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
 
 ## Development
