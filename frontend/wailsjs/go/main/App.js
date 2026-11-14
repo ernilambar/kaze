@@ -5,3 +5,7 @@
 export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
 }
+
+export function OpenSettingsFile() {
+  return window['go']['main']['App']['OpenSettingsFile']();
+}

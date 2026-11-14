@@ -89,6 +89,20 @@ func loadSettings(path string) (Settings, error) {
 	return settings, nil
 }
 
+// ensureSettingsFile creates path with defaults when it is missing. Unlike
+// loadSettings it does not fail on malformed content, so the user can still
+// open and repair a broken file.
+func ensureSettingsFile(path string) error {
+	_, err := os.Stat(path)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("stat settings file: %w", err)
+	}
+	return writeSettings(path, defaultSettings())
+}
+
 func writeSettings(path string, settings Settings) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create settings directory: %w", err)

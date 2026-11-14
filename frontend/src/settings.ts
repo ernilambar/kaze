@@ -1,5 +1,5 @@
 import type { main } from '../wailsjs/go/models';
-import { GetSettings } from '../wailsjs/go/main/App';
+import { GetSettings, OpenSettingsFile } from '../wailsjs/go/main/App';
 
 export interface EditorSettings {
     fontFamily: string;
@@ -29,5 +29,15 @@ export async function loadEditorSettings(): Promise<EditorSettings> {
     } catch (error) {
         console.error('Failed to load settings; using defaults.', error);
         return { ...defaultEditorSettings };
+    }
+}
+
+// Opens settings.json in $VISUAL/$EDITOR (or the OS default handler); the
+// backend owns editor selection and process launching.
+export async function openSettingsFile(): Promise<void> {
+    try {
+        await OpenSettingsFile();
+    } catch (error) {
+        console.error('Failed to open settings.json.', error);
     }
 }

@@ -29,3 +29,18 @@ func (a *App) GetSettings() (Settings, error) {
 	}
 	return loadSettings(path)
 }
+
+// OpenSettingsFile opens settings.json in the editor named by the user's
+// environment ($VISUAL, then $EDITOR), falling back to the platform's default
+// file handler. A missing file is created with defaults first; a malformed one
+// is opened as-is so the user can repair it.
+func (a *App) OpenSettingsFile() error {
+	path, err := settingsFilePath()
+	if err != nil {
+		return err
+	}
+	if err := ensureSettingsFile(path); err != nil {
+		return err
+	}
+	return openInEditor(path)
+}

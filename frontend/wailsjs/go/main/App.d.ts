@@ -3,3 +3,5 @@
 import {main} from '../models';
 
 export function GetSettings():Promise<main.Settings>;
+
+export function OpenSettingsFile():Promise<void>;
