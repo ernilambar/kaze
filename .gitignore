@@ -2,3 +2,4 @@ build/bin
 /kova
 node_modules
 frontend/dist
+/dist

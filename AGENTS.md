@@ -24,11 +24,14 @@ ensure that directory is on `PATH`. No `.env` or other local config is needed.
 wails dev                              # dev mode with hot reload
 wails build                            # packaged app in build/bin
 go build ./...                         # compile Go only
-go test ./...                          # Go tests (none yet)
+go test -race ./...                    # Go tests
 go vet ./...                           # Go lint
 gofmt -w .                             # Go format (write)
 cd frontend && pnpm run build           # tsc + vite build to frontend/dist
-cd frontend && pnpm exec tsc --noEmit        # TypeScript typecheck
+cd frontend && pnpm exec tsc --noEmit  # TypeScript typecheck
+cd frontend && pnpm test               # Vitest frontend tests
+./scripts/bundle.sh                    # release gate + dist/*-macos-arm64.zip
+./scripts/release.sh v0.1.0            # tag/push; CI builds the release
 ```
 
 There is no frontend linter/formatter configured (no ESLint/Prettier); do not
@@ -54,8 +57,20 @@ introduce one unprompted.
   never add `package-lock.json`. `frontend/pnpm-workspace.yaml` allows the
   `esbuild` install script because pnpm blocks dependency build scripts by
   default.
-- **Scope discipline:** no new dependencies, test frameworks, or config files
-  without explicit approval.
+- **Tests are colocated.** Go tests sit beside the code (`app_test.go`);
+  frontend tests use Vitest (`*.test.ts`) and cover pure helpers only, not
+  Monaco or generated bindings. Test logic in Go; test presentation helpers in
+  TypeScript.
+- **App version lives in `wails.json`.** `info.productVersion` is the single
+  source of truth for packaged metadata (macOS bundle, Windows exe, NSIS
+  installer); bump it there. `frontend/package.json`'s `version` is not the app
+  version. A runtime version must be injected via `-ldflags
+  "-X main.version=..."` derived from `wails.json`.
+- **macOS bundle ID is `net.nilambar.kova`.** Wails v2 has no config field for
+  it; it lives in `build/darwin/Info.plist` and `build/darwin/Info.dev.plist`.
+  Changing it later resets macOS permissions and app preferences.
+- **Scope discipline:** no new dependencies or config files without explicit
+  approval.
 
 ## Quality gate
 
@@ -64,9 +79,10 @@ before declaring a task complete:
 
 ```sh
 (cd frontend && pnpm exec tsc --noEmit)
+(cd frontend && pnpm test)
 (cd frontend && pnpm run build)
 go vet ./...
-go test ./...
+go test -race ./...
 test -z "$(gofmt -l .)"
 go build ./...
 ```

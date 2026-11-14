@@ -26,6 +26,16 @@ wails build
 
 The packaged app is written to `build/bin`.
 
+## Releases
+
+```sh
+./scripts/bundle.sh          # verify + build dist/Kova-macos-arm64.zip
+./scripts/release.sh v0.1.0  # tag and push; GitHub Actions publishes
+```
+
+Releases support macOS on Apple silicon only. Bump `info.productVersion` in
+`wails.json` before tagging.
+
 ## License
 
 [MIT](LICENSE) © [Nilambar Sharma](https://www.nilambar.net)

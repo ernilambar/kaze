@@ -1,5 +1,6 @@
 import './style.css';
 import { createEditor } from './editor';
+import { formatCursorPosition } from './status';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <header class="titlebar">
@@ -17,5 +18,8 @@ const positionElement = document.getElementById('status-position')!;
 const editor = createEditor(document.getElementById('editor')!);
 
 editor.onDidChangeCursorPosition((event) => {
-    positionElement.textContent = `Ln ${event.position.lineNumber}, Col ${event.position.column}`;
+    positionElement.textContent = formatCursorPosition(
+        event.position.lineNumber,
+        event.position.column,
+    );
 });

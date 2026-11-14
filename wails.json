@@ -9,5 +9,12 @@
   "author": {
     "name": "Nilambar Sharma",
     "email": "nilambar@outlook.com"
+  },
+  "info": {
+    "companyName": "Nilambar Sharma",
+    "productName": "Kova",
+    "productVersion": "0.1.0",
+    "copyright": "Copyright © 2026 Nilambar Sharma",
+    "comments": "Kova is a simple text editor built with Wails and Monaco Editor."
   }
 }

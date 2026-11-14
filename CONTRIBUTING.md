@@ -67,15 +67,59 @@ iteration can also use `cd frontend && pnpm dev`, but the full app requires
 - Use pnpm for the frontend; do not add `package-lock.json` or run
   `npm install`.
 
+## Versioning
+
+The application version is defined once, in `wails.json`:
+
+```json
+"info": {
+  "productVersion": "0.1.0"
+}
+```
+
+That value populates the macOS bundle version (`CFBundleShortVersionString`,
+`CFBundleVersion`), the Windows executable version, and the NSIS installer
+metadata. To release a new version, bump `info.productVersion` there and tag
+the commit (for example `v0.2.0`).
+
+The macOS bundle identifier is fixed as `net.nilambar.kova` in
+`build/darwin/Info.plist` and `build/darwin/Info.dev.plist` (Wails v2 has no
+`wails.json` field for it). Do not change it casually: macOS keys permissions,
+preferences, and update identity to it.
+
+`frontend/package.json` is a private, unpublished package; its `version` field
+is not the application version. If the app later displays its version at
+runtime, inject it with `wails build -ldflags "-X main.version=$(...)"` derived
+from `wails.json` rather than hardcoding a second copy.
+
+## Releasing
+
+Releases are macOS arm64 only; Intel Macs are not supported.
+
+1. Bump `info.productVersion` in `wails.json`.
+2. Commit the bump and merge it to `main`.
+3. Run `./scripts/release.sh vX.Y.Z` with the matching tag.
+
+`release.sh` requires a clean tree, verifies the tag against `wails.json`, runs
+`scripts/bundle.sh` (quality gate plus `wails build -platform darwin/arm64`),
+then tags and pushes. The tag triggers `.github/workflows/release.yml`, which
+rebuilds on an Apple silicon runner and attaches `Kova-macos-arm64.zip` and
+`SHA256SUMS` to the GitHub release.
+
+`bundle.sh` fails on non-macOS hosts and on Intel Macs, and verifies the built
+binary is `arm64`. The app is signed ad hoc; if Developer ID signing and
+notarization are added later, update the release workflow accordingly.
+
 ## Quality gate
 
 Run all of the following from the repository root and confirm each exits 0:
 
 ```sh
 (cd frontend && pnpm exec tsc --noEmit)
+(cd frontend && pnpm test)
 (cd frontend && pnpm run build)
 go vet ./...
-go test ./...
+go test -race ./...
 test -z "$(gofmt -l .)"
 go build ./...
 ```
@@ -84,8 +128,10 @@ If your change affects app startup, Wails configuration, or platform
 packaging, also run `wails build` and launch the resulting app from
 `build/bin`.
 
-There is currently no Go test suite (`go test ./...` reports "no test
-files"). New tests are welcome; put them next to the code they cover.
+Tests are colocated with the code they cover: Go tests use `testing`
+(`app_test.go`) and frontend tests use Vitest (`src/*.test.ts`). Keep
+TypeScript tests focused on pure helpers; Monaco, native dialogs, and generated
+bindings are covered by manual smoke testing.
 
 ## Pull requests
 
