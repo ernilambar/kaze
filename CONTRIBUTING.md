@@ -39,6 +39,14 @@ This starts the Vite dev server and opens the native window. Frontend-only
 iteration can also use `cd frontend && pnpm dev`, but the full app requires
 `wails dev`.
 
+To test the real bundle (Dock icon, app menu, LaunchServices registration),
+install it to `/Applications`:
+
+```sh
+./scripts/dev.sh             # debug build
+./scripts/dev.sh --release   # verified release build via scripts/bundle.sh
+```
+
 ## Project layout
 
 | Path | Purpose |

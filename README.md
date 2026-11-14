@@ -29,6 +29,8 @@ The packaged app is written to `build/bin`.
 ## Releases
 
 ```sh
+./scripts/dev.sh             # debug build, install to /Applications, launch
+./scripts/dev.sh --release   # same, with the verified release bundle
 ./scripts/bundle.sh          # verify + build dist/Kova-macos-arm64.zip
 ./scripts/release.sh v0.1.0  # tag and push; GitHub Actions publishes
 ```

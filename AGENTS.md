@@ -30,6 +30,7 @@ gofmt -w .                             # Go format (write)
 cd frontend && pnpm run build           # tsc + vite build to frontend/dist
 cd frontend && pnpm exec tsc --noEmit  # TypeScript typecheck
 cd frontend && pnpm test               # Vitest frontend tests
+./scripts/dev.sh                       # debug build installed to /Applications
 ./scripts/bundle.sh                    # release gate + dist/*-macos-arm64.zip
 ./scripts/release.sh v0.1.0            # tag/push; CI builds the release
 ```
