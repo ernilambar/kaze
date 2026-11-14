@@ -24,3 +24,7 @@ wails build
 ```
 
 The packaged app is written to `build/bin`.
+
+## License
+
+[MIT](LICENSE) © [Nilambar Sharma](https://www.nilambar.net)
