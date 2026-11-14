@@ -18,3 +18,14 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 }
+
+// GetSettings loads the user's settings.json, creating it with defaults on
+// first run. The frontend calls this once at startup and applies the values to
+// the editor.
+func (a *App) GetSettings() (Settings, error) {
+	path, err := settingsFilePath()
+	if err != nil {
+		return defaultSettings(), err
+	}
+	return loadSettings(path)
+}

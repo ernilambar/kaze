@@ -53,8 +53,10 @@ install it to `/Applications`:
 | --- | --- |
 | `main.go` | Wails bootstrap; embeds `frontend/dist` |
 | `app.go` | `App` struct; exported methods become frontend bindings |
+| `settings.go` | Loads and validates `settings.json`; defaults on first run |
 | `frontend/src/` | TypeScript UI (`main.ts`, `editor.ts`, `style.css`) |
 | `frontend/wailsjs/` | Generated bindings; never edit by hand |
+| `docs/` | User-facing documentation (`settings.md`) |
 | `build/` | Platform packaging assets |
 | `wails.json` | Wails project config and frontend hooks |
 

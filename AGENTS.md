@@ -45,6 +45,12 @@ introduce one unprompted.
   `app.go`, then let `wails dev`/`wails build` regenerate bindings.
 - **Go owns native behavior.** File I/O, dialogs, and OS integration belong in
   Go; the TypeScript layer handles UI only.
+- **User settings live in `settings.json`.** `settings.go` loads and validates
+  it from the platform config directory (`Kova/settings.json`), creating
+  defaults on first run; `App.GetSettings` exposes it to the frontend, which
+  applies the editor font values at startup. Keep `frontend/src/settings.ts`
+  defaults in sync with `defaultSettings()` in Go (the TS copy is only the
+  fallback when the backend call fails).
 - **Monaco stays excluded from Vite pre-bundling.** `optimizeDeps.exclude:
   ['monaco-editor']` exists because pre-bundling breaks worker URL resolution;
   keep it unless you also rework worker loading.

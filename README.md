@@ -26,6 +26,13 @@ wails build
 
 The packaged app is written to `build/bin`.
 
+## Settings
+
+Kova reads editor settings from `settings.json` in the platform config
+directory and creates it with defaults on first launch. See
+[docs/settings.md](docs/settings.md) for the file locations, supported fields,
+and validation rules.
+
 ## Releases
 
 ```sh
