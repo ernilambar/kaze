@@ -41,9 +41,8 @@ loaded (at app startup), so no manual setup is required.
   and leaves the file untouched so it can be fixed.
 - Values are read once at startup. Restart Kova after editing the file.
 
-There is no settings UI yet. Press <kbd>Cmd</kbd>+<kbd>,</kbd>
-(<kbd>Ctrl</kbd>+<kbd>,</kbd> on Windows and Linux) to open the file, or edit
-it directly.
+There is no settings UI yet. Choose **Settings…** from the app menu
+(<kbd>Cmd</kbd>+<kbd>,</kbd>) to open the file, or edit it directly.
 
 The shortcut launches `$VISUAL`, falling back to `$EDITOR`, and then to the
 platform's default file handler. The value may include arguments, e.g.

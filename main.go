@@ -16,18 +16,20 @@ var assets embed.FS
 // appMenu builds the macOS application menu. Wails' own AppMenu role renders
 // About as a left-aligned alert, so the items are assembled here to open the
 // standard macOS About panel instead, which centers the icon and text.
-func appMenu(name string, quit func()) *menu.Menu {
-	app := menu.NewMenu()
-	app.AddText("About "+name, nil, func(*menu.CallbackData) { showAboutPanel() })
-	app.AddSeparator()
-	app.AddText("Hide "+name, keys.CmdOrCtrl("h"), func(*menu.CallbackData) { hideApplication() })
-	app.AddText("Hide Others", keys.Combo("h", keys.CmdOrCtrlKey, keys.OptionOrAltKey), func(*menu.CallbackData) {
+func appMenu(name string, app *App) *menu.Menu {
+	appMenu := menu.NewMenu()
+	appMenu.AddText("About "+name, nil, func(*menu.CallbackData) { showAboutPanel() })
+	appMenu.AddSeparator()
+	appMenu.AddText("Settings…", keys.CmdOrCtrl(","), func(*menu.CallbackData) { app.openSettingsFromMenu() })
+	appMenu.AddSeparator()
+	appMenu.AddText("Hide "+name, keys.CmdOrCtrl("h"), func(*menu.CallbackData) { hideApplication() })
+	appMenu.AddText("Hide Others", keys.Combo("h", keys.CmdOrCtrlKey, keys.OptionOrAltKey), func(*menu.CallbackData) {
 		hideOtherApplications()
 	})
-	app.AddText("Show All", nil, func(*menu.CallbackData) { unhideAllApplications() })
-	app.AddSeparator()
-	app.AddText("Quit "+name, keys.CmdOrCtrl("q"), func(*menu.CallbackData) { quit() })
-	return app
+	appMenu.AddText("Show All", nil, func(*menu.CallbackData) { unhideAllApplications() })
+	appMenu.AddSeparator()
+	appMenu.AddText("Quit "+name, keys.CmdOrCtrl("q"), func(*menu.CallbackData) { app.quit() })
+	return appMenu
 }
 
 func main() {
@@ -53,7 +55,7 @@ func main() {
 		},
 		// The app menu is what puts "About Kova" in the macOS menu bar.
 		Menu: menu.NewMenuFromItems(
-			menu.SubMenu(meta.ProductName, appMenu(meta.ProductName, app.quit)),
+			menu.SubMenu(meta.ProductName, appMenu(meta.ProductName, app)),
 		),
 	})
 

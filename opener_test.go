@@ -81,8 +81,8 @@ func TestOpenSettingsFileCreatesAndLaunches(t *testing.T) {
 	t.Setenv("EDITOR", "")
 
 	app := NewApp()
-	if err := app.OpenSettingsFile(); err != nil {
-		t.Fatalf("OpenSettingsFile() error = %v", err)
+	if err := app.openSettingsFile(); err != nil {
+		t.Fatalf("openSettingsFile() error = %v", err)
 	}
 
 	path := filepath.Join(home, "Library", "Application Support", "Kova", "settings.json")

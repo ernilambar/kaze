@@ -34,11 +34,11 @@ func (a *App) GetSettings() (Settings, error) {
 	return loadSettings(path)
 }
 
-// OpenSettingsFile opens settings.json in the editor named by the user's
+// openSettingsFile opens settings.json in the editor named by the user's
 // environment ($VISUAL, then $EDITOR), falling back to the platform's default
 // file handler. A missing file is created with defaults first; a malformed one
 // is opened as-is so the user can repair it.
-func (a *App) OpenSettingsFile() error {
+func (a *App) openSettingsFile() error {
 	path, err := settingsFilePath()
 	if err != nil {
 		return err
@@ -47,6 +47,14 @@ func (a *App) OpenSettingsFile() error {
 		return err
 	}
 	return openInEditor(path)
+}
+
+// openSettingsFromMenu opens settings.json from the app menu. A menu click has
+// no caller to return to, so failures are logged.
+func (a *App) openSettingsFromMenu() {
+	if err := a.openSettingsFile(); err != nil {
+		runtime.LogError(a.ctx, err.Error())
+	}
 }
 
 // quit shuts the app down through Wails so its shutdown path runs.
