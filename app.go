@@ -1,6 +1,10 @@
 package main
 
-import "context"
+import (
+	"context"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
+)
 
 // App is the application struct. Exported methods become callable from the
 // frontend through the generated Wails bindings.
@@ -43,4 +47,11 @@ func (a *App) OpenSettingsFile() error {
 		return err
 	}
 	return openInEditor(path)
+}
+
+// quit shuts the app down through Wails so its shutdown path runs.
+func (a *App) quit() {
+	if a.ctx != nil {
+		runtime.Quit(a.ctx)
+	}
 }
