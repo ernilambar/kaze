@@ -1,5 +1,12 @@
 import type * as models from '../bindings/kova/models';
-import { GetSettings, UpdateEditorSettings, UpdateThemeSettings, UpdateUISettings } from '../bindings/kova/app';
+import {
+    GetSettings,
+    UpdateEditorSettings,
+    UpdateFilesSettings,
+    UpdateSearchSettings,
+    UpdateThemeSettings,
+    UpdateUISettings,
+} from '../bindings/kova/app';
 
 export interface EditorSettings {
     fontFamily: string;
@@ -150,6 +157,44 @@ export const defaultUISettings: UISettings = {
     sidebarPosition: 'left',
 };
 
+// ExcludeSettings is the pair of glob lists settings.json keeps: the explorer
+// hides files.exclude and Find in Files skips both lists.
+export interface ExcludeSettings {
+    files: string[];
+    search: string[];
+}
+
+// defaultExcludePatterns mirrors defaultExcludePatterns in settings.go.
+export const defaultExcludePatterns: readonly string[] = [
+    '.git',
+    '.hg',
+    '.svn',
+    'node_modules',
+    '.DS_Store',
+];
+
+export const defaultExcludeSettings: ExcludeSettings = {
+    files: [...defaultExcludePatterns],
+    search: [...defaultExcludePatterns],
+};
+
+function toExcludeSettings(settings: models.Settings): ExcludeSettings {
+    return {
+        files: settings.files?.exclude ?? [],
+        search: settings.search?.exclude ?? [],
+    };
+}
+
+export async function saveFilesExclude(patterns: readonly string[]): Promise<string[]> {
+    const saved = await UpdateFilesSettings({ exclude: patterns.slice() });
+    return saved.exclude ?? [];
+}
+
+export async function saveSearchExclude(patterns: readonly string[]): Promise<string[]> {
+    const saved = await UpdateSearchSettings({ exclude: patterns.slice() });
+    return saved.exclude ?? [];
+}
+
 function toThemeSettings(theme: models.ThemeSettings): ThemeSettings {
     const mode = theme.mode === 'light' || theme.mode === 'dark' ? theme.mode : 'system';
     return {
@@ -187,24 +232,30 @@ function toBindingUI(ui: UISettings): models.UISettings {
     };
 }
 
-// loadPreferences reads the theme and interface sections. It is called once at
-// startup; the editor section has its own loader because toggles rewrite it
-// independently.
+// loadPreferences reads the theme, interface and exclude sections. It is called
+// once at startup; the editor section has its own loader because toggles rewrite
+// it independently.
 export async function loadPreferences(): Promise<{
     theme: ThemeSettings;
     ui: UISettings;
+    excludes: ExcludeSettings;
 }> {
     try {
         const settings = await GetSettings();
         return {
             theme: toThemeSettings(settings.theme),
             ui: toUISettings(settings.ui),
+            excludes: toExcludeSettings(settings),
         };
     } catch (error) {
         console.error('Failed to load appearance settings; using defaults.', error);
         return {
             theme: { ...defaultThemeSettings },
             ui: { ...defaultUISettings },
+            excludes: {
+                files: [...defaultExcludeSettings.files],
+                search: [...defaultExcludeSettings.search],
+            },
         };
     }
 }

@@ -1,19 +1,27 @@
 import { describe, expect, it, vi } from 'vitest';
 
-const { getSettings, updateEditorSettings } = vi.hoisted(() => ({
-    getSettings: vi.fn(),
-    updateEditorSettings: vi.fn(),
-}));
+const { getSettings, updateEditorSettings, updateFilesSettings, updateSearchSettings } =
+    vi.hoisted(() => ({
+        getSettings: vi.fn(),
+        updateEditorSettings: vi.fn(),
+        updateFilesSettings: vi.fn(),
+        updateSearchSettings: vi.fn(),
+    }));
 
 vi.mock('../bindings/kova/app', () => ({
     GetSettings: getSettings,
     UpdateEditorSettings: updateEditorSettings,
+    UpdateFilesSettings: updateFilesSettings,
+    UpdateSearchSettings: updateSearchSettings,
 }));
 
 import {
     defaultEditorSettings,
     loadEditorSettings,
+    loadPreferences,
     saveEditorSettings,
+    saveFilesExclude,
+    saveSearchExclude,
 } from './settings';
 
 const storedEditor = {
@@ -97,5 +105,55 @@ describe('saveEditorSettings', () => {
         );
         expect(saved.tabSize).toBe(2);
         expect(saved.wordWrap).toBe(false);
+    });
+});
+
+describe('loadPreferences', () => {
+    it('maps the theme, interface and exclude sections together', async () => {
+        getSettings.mockResolvedValue({
+            editor: storedEditor,
+            theme: { mode: 'dark', light: 'Kova Light', dark: 'Kova Dark' },
+            ui: {
+                font_family: 'Fira Sans',
+                font_size: 14,
+                tab_icons: false,
+                icon_style: 'monochrome',
+                sidebar_position: 'right',
+            },
+            files: { exclude: ['/dist', '*.log'] },
+            search: { exclude: ['vendor'] },
+        });
+
+        await expect(loadPreferences()).resolves.toEqual({
+            theme: { mode: 'dark', light: 'Kova Light', dark: 'Kova Dark' },
+            ui: {
+                fontFamily: 'Fira Sans',
+                fontSize: 14,
+                tabIcons: false,
+                iconStyle: 'monochrome',
+                sidebarPosition: 'right',
+            },
+            excludes: {
+                files: ['/dist', '*.log'],
+                search: ['vendor'],
+            },
+        });
+    });
+});
+
+describe('exclude saves', () => {
+    it('sends the patterns and returns the normalized list', async () => {
+        updateFilesSettings.mockResolvedValue({ exclude: ['node_modules'] });
+        updateSearchSettings.mockResolvedValue({ exclude: ['vendor'] });
+
+        await expect(saveFilesExclude([' node_modules ', 'node_modules'])).resolves.toEqual([
+            'node_modules',
+        ]);
+        expect(updateFilesSettings).toHaveBeenCalledWith({
+            exclude: [' node_modules ', 'node_modules'],
+        });
+
+        await expect(saveSearchExclude(['vendor'])).resolves.toEqual(['vendor']);
+        expect(updateSearchSettings).toHaveBeenCalledWith({ exclude: ['vendor'] });
     });
 });

@@ -442,6 +442,24 @@ export function UpdateEditorSettings(editor: $models.EditorSettings): $Cancellab
 }
 
 /**
+ * UpdateFilesSettings replaces the files section of settings.json and returns
+ * the normalized result. The frontend calls it when the explorer's exclude
+ * patterns change, so the tree hides the same entries the next read does.
+ */
+export function UpdateFilesSettings(files: $models.FilesSettings): $CancellablePromise<$models.FilesSettings> {
+    return $Call.ByID(1764760390, files);
+}
+
+/**
+ * UpdateSearchSettings replaces the search section of settings.json and
+ * returns the normalized result. Find in Files applies both lists, so this
+ * only writes the patterns the search window owns.
+ */
+export function UpdateSearchSettings(search: $models.SearchSettings): $CancellablePromise<$models.SearchSettings> {
+    return $Call.ByID(3451417453, search);
+}
+
+/**
  * UpdateThemeSettings replaces the theme section of settings.json and returns
  * the normalized result. The frontend calls it when the appearance mode or one
  * of the selected palettes changes.

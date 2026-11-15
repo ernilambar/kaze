@@ -330,6 +330,41 @@ func TestUpdateEditorSettingsPersistsAndRepairs(t *testing.T) {
 	}
 }
 
+func TestUpdateExcludeSettingsPersistAndRepair(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	app := NewApp()
+
+	files, err := app.UpdateFilesSettings(FilesSettings{
+		Exclude: []string{"  node_modules  ", "", "*.log", "*.log"},
+	})
+	if err != nil {
+		t.Fatalf("UpdateFilesSettings() error = %v", err)
+	}
+	if !reflect.DeepEqual(files.Exclude, []string{"node_modules", "*.log"}) {
+		t.Fatalf("files exclude = %q, want trimmed unique patterns", files.Exclude)
+	}
+
+	search, err := app.UpdateSearchSettings(SearchSettings{Exclude: []string{" vendor ", "vendor"}})
+	if err != nil {
+		t.Fatalf("UpdateSearchSettings() error = %v", err)
+	}
+	if !reflect.DeepEqual(search.Exclude, []string{"vendor"}) {
+		t.Fatalf("search exclude = %q, want trimmed unique patterns", search.Exclude)
+	}
+
+	settings, err := app.GetSettings()
+	if err != nil {
+		t.Fatalf("GetSettings() error = %v", err)
+	}
+	if !reflect.DeepEqual(settings.Files.Exclude, files.Exclude) {
+		t.Fatalf("settings.Files.Exclude = %q, want %q", settings.Files.Exclude, files.Exclude)
+	}
+	if !reflect.DeepEqual(settings.Search.Exclude, search.Exclude) {
+		t.Fatalf("settings.Search.Exclude = %q, want %q", settings.Search.Exclude, search.Exclude)
+	}
+}
+
 func TestNormalizeThemeAndUI(t *testing.T) {
 	settings := defaultSettings()
 	settings.Theme = ThemeSettings{Mode: "LIGHT", Light: "  ", Dark: "  Custom Dark  "}

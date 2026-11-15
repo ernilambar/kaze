@@ -98,6 +98,8 @@
         loadEditorSettings,
         loadPreferences,
         saveEditorSettings,
+        saveFilesExclude,
+        saveSearchExclude,
         saveThemeSettings,
         saveUISettings,
         type EditorSettings,
@@ -219,8 +221,16 @@
     let gitChanges = $state<GitChange[]>([]);
 
     let editorSettings = $state<EditorSettings>({ ...defaultEditorSettings });
+    // Editor saves are chained so the last change wins; the version identifies
+    // the newest request, whose normalized result is the one applied.
+    let editorSaveQueue: Promise<void> = Promise.resolve();
+    let editorSaveVersion = 0;
     let themeSettings = $state<ThemeSettings>({ ...defaultThemeSettings });
     let uiSettings = $state<UISettings>({ ...defaultUISettings });
+    // Excludes are the two glob lists settings.json keeps. The tree and Find in
+    // Files both read them in Go; the settings overlay edits them.
+    let filesExclude = $state<string[]>([]);
+    let searchExclude = $state<string[]>([]);
     let themes = $state<ThemeInfo[]>([]);
     let themeErrors = $state<string[]>([]);
     let settingsOverlay = $state(false);
@@ -922,6 +932,27 @@
         }
     }
 
+    // changeFilesExclude saves the explorer's glob list and rereads the tree:
+    // the level already on screen was opened with the old matcher.
+    async function changeFilesExclude(next: string[]): Promise<void> {
+        filesExclude = next;
+        try {
+            filesExclude = await saveFilesExclude(next);
+            treeRefreshToken++;
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
+    async function changeSearchExclude(next: string[]): Promise<void> {
+        searchExclude = next;
+        try {
+            searchExclude = await saveSearchExclude(next);
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
     function showSettingsOverlay(): void {
         settingsOverlay = true;
     }
@@ -1063,23 +1094,40 @@
         editorPane?.zoom(command);
     }
 
+    // changeEditorSettings applies the whole editor section, saves it, and moves
+    // the View menu checkmarks. Saves are chained and only the newest result is
+    // applied, so two quick changes cannot write the older values last.
+    function changeEditorSettings(next: EditorSettings): void {
+        editorSettings = next;
+        const version = ++editorSaveVersion;
+        editorSaveQueue = editorSaveQueue
+            .catch(() => {})
+            .then(async () => {
+                const saved = await saveEditorSettings(next);
+                if (version !== editorSaveVersion) {
+                    return;
+                }
+                editorSettings = saved;
+                for (const option of VIEW_OPTIONS) {
+                    void SetViewOption(option.id, saved[option.id]).catch((error) =>
+                        console.error('Failed to update the View menu.', error),
+                    );
+                }
+            })
+            .catch((error) => {
+                if (version === editorSaveVersion) {
+                    notice = errorMessage(error);
+                }
+            });
+    }
+
     // setViewOption applies a view toggle, saves it, and moves the View menu's
     // checkmark when the toggle came from the command palette instead.
     function setViewOption(option: ViewOption, checked: boolean): void {
         if (editorSettings[option] === checked) {
             return;
         }
-        editorSettings = { ...editorSettings, [option]: checked };
-        void saveEditorSettings(editorSettings)
-            .then((saved) => {
-                editorSettings = saved;
-            })
-            .catch((error) => {
-                notice = errorMessage(error);
-            });
-        void SetViewOption(option, checked).catch((error) =>
-            console.error('Failed to update the View menu.', error),
-        );
+        changeEditorSettings({ ...editorSettings, [option]: checked });
     }
 
     function toggleViewOption(option: ViewOption): void {
@@ -1561,11 +1609,20 @@
         }
     }
 
-    function toggleSidebar(): void {
-        sidebarVisible = !sidebarVisible;
-        void saveSidebarVisible(sidebarVisible).catch((error) =>
+    // setSidebarVisible records the choice so the next launch keeps the layout.
+    // Toggle Sidebar and the settings overlay both go through it.
+    function setSidebarVisible(visible: boolean): void {
+        if (sidebarVisible === visible) {
+            return;
+        }
+        sidebarVisible = visible;
+        void saveSidebarVisible(visible).catch((error) =>
             console.error('Failed to save the sidebar state.', error),
         );
+    }
+
+    function toggleSidebar(): void {
+        setSidebarVisible(!sidebarVisible);
     }
 
     // setExpanded tracks which folders the tree has open, so their contents can
@@ -1926,6 +1983,8 @@
             }
             themeSettings = preferences.theme;
             uiSettings = preferences.ui;
+            filesExclude = preferences.excludes.files;
+            searchExclude = preferences.excludes.search;
             applyUISettings(uiSettings);
             await refreshThemes();
             await applyCurrentTheme();
@@ -2212,12 +2271,23 @@
     {/if}
     {#if settingsOverlay}
         <SettingsOverlay
+            editor={editorSettings}
             theme={themeSettings}
             ui={uiSettings}
             {themes}
+            filesExclude={filesExclude}
+            searchExclude={searchExclude}
+            {folders}
+            {sidebarVisible}
             warning={settingsWarning}
+            onEditor={changeEditorSettings}
             onTheme={(next) => void changeThemeSettings(next)}
             onUI={(next) => void changeUISettings(next)}
+            onFilesExclude={(next) => void changeFilesExclude(next)}
+            onSearchExclude={(next) => void changeSearchExclude(next)}
+            onSidebarVisible={setSidebarVisible}
+            onAddFolder={() => void addFolderFromDialog()}
+            onRemoveFolder={(path) => void removeFolder(path)}
             onOpenSettings={() => void openSettings()}
             onOpenDefaults={() => void openDefaultSettings()}
             onOpenThemes={() => void openThemesFolder()}

@@ -177,6 +177,54 @@ func (a *App) UpdateUISettings(ui UISettings) (UISettings, error) {
 	return settings.UI, nil
 }
 
+// UpdateFilesSettings replaces the files section of settings.json and returns
+// the normalized result. The frontend calls it when the explorer's exclude
+// patterns change, so the tree hides the same entries the next read does.
+func (a *App) UpdateFilesSettings(files FilesSettings) (FilesSettings, error) {
+	path, err := settingsFilePath()
+	if err != nil {
+		return files, err
+	}
+
+	a.settingsMu.Lock()
+	defer a.settingsMu.Unlock()
+
+	settings, err := loadSettings(path)
+	if err != nil {
+		return files, err
+	}
+	settings.Files = files
+	settings.normalize()
+	if err := writeSettings(path, settings); err != nil {
+		return settings.Files, err
+	}
+	return settings.Files, nil
+}
+
+// UpdateSearchSettings replaces the search section of settings.json and
+// returns the normalized result. Find in Files applies both lists, so this
+// only writes the patterns the search window owns.
+func (a *App) UpdateSearchSettings(search SearchSettings) (SearchSettings, error) {
+	path, err := settingsFilePath()
+	if err != nil {
+		return search, err
+	}
+
+	a.settingsMu.Lock()
+	defer a.settingsMu.Unlock()
+
+	settings, err := loadSettings(path)
+	if err != nil {
+		return search, err
+	}
+	settings.Search = search
+	settings.normalize()
+	if err := writeSettings(path, settings); err != nil {
+		return settings.Search, err
+	}
+	return settings.Search, nil
+}
+
 // SetAppearanceMode moves the Appearance submenu's radio checkmark when the
 // mode changed somewhere other than the native menu, such as the settings
 // overlay or a custom keybinding.

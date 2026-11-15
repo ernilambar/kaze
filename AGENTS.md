@@ -167,10 +167,12 @@ introduce one unprompted.
   keeps its default. `ThemeSettings` chooses `system`/`light`/`dark` and one
   variant name per appearance; `UISettings` holds the UI font family and size,
   tab icons, icon style and sidebar side. `App.UpdateEditorSettings`,
-  `UpdateThemeSettings` and `UpdateUISettings` are the write paths; the exclude
-  lists, recent files and session are written by `workspace.go`
-  (`AddRecentFile`, `ClearRecentFiles`, `SetSession`, `SetSidebarVisible`)
-  behind the same `settingsMu`.
+  `UpdateThemeSettings`, `UpdateUISettings`, `UpdateFilesSettings` and
+  `UpdateSearchSettings` are the write paths; the recent files and session are
+  written by `workspace.go` (`AddRecentFile`, `ClearRecentFiles`, `SetSession`,
+  `SetSidebarVisible`) behind the same `settingsMu`. Every configurable section
+  is editable from the settings overlay; recent files and the session are
+  state, managed by Open Recent and the tab bar.
 - **Appearance is a Zed theme family.** `themes.go` embeds
   `themes/kova.json` (Kova Dark and Kova Light) and reads user files from
   `<config>/Kova/themes`, seeding `kova.json` when the folder has no JSON yet.
@@ -193,10 +195,14 @@ introduce one unprompted.
   `when` contexts (`editorFocus`, `sidebarVisible`, `hasActiveTab`,
   `hasDirtyTab`, `!`, `&&`, `||`). `OpenKeybindings` creates the commented
   template.
-- **The settings overlay is frontend state.** `SettingsOverlay.svelte` edits
-  the appearance and interface sections and links to Settings JSON, Default
-  Settings, Themes Folder and Keybindings. The native Settings… item emits
-  `app:settings-overlay`; `App.OpenDefaultSettings` writes
+- **The settings overlay is frontend state.** `SettingsOverlay.svelte` has a
+  section per settings block: editor (typography, indentation, cursor, view
+  toggles, final newline), appearance, interface, files (the explorer and
+  search excludes as one-glob-per-line text), sidebar (visibility and roots)
+  and advanced links to Settings JSON, Default Settings, Themes Folder and
+  Keybindings. Edits save as they commit; editor saves are chained so the newest
+  change wins, and the View menu checkmarks follow. The native Settings… item
+  emits `app:settings-overlay`; `App.OpenDefaultSettings` writes
   `default-settings.json` beside the real file. The View menu's Appearance
   radio emits `app:appearance`, and `SetAppearanceMode` moves the checkmark
   when the mode came from the overlay or a keybinding.

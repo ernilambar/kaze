@@ -136,10 +136,19 @@ booleans above, not as a separate UI state.
   and leaves the file untouched so it can be fixed.
 - Editor values, `sidebar.visible`, the recent list and the session are read
   at startup; excludes are read when a folder level is opened and when a
-  search runs. Restart Kova after editing the editor values or the sidebar.
+  search runs. The settings panel applies changes immediately; after editing
+  the file by hand, restart Kova to reread the editor values or the sidebar.
 
-There is no settings UI yet. Choose **Settings…** from the app menu
-(<kbd>Cmd</kbd>+<kbd>,</kbd>) to open the file, or edit it directly.
+The settings panel (**Settings…**, <kbd>Cmd</kbd>+<kbd>,</kbd>) edits every
+configurable value in the file: editor typography, indentation, cursor, view
+toggles and final-newline handling; appearance; interface; explorer and search
+excludes; and the sidebar's visibility and folders. Values are saved to
+`settings.json` as they change, and the View menu checkmarks follow the panel's
+toggles. The panel's **Advanced** section links to the JSON file, the default
+settings, the themes folder and the keybindings.
+
+`recent.files` and `session.*` are managed by the app: the Open Recent menu and
+the tab bar are their UI, so the panel does not list them as editable settings.
 
 The shortcut launches `$VISUAL`, falling back to `$EDITOR`, and then to the
 platform's default file handler. The value may include arguments, e.g.
