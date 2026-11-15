@@ -57,8 +57,9 @@ flag, so `kova -- --help` looks for a file named `--help`.
   closing a tab or quitting the app discards changes made in it.
 - **One root per folder.** Naming a folder that is already in the sidebar does
   not add a second copy of it.
-- **Text files only.** Anything over 10 MB, or content that is not valid UTF-8,
-  is refused with a message instead of being rendered as garbage.
+- **Text files and images.** Text over 10 MB, or content that is not valid
+  UTF-8, is refused with a message instead of being rendered as garbage.
+  Supported images open in the viewer; images over 32 MB are refused.
 
 ## How forwarding works
 

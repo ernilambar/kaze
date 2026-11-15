@@ -24,6 +24,14 @@ close it with its `×` or **File → Close Tab** (<kbd>Cmd</kbd>+<kbd>W</kbd>).
 Each tab keeps its own buffer and undo history, so switching away and back does
 not lose edits. Closing the last tab returns to the welcome buffer.
 
+## Images
+
+PNG, JPEG, GIF, WebP, BMP, TIFF and ICO files open in a viewer instead of the
+editor. A new image is fitted to the pane without being enlarged past its
+natural size. Hold <kbd>Cmd</kbd> while scrolling to zoom around the pointer,
+and double-click to toggle between fit and actual size; plain scrolling pans a
+larger image. Images up to 32 MB are loaded.
+
 ## Quick Open
 
 Press **File → Quick Open…** (<kbd>Cmd</kbd>+<kbd>P</kbd>) to fuzzy-find a file

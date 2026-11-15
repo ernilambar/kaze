@@ -12,10 +12,16 @@ export interface LaunchRequest {
 
 export const emptyLaunchRequest: LaunchRequest = { files: [], folders: [], missing: [] };
 
+// DocumentKind selects the tab's surface: Monaco for text, the image viewer for
+// pictures. Mirrors the Kind field in document.go.
+export type DocumentKind = 'text' | 'image';
+
 export interface OpenDocument {
     path: string;
     name: string;
+    kind: DocumentKind;
     content: string;
+    src: string;
 }
 
 // shownName is what the title bar prints for a document.
@@ -24,7 +30,13 @@ export function shownName(document: OpenDocument | undefined): string {
 }
 
 export function toOpenDocument(document: main.Document): OpenDocument {
-    return { path: document.path, name: document.name, content: document.content };
+    return {
+        path: document.path,
+        name: document.name,
+        kind: document.kind === 'image' ? 'image' : 'text',
+        content: document.content,
+        src: document.src,
+    };
 }
 
 // readDocument loads one file, reporting failures as a message instead of

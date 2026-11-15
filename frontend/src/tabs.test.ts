@@ -3,7 +3,7 @@ import { closeDocumentTab, openDocumentTab } from './tabs';
 import type { OpenDocument } from './document';
 
 function document(path: string): OpenDocument {
-    return { path, name: path.split('/').pop() ?? path, content: '' };
+    return { path, name: path.split('/').pop() ?? path, kind: 'text', content: '', src: '' };
 }
 
 const notes = document('/tmp/notes.txt');

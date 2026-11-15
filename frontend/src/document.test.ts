@@ -7,18 +7,52 @@ describe('shownName', () => {
     });
 
     it('uses the document name once one is open', () => {
-        expect(shownName({ path: '/tmp/notes.txt', name: 'notes.txt', content: '' })).toBe('notes.txt');
+        expect(
+            shownName({
+                path: '/tmp/notes.txt',
+                name: 'notes.txt',
+                kind: 'text',
+                content: '',
+                src: '',
+            }),
+        ).toBe('notes.txt');
     });
 });
 
 describe('toOpenDocument', () => {
     it('maps the generated binding model', () => {
-        const model = { path: '/tmp/notes.txt', name: 'notes.txt', content: 'hello' };
+        const model = {
+            path: '/tmp/notes.txt',
+            name: 'notes.txt',
+            kind: 'text',
+            content: 'hello',
+            src: '',
+        };
 
         expect(toOpenDocument(model)).toEqual({
             path: '/tmp/notes.txt',
             name: 'notes.txt',
+            kind: 'text',
             content: 'hello',
+            src: '',
+        });
+    });
+
+    it('keeps an image data URL and marks the tab as an image', () => {
+        const model = {
+            path: '/tmp/logo.png',
+            name: 'logo.png',
+            kind: 'image',
+            content: '',
+            src: 'data:image/png;base64,AAAA',
+        };
+
+        expect(toOpenDocument(model)).toEqual({
+            path: '/tmp/logo.png',
+            name: 'logo.png',
+            kind: 'image',
+            content: '',
+            src: 'data:image/png;base64,AAAA',
         });
     });
 });

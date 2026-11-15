@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -20,7 +21,7 @@ func TestLoadDocumentReadsTextFile(t *testing.T) {
 		t.Fatalf("loadDocument() error = %v", err)
 	}
 
-	want := Document{Path: path, Name: "notes.txt", Content: "first\nsecond\n"}
+	want := Document{Path: path, Name: "notes.txt", Kind: documentKindText, Content: "first\nsecond\n"}
 	if doc != want {
 		t.Fatalf("loadDocument() = %+v, want %+v", doc, want)
 	}
@@ -38,8 +39,64 @@ func TestLoadDocumentRejectsMissingFile(t *testing.T) {
 	}
 }
 
+func TestLoadDocumentReadsImage(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "diagram.PNG")
+	data := []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	doc, err := loadDocument(path)
+	if err != nil {
+		t.Fatalf("loadDocument() error = %v", err)
+	}
+	if doc.Kind != documentKindImage {
+		t.Fatalf("loadDocument() kind = %q, want %q", doc.Kind, documentKindImage)
+	}
+	if doc.Content != "" {
+		t.Fatalf("loadDocument() content = %q, want empty for an image", doc.Content)
+	}
+	want := "data:image/png;base64," + base64.StdEncoding.EncodeToString(data)
+	if doc.Src != want {
+		t.Fatalf("loadDocument() src = %q, want %q", doc.Src, want)
+	}
+}
+
+func TestLoadDocumentMapsImageExtensions(t *testing.T) {
+	mimeTypes := map[string]string{
+		".png":  "image/png",
+		".jpg":  "image/jpeg",
+		".jpeg": "image/jpeg",
+		".gif":  "image/gif",
+		".webp": "image/webp",
+		".bmp":  "image/bmp",
+		".tif":  "image/tiff",
+		".tiff": "image/tiff",
+		".ico":  "image/x-icon",
+	}
+	dir := t.TempDir()
+	for ext, mimeType := range mimeTypes {
+		path := filepath.Join(dir, "image"+ext)
+		if err := os.WriteFile(path, []byte{0x00}, 0o644); err != nil {
+			t.Fatalf("write file: %v", err)
+		}
+
+		doc, err := loadDocument(path)
+		if err != nil {
+			t.Fatalf("loadDocument(%s) error = %v", ext, err)
+		}
+		if doc.Kind != documentKindImage {
+			t.Fatalf("loadDocument(%s) kind = %q, want %q", ext, doc.Kind, documentKindImage)
+		}
+		if !strings.HasPrefix(doc.Src, "data:"+mimeType+";base64,") {
+			t.Fatalf("loadDocument(%s) src = %q, want %s data URL", ext, doc.Src, mimeType)
+		}
+	}
+}
+
 func TestLoadDocumentRejectsBinaryContent(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "image.png")
+	path := filepath.Join(t.TempDir(), "blob.bin")
 	if err := os.WriteFile(path, []byte{0x89, 0x50, 0x4e, 0x47, 0xff, 0xfe}, 0o644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
@@ -56,6 +113,29 @@ func TestLoadDocumentRejectsOversizedFile(t *testing.T) {
 		t.Fatalf("create file: %v", err)
 	}
 	if err := file.Truncate(maxDocumentSize + 1); err != nil {
+		file.Close()
+		t.Skipf("cannot create a sparse file on this filesystem: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close file: %v", err)
+	}
+
+	_, err = loadDocument(path)
+	if err == nil {
+		t.Fatal("loadDocument() error = nil, want a too large error")
+	}
+	if !strings.Contains(err.Error(), "larger than") {
+		t.Fatalf("loadDocument() error = %v, want it to mention the size limit", err)
+	}
+}
+
+func TestLoadDocumentRejectsOversizedImage(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "huge.png")
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("create file: %v", err)
+	}
+	if err := file.Truncate(maxImageSize + 1); err != nil {
 		file.Close()
 		t.Skipf("cannot create a sparse file on this filesystem: %v", err)
 	}

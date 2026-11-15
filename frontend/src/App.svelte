@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import EditorPane from './EditorPane.svelte';
+    import ImageViewer from './ImageViewer.svelte';
     import Palette from './Palette.svelte';
     import Sidebar from './Sidebar.svelte';
     import StatusBar from './StatusBar.svelte';
@@ -54,6 +55,12 @@
     let column = $state(1);
 
     let active = $derived(tabs.find((tab) => tab.path === activePath));
+    let imageActive = $derived(active?.kind === 'image');
+    // Monaco keeps its buffers while an image tab is showing, so switching back
+    // to a text tab preserves edits. The welcome buffer keeps the hidden editor
+    // from creating a model for an image path.
+    let editorKey = $derived(imageActive ? WELCOME_KEY : (active?.path ?? WELCOME_KEY));
+    let editorContent = $derived(imageActive ? WELCOME_TEXT : (active?.content ?? WELCOME_TEXT));
     let openPaths = $derived(tabs.map((tab) => tab.path));
     let folderLabel = $derived(sidebarLabel(folders));
     let quickOpenEmpty = $derived(
@@ -319,18 +326,31 @@
                 }}
                 onClose={closeTab}
             />
-            <EditorPane
-                modelKey={active?.path ?? WELCOME_KEY}
-                content={active?.content ?? WELCOME_TEXT}
-                {openPaths}
-                onCursorMove={(nextLine, nextColumn) => {
-                    line = nextLine;
-                    column = nextColumn;
-                }}
-            />
+            <div class="app__pane">
+                <div
+                    class="app__pane-layer"
+                    class:app__pane-layer--hidden={imageActive}
+                    inert={imageActive}
+                >
+                    <EditorPane
+                        modelKey={editorKey}
+                        content={editorContent}
+                        {openPaths}
+                        onCursorMove={(nextLine, nextColumn) => {
+                            line = nextLine;
+                            column = nextColumn;
+                        }}
+                    />
+                </div>
+                {#if active?.kind === 'image'}
+                    {#key active.src}
+                        <ImageViewer src={active.src} name={active.name} />
+                    {/key}
+                {/if}
+            </div>
         </div>
     </div>
-    <StatusBar {line} {column} language={LANGUAGE} {notice} {folderLabel} />
+    <StatusBar {line} {column} language={imageActive ? 'Image' : LANGUAGE} {notice} {folderLabel} />
     {#if quickOpen}
         <Palette
             title="Quick Open"
@@ -372,5 +392,25 @@
         flex: 1 1 auto;
         min-width: 0;
         min-height: 0;
+    }
+
+    .app__pane {
+        position: relative;
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    /* The editor stays laid out behind the viewer; visibility keeps Monaco's
+       size stable so returning to a text tab restores the same viewport. */
+    .app__pane-layer {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .app__pane-layer--hidden {
+        visibility: hidden;
+        pointer-events: none;
     }
 </style>

@@ -3,7 +3,9 @@ export namespace main {
 	export class Document {
 	    path: string;
 	    name: string;
+	    kind: string;
 	    content: string;
+	    src: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Document(source);
@@ -13,7 +15,9 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.path = source["path"];
 	        this.name = source["name"];
+	        this.kind = source["kind"];
 	        this.content = source["content"];
+	        this.src = source["src"];
 	    }
 	}
 	export class EditorSettings {
