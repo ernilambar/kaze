@@ -4,6 +4,7 @@ import {
     GetSettings,
     OpenFolderDialog,
     ReadFolder,
+    RemoveAllSidebarFolders,
     RemoveSidebarFolder,
 } from '../bindings/kova/app';
 import { Events } from '@wailsio/runtime';
@@ -106,4 +107,26 @@ export async function openFolderDialog(): Promise<string> {
 // function.
 export function listenForAddFolder(handler: () => void): () => void {
     return Events.On('kova:add-folder', () => handler());
+}
+
+// relativePath is path with its innermost sidebar root removed. A path outside
+// every root is returned unchanged, so the command still copies something
+// meaningful.
+export function relativePath(path: string, roots: readonly string[]): string {
+    let innermost = '';
+    for (const candidate of roots) {
+        const root = candidate.length > 1 ? candidate.replace(/[\\/]+$/, '') : candidate;
+        if (root.length > innermost.length && isWithin(root, path)) {
+            innermost = root;
+        }
+    }
+    if (innermost === '') {
+        return path;
+    }
+    return path.slice(innermost.length).replace(/^[\\/]+/, '').replace(/\\/g, '/');
+}
+
+// closeAllSidebarFolders drops every root and returns the empty list.
+export async function closeAllSidebarFolders(): Promise<string[]> {
+    return (await RemoveAllSidebarFolders()) ?? [];
 }

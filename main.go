@@ -42,6 +42,12 @@ func fileMenu(m *application.Menu, app *App) {
 	m.Add("Open…").SetAccelerator("CmdOrCtrl+o").OnClick(func(*application.Context) {
 		app.emitOpenFile()
 	})
+	// Control-R, not Command-R: Quick Open owns Cmd+P, and Cmd+R has no
+	// document meaning here.
+	m.Add("Open Recent…").SetAccelerator("Ctrl+r").OnClick(func(*application.Context) {
+		app.emitOpenRecent()
+	})
+	m.Add("Clear Recent").OnClick(func(*application.Context) { app.emitClearRecent() })
 	m.AddSeparator()
 	m.Add("Save").SetAccelerator("CmdOrCtrl+s").OnClick(func(*application.Context) {
 		app.emitSave()
@@ -64,14 +70,49 @@ func fileMenu(m *application.Menu, app *App) {
 	m.Add("Quick Open…").SetAccelerator("CmdOrCtrl+p").OnClick(func(*application.Context) {
 		app.emitQuickOpen()
 	})
+	m.Add("Find in Files…").SetAccelerator("CmdOrCtrl+Shift+f").OnClick(func(*application.Context) {
+		app.emitFindInFiles()
+	})
 	m.AddSeparator()
 	m.Add("Add Folder to Sidebar…").SetAccelerator("CmdOrCtrl+Shift+o").OnClick(func(*application.Context) {
 		app.emitAddFolder()
+	})
+	m.Add("Close All Folders").OnClick(func(*application.Context) {
+		app.emitCloseAllFolders()
 	})
 	m.AddSeparator()
 	m.Add("Close Tab").SetAccelerator("CmdOrCtrl+w").OnClick(func(*application.Context) {
 		app.emitCloseTab()
 	})
+	m.Add("Reopen Closed Tab").SetAccelerator("CmdOrCtrl+Shift+t").OnClick(func(*application.Context) {
+		app.emitReopenClosedTab()
+	})
+	m.Add("Next Tab").SetAccelerator("Ctrl+Tab").OnClick(func(*application.Context) {
+		app.emitNextTab()
+	})
+	m.Add("Previous Tab").SetAccelerator("Ctrl+Shift+Tab").OnClick(func(*application.Context) {
+		app.emitPreviousTab()
+	})
+	goToTab := m.AddSubmenu("Go to Tab")
+	for index := 1; index <= 9; index++ {
+		goToTab.Add(fmt.Sprintf("Tab %d", index)).
+			SetAccelerator(fmt.Sprintf("CmdOrCtrl+%d", index)).
+			OnClick(func(*application.Context) { app.emitGoToTab(index) })
+	}
+	m.AddSeparator()
+	m.Add("Reveal in Finder").OnClick(func(*application.Context) {
+		app.emitRevealFile()
+	})
+	copyPath := m.AddSubmenu("Copy Path")
+	for _, entry := range []struct{ label, kind string }{
+		{"File Path", "file"},
+		{"Relative Path", "relative"},
+		{"File Name", "name"},
+	} {
+		copyPath.Add(entry.label).OnClick(func(*application.Context) {
+			app.emitCopyPath(entry.kind)
+		})
+	}
 }
 
 // caseTransforms is the Edit menu's Transform Case submenu, in display order.
@@ -127,6 +168,11 @@ func viewOptions(editor EditorSettings) []viewOption {
 // state natively, so each click forwards the new value; SetViewOption keeps the
 // checkmark honest when the same toggle runs from the command palette.
 func viewMenu(m *application.Menu, app *App, editor EditorSettings) {
+	m.Add("Toggle Sidebar").SetAccelerator("CmdOrCtrl+b").OnClick(func(*application.Context) {
+		app.emitToggleSidebar()
+	})
+	m.Add("Refresh").OnClick(func(*application.Context) { app.emitRefresh() })
+	m.AddSeparator()
 	m.Add("Zoom In").SetAccelerator("CmdOrCtrl+=").OnClick(func(*application.Context) {
 		app.emitZoom("in")
 	})

@@ -84,6 +84,36 @@
         return true;
     }
 
+    // reload replaces a buffer's text with what is now on disk and makes it the
+    // clean baseline. The caller only does this for a tab with no unsaved
+    // edits, so the external text cannot overwrite the user's work.
+    export function reload(key: string, text: string): void {
+        const model = models.get(key);
+        if (model === undefined) {
+            return;
+        }
+        if (model.getValue() !== text) {
+            model.setValue(text);
+        }
+        savedTexts.set(key, text);
+        onDirtyChange?.(key, false);
+    }
+
+    // revealLine puts the cursor on a line and column and scrolls it into view.
+    // It is only meaningful for the buffer the editor is currently showing, so
+    // a search result calls it after its tab has been activated.
+    export function revealLine(key: string, line: number, column: number): void {
+        const current = editor;
+        if (current === undefined || activeKey !== key) {
+            return;
+        }
+        const position = { lineNumber: line, column };
+        current.setPosition(position);
+        current.setSelection(new monaco.Range(line, column, line, column));
+        current.revealLineInCenter(line, monaco.editor.ScrollType.Smooth);
+        current.focus();
+    }
+
     // setLanguage re-highlights a buffer after Save As gave it a real path.
     export function setLanguage(key: string, path: string): void {
         const model = models.get(key);

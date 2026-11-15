@@ -7,6 +7,12 @@ import (
 	"testing"
 )
 
+// listFiles is listFilesExcluding with the first-run patterns, which is what
+// an untouched settings file produces.
+func listFiles(roots []string) []string {
+	return listFilesExcluding(roots, newExcludeMatcher(defaultExcludePatterns()))
+}
+
 func TestListFilesWalksRootsAndSkipsGeneratedTrees(t *testing.T) {
 	root := t.TempDir()
 	writeTempFile(t, root, "main.go", "package main\n")

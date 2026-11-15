@@ -16,6 +16,15 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as $models from "./models.js";
 
 /**
+ * AddRecentFile puts path at the top of the Open Recent list, drops an older
+ * entry for the same file and returns the new list. The backend owns the list
+ * because it outlives the window.
+ */
+export function AddRecentFile(path: string): $CancellablePromise<string[] | null> {
+    return $Call.ByID(1381277433, path);
+}
+
+/**
  * AddSidebarFolder adds one folder to the sidebar's saved list and returns the
  * new list. Opening a folder the user already added is a no-op, so launching
  * `kova .` twice does not duplicate the root. The path is checked here rather
@@ -24,6 +33,23 @@ import * as $models from "./models.js";
  */
 export function AddSidebarFolder(folder: string): $CancellablePromise<string[] | null> {
     return $Call.ByID(2797738300, folder);
+}
+
+/**
+ * ClearRecentFiles empties the Open Recent list and returns the result, which
+ * is now empty.
+ */
+export function ClearRecentFiles(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(1785700092);
+}
+
+/**
+ * CopyText puts text on the system clipboard. A menu click has no caller to
+ * return to, so the command palette path reports the error and the menu logs
+ * it.
+ */
+export function CopyText(text: string): $CancellablePromise<void> {
+    return $Call.ByID(2798394763, text);
 }
 
 /**
@@ -57,7 +83,8 @@ export function InstallCommandLineTool(): $CancellablePromise<void> {
 /**
  * ListFiles returns every regular file under the sidebar roots, sorted by
  * path. The frontend filters this list locally, so each keystroke in Quick Open
- * costs nothing.
+ * costs nothing. files.exclude decides what is walked, so a folder hidden in
+ * the tree is hidden here too.
  */
 export function ListFiles(): $CancellablePromise<string[] | null> {
     return $Call.ByID(3557170708);
@@ -110,10 +137,20 @@ export function PrintDocument(request: $models.PrintRequest): $CancellablePromis
 
 /**
  * ReadFolder lists one level of a folder for the sidebar. The tree loads the
- * rest lazily, so only the entries the user can see are read.
+ * rest lazily, so only the entries the user can see are read. Entries that
+ * files.exclude hides are left out, which keeps the tree and Quick Open
+ * agreeing on what exists.
  */
 export function ReadFolder(path: string): $CancellablePromise<$models.FolderEntry[] | null> {
     return $Call.ByID(4221321413, path);
+}
+
+/**
+ * RemoveAllSidebarFolders drops every root from the sidebar and returns the
+ * empty list. Open tabs stay open: they hold their own buffers.
+ */
+export function RemoveAllSidebarFolders(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(4095382629);
 }
 
 /**
@@ -125,11 +162,28 @@ export function RemoveSidebarFolder(folder: string): $CancellablePromise<string[
 }
 
 /**
+ * ReplaceInProject rewrites every match in every searched file. It searches
+ * the same file set first, so a file with no match is never opened for
+ * writing.
+ */
+export function ReplaceInProject(request: $models.SearchRequest): $CancellablePromise<$models.ReplaceResult> {
+    return $Call.ByID(2481749581, request);
+}
+
+/**
  * ResolveClose answers a close request. Cancelling clears the request so the
  * next Cmd+Q asks again; quitting records the answer and terminates.
  */
 export function ResolveClose(quit: boolean): $CancellablePromise<void> {
     return $Call.ByID(2112675041, quit);
+}
+
+/**
+ * RevealFile shows path in the platform's file manager, selecting it when the
+ * platform supports that.
+ */
+export function RevealFile(path: string): $CancellablePromise<void> {
+    return $Call.ByID(3499415518, path);
 }
 
 /**
@@ -148,6 +202,31 @@ export function SaveDocument(request: $models.SaveRequest): $CancellablePromise<
  */
 export function SaveFileDialog(suggested: string): $CancellablePromise<string> {
     return $Call.ByID(1166008166, suggested);
+}
+
+/**
+ * SearchProject finds query across the sidebar roots. files.exclude and
+ * search.exclude decide what is read, and every .gitignore file on the way is
+ * honoured, so generated and ignored trees stay out of the results.
+ */
+export function SearchProject(request: $models.SearchRequest): $CancellablePromise<$models.SearchResult> {
+    return $Call.ByID(2238777482, request);
+}
+
+/**
+ * SetSession records the tabs that should reopen on the next launch. The
+ * frontend calls it whenever the tab list or the active tab changes.
+ */
+export function SetSession(session: $models.SessionState): $CancellablePromise<void> {
+    return $Call.ByID(2200011365, session);
+}
+
+/**
+ * SetSidebarVisible records whether the folder tree is showing, so Cmd+B keeps
+ * the layout the user left behind.
+ */
+export function SetSidebarVisible(visible: boolean): $CancellablePromise<void> {
+    return $Call.ByID(3393148753, visible);
 }
 
 /**
@@ -175,4 +254,13 @@ export function SetViewOption(option: string, checked: boolean): $CancellablePro
  */
 export function UpdateEditorSettings(editor: $models.EditorSettings): $CancellablePromise<$models.EditorSettings> {
     return $Call.ByID(3125471320, editor);
+}
+
+/**
+ * WatchPaths replaces the set of files and directories whose external changes
+ * the frontend wants to hear about. Calling it the first time starts the
+ * polling loop, which runs for the life of the process.
+ */
+export function WatchPaths(paths: string[] | null): $CancellablePromise<void> {
+    return $Call.ByID(2033137100, paths);
 }

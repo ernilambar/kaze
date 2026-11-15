@@ -3,6 +3,8 @@ import {
     closeDocumentTab,
     openDocumentTab,
     setDocumentDirty,
+    stepTabId,
+    tabIdAt,
     updateDocument,
 } from './tabs';
 import type { OpenDocument } from './document';
@@ -134,5 +136,41 @@ describe('setDocumentDirty', () => {
 
         expect(setDocumentDirty(tabs, notes.id, false)).toBe(tabs);
         expect(setDocumentDirty(tabs, todo.id, true)).toBe(tabs);
+    });
+});
+
+describe('stepTabId', () => {
+    const tabs = [notes, readme, todo];
+
+    it('moves forward and wraps at the end', () => {
+        expect(stepTabId(tabs, notes.id, 1)).toBe(readme.id);
+        expect(stepTabId(tabs, todo.id, 1)).toBe(notes.id);
+    });
+
+    it('moves backward and wraps at the start', () => {
+        expect(stepTabId(tabs, readme.id, -1)).toBe(notes.id);
+        expect(stepTabId(tabs, notes.id, -1)).toBe(todo.id);
+    });
+
+    it('starts from the first tab when none is active', () => {
+        expect(stepTabId(tabs, '', 1)).toBe(notes.id);
+    });
+
+    it('keeps the current id when there are no tabs', () => {
+        expect(stepTabId([], 'active', 1)).toBe('active');
+    });
+});
+
+describe('tabIdAt', () => {
+    const tabs = [notes, readme, todo];
+
+    it('maps a 1-based position', () => {
+        expect(tabIdAt(tabs, 1)).toBe(notes.id);
+        expect(tabIdAt(tabs, 3)).toBe(todo.id);
+    });
+
+    it('is empty outside the list', () => {
+        expect(tabIdAt(tabs, 0)).toBe('');
+        expect(tabIdAt(tabs, 4)).toBe('');
     });
 });

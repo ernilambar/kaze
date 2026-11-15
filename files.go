@@ -6,19 +6,10 @@ import (
 	"sort"
 )
 
-// quickOpenSkipDirs are directory names that Quick Open never walks: version
-// control metadata and installed packages hold thousands of files nobody opens
-// by hand, and including them would make the palette slow and noisy.
-var quickOpenSkipDirs = map[string]bool{
-	".git":         true,
-	".hg":          true,
-	".svn":         true,
-	"node_modules": true,
-}
-
 // ListFiles returns every regular file under the sidebar roots, sorted by
 // path. The frontend filters this list locally, so each keystroke in Quick Open
-// costs nothing.
+// costs nothing. files.exclude decides what is walked, so a folder hidden in
+// the tree is hidden here too.
 func (a *App) ListFiles() ([]string, error) {
 	path, err := settingsFilePath()
 	if err != nil {
@@ -28,13 +19,13 @@ func (a *App) ListFiles() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return listFiles(settings.Sidebar.Folders), nil
+	return listFilesExcluding(settings.Sidebar.Folders, newExcludeMatcher(settings.Files.Exclude)), nil
 }
 
-// listFiles walks each root and skips generated trees, unreadable directories
-// and symlinks. A stale root is ignored instead of failing the whole list, so
-// one folder moved outside Kova cannot empty the palette.
-func listFiles(roots []string) []string {
+// listFilesExcluding walks each root and skips excluded trees, unreadable
+// directories and symlinks. A stale root is ignored instead of failing the
+// whole list, so one folder moved outside Kova cannot empty the palette.
+func listFilesExcluding(roots []string, excludes excludeMatcher) []string {
 	files := make([]string, 0)
 	seen := make(map[string]bool)
 
@@ -44,11 +35,17 @@ func listFiles(roots []string) []string {
 			if err != nil {
 				return nil
 			}
-			if path == root && !entry.IsDir() {
+			rel, relErr := filepath.Rel(root, path)
+			if relErr != nil {
 				return nil
 			}
+			rel = filepath.ToSlash(rel)
+
 			if entry.IsDir() {
-				if quickOpenSkipDirs[entry.Name()] {
+				if path == root {
+					return nil
+				}
+				if excludes.matches(rel, true) {
 					return fs.SkipDir
 				}
 				return nil
@@ -56,6 +53,9 @@ func listFiles(roots []string) []string {
 			// Symlinks are not regular files: following them could leave the
 			// root or loop forever.
 			if !entry.Type().IsRegular() || seen[path] {
+				return nil
+			}
+			if excludes.matches(rel, false) {
 				return nil
 			}
 			seen[path] = true

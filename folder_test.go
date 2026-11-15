@@ -8,6 +8,10 @@ import (
 	"testing"
 )
 
+func readFolder(path string) ([]FolderEntry, error) {
+	return readFolderExcluding(path, excludeMatcher{})
+}
+
 func TestReadFolderListsDirectoriesFirstThenNames(t *testing.T) {
 	dir := t.TempDir()
 	for _, name := range []string{"beta", "Alpha", "notes"} {

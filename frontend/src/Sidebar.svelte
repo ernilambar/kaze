@@ -6,18 +6,25 @@
         folders: string[];
         selectedPath?: string;
         busy?: boolean;
+        // refreshToken changes when the tree should reread what is on disk.
+        refreshToken?: number;
         onAddFolder: () => void;
         onRemoveFolder: (path: string) => void;
         onOpenFile: (path: string) => void;
+        // onExpandedChange reports which folders are open, so the app can watch
+        // them for external changes.
+        onExpandedChange?: (path: string, open: boolean) => void;
     }
 
     let {
         folders,
         selectedPath = '',
         busy = false,
+        refreshToken = 0,
         onAddFolder,
         onRemoveFolder,
         onOpenFile,
+        onExpandedChange,
     }: Props = $props();
 </script>
 
@@ -48,9 +55,11 @@
                     path={folder}
                     name={folderName(folder)}
                     {selectedPath}
+                    {refreshToken}
                     expanded={true}
                     removable={true}
                     {onOpenFile}
+                    {onExpandedChange}
                     onRemove={onRemoveFolder}
                 />
             {/each}

@@ -37,7 +37,14 @@ loaded (at app startup), so no manual setup is required.
   "sidebar": {
     "folders": [
       "/Users/me/projects/kova"
-    ]
+    ],
+    "visible": true
+  },
+  "files": {
+    "exclude": [".git", ".hg", ".svn", "node_modules", ".DS_Store"]
+  },
+  "search": {
+    "exclude": [".git", ".hg", ".svn", "node_modules", ".DS_Store"]
   }
 }
 ```
@@ -70,6 +77,7 @@ loaded (at app startup), so no manual setup is required.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `sidebar.folders` | string[] | `[]` | Absolute paths of the folders shown in the sidebar, in display order. |
+| `sidebar.visible` | boolean | `true` | Show the folder tree. **View → Toggle Sidebar** (<kbd>Cmd</kbd>+<kbd>B</kbd>) writes it. |
 
 Kova writes `sidebar.folders` itself when you add a folder from the sidebar's
 `+` button, the **File → Add Folder to Sidebar…** menu item
@@ -77,6 +85,39 @@ Kova writes `sidebar.folders` itself when you add a folder from the sidebar's
 hand is supported: entries are trimmed, blank entries are dropped, and
 repeated paths are collapsed to the first occurrence. A folder that has since
 been moved or deleted still loads, and its row shows an error when expanded.
+
+## File and search excludes
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `files.exclude` | string[] | `[".git", ".hg", ".svn", "node_modules", ".DS_Store"]` | Paths hidden from the folder tree and Quick Open. |
+| `search.exclude` | string[] | same as `files.exclude` | Extra paths skipped by Find in Files. `files.exclude` applies there too. |
+
+Patterns are globs matched against the path relative to a sidebar root:
+
+- a bare name (`node_modules`, `*.log`) matches at any depth;
+- a leading slash (`/dist`) anchors the pattern to the root;
+- a pattern containing a slash (`build/output`, `src/**`) is root-relative, and
+  `**` matches any number of directories;
+- a trailing slash (`dist/`) applies to folders only.
+
+Find in Files also honours every `.gitignore` file it walks past, and never
+descends into `.git`, `.hg` or `.svn` even when those are removed from the
+list. Entries are trimmed, blanks are dropped and duplicates are removed.
+
+## Recent files and session
+
+Kova maintains two lists that are normally read, not edited:
+
+| Key | Type | Description |
+| --- | --- | --- |
+| `recent.files` | string[] | Files shown by **File → Open Recent…** (<kbd>Ctrl</kbd>+<kbd>R</kbd>), newest first, capped at 20. |
+| `session.open_files` | string[] | Files reopened on the next launch, capped at 40. |
+| `session.active` | string | File whose tab is active after restoring the session. |
+
+Only tabs backed by a file are recorded: an untitled buffer exists only in
+memory and is not restored empty. Missing files are skipped on restore, so a
+deleted file does not stop the rest of the list.
 
 The **View** menu's checkable toggles (`word_wrap` through `smart_indent`) are
 written back here whenever you flip them, from the menu or the command palette,
@@ -93,7 +134,9 @@ booleans above, not as a separate UI state.
 - Unknown keys are ignored.
 - Malformed JSON is reported in the developer console; Kova runs with defaults
   and leaves the file untouched so it can be fixed.
-- Values are read once at startup. Restart Kova after editing the file.
+- Editor values, `sidebar.visible`, the recent list and the session are read
+  at startup; excludes are read when a folder level is opened and when a
+  search runs. Restart Kova after editing the editor values or the sidebar.
 
 There is no settings UI yet. Choose **Settings…** from the app menu
 (<kbd>Cmd</kbd>+<kbd>,</kbd>) to open the file, or edit it directly.

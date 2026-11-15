@@ -52,6 +52,12 @@ type App struct {
 	// closeRequested keeps a second Cmd+Q or a close click from stacking a
 	// second prompt on the one the frontend is already showing.
 	closeRequested atomic.Bool
+
+	// watcher polls the open buffers and expanded folders for external
+	// changes; watchOnce starts its loop the first time the frontend registers
+	// a path.
+	watcher   fileWatcher
+	watchOnce sync.Once
 }
 
 // NewApp creates a new App application struct.
@@ -278,6 +284,61 @@ func (a *App) emitEventWith(name string, data any) {
 // closeTabEvent asks the frontend to close the active tab. The tab list lives in
 // the frontend, so the menu only sends the command.
 const closeTabEvent = "kova:close-tab"
+
+// The navigation commands work on the frontend's tab list. nextTabEvent and
+// previousTabEvent step through it; goToTabEvent carries the 1-based position.
+const (
+	nextTabEvent       = "kova:next-tab"
+	previousTabEvent   = "kova:previous-tab"
+	reopenTabEvent     = "kova:reopen-closed-tab"
+	goToTabEvent       = "kova:go-to-tab"
+	openRecentEvent    = "kova:open-recent"
+	clearRecentEvent   = "kova:clear-recent"
+	refreshEvent       = "kova:refresh"
+	findInFilesEvent   = "kova:find-in-files"
+	toggleSidebarEvent = "kova:toggle-sidebar"
+	closeFoldersEvent  = "kova:close-all-folders"
+	revealFileEvent    = "kova:reveal-file"
+	copyPathEvent      = "kova:copy-path"
+)
+
+// emitNextTab tells the frontend to activate the next tab.
+func (a *App) emitNextTab() { a.emitEvent(nextTabEvent) }
+
+// emitPreviousTab tells the frontend to activate the previous tab.
+func (a *App) emitPreviousTab() { a.emitEvent(previousTabEvent) }
+
+// emitReopenClosedTab tells the frontend to restore the last closed tab.
+func (a *App) emitReopenClosedTab() { a.emitEvent(reopenTabEvent) }
+
+// emitGoToTab tells the frontend to activate the tab at a 1-based position.
+func (a *App) emitGoToTab(index int) { a.emitEventWith(goToTabEvent, index) }
+
+// emitOpenRecent tells the frontend to show the recent files palette.
+func (a *App) emitOpenRecent() { a.emitEvent(openRecentEvent) }
+
+// emitClearRecent tells the frontend to empty the recent files list.
+func (a *App) emitClearRecent() { a.emitEvent(clearRecentEvent) }
+
+// emitRefresh tells the frontend to reread the tree and clean buffers.
+func (a *App) emitRefresh() { a.emitEvent(refreshEvent) }
+
+// emitFindInFiles tells the frontend to show the project search panel.
+func (a *App) emitFindInFiles() { a.emitEvent(findInFilesEvent) }
+
+// emitToggleSidebar tells the frontend to show or hide the folder tree.
+func (a *App) emitToggleSidebar() { a.emitEvent(toggleSidebarEvent) }
+
+// emitCloseAllFolders tells the frontend to drop every sidebar root.
+func (a *App) emitCloseAllFolders() { a.emitEvent(closeFoldersEvent) }
+
+// emitRevealFile tells the frontend to reveal the active file. The path is
+// frontend state, so only the command travels.
+func (a *App) emitRevealFile() { a.emitEvent(revealFileEvent) }
+
+// emitCopyPath tells the frontend to copy the active file's path in the form
+// named by kind: "file", "relative" or "name".
+func (a *App) emitCopyPath(kind string) { a.emitEventWith(copyPathEvent, kind) }
 
 // emitCloseTab tells the frontend to close the active tab.
 func (a *App) emitCloseTab() {

@@ -6,9 +6,12 @@
         src: string;
         // name is the file name, used for the alt text and errors.
         name: string;
+        // onSize reports the image's natural pixel size, which the status bar
+        // prints beside the language.
+        onSize?: (width: number, height: number) => void;
     }
 
-    let { src, name }: Props = $props();
+    let { src, name, onSize }: Props = $props();
 
     // Fit is exact: the image is never blown up beyond its natural size, so
     // small icons stay sharp. The padding keeps a fitted image off the pane
@@ -121,6 +124,7 @@
         fit = true;
         zoom = 1;
         failed = false;
+        onSize?.(naturalWidth, naturalHeight);
     }
 
     function handleError(): void {

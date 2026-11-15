@@ -22,6 +22,10 @@ const (
 type Settings struct {
 	Editor  EditorSettings  `json:"editor"`
 	Sidebar SidebarSettings `json:"sidebar"`
+	Files   FilesSettings   `json:"files"`
+	Search  SearchSettings  `json:"search"`
+	Recent  RecentSettings  `json:"recent"`
+	Session SessionSettings `json:"session"`
 }
 
 // EditorSettings tunes the Monaco editor instance. Booleans that default to
@@ -58,6 +62,50 @@ type EditorSettings struct {
 // will replace it with a named project list.
 type SidebarSettings struct {
 	Folders []string `json:"folders"`
+	// Visible is whether the sidebar is shown. It survives a relaunch, so
+	// Cmd+B keeps the layout the user left behind.
+	Visible bool `json:"visible"`
+}
+
+// FilesSettings configures which entries the explorer and Quick Open hide.
+type FilesSettings struct {
+	// Exclude holds glob patterns matched against the path relative to a
+	// sidebar root. A pattern with no slash matches a file or folder name at
+	// any depth, so the default list hides every node_modules folder.
+	Exclude []string `json:"exclude"`
+}
+
+// SearchSettings configures what Find in Files skips. The files list applies
+// too, so a folder hidden from the explorer is never searched.
+type SearchSettings struct {
+	Exclude []string `json:"exclude"`
+}
+
+// RecentSettings is the Open Recent list, newest first.
+type RecentSettings struct {
+	Files []string `json:"files"`
+}
+
+// SessionSettings is the set of tabs restored on the next launch. Only tabs
+// backed by a file are recorded: an untitled buffer has no text on disk, and
+// restoring it empty would look like the work was lost.
+type SessionSettings struct {
+	OpenFiles []string `json:"open_files"`
+	Active    string   `json:"active"`
+}
+
+// maxRecentFiles caps the Open Recent list. More than a screenful is never
+// read, and the list is stored in settings.json.
+const maxRecentFiles = 20
+
+// maxSessionFiles caps restored tabs, so a settings file edited by hand cannot
+// make startup open an unbounded number of files.
+const maxSessionFiles = 40
+
+// defaultExcludePatterns is what a first run hides. Version control metadata
+// and installed packages hold thousands of files nobody opens by hand.
+func defaultExcludePatterns() []string {
+	return []string{".git", ".hg", ".svn", "node_modules", ".DS_Store"}
 }
 
 func defaultSettings() Settings {
@@ -84,7 +132,11 @@ func defaultSettings() Settings {
 			AutoCloseBrackets:   true,
 			SmartIndent:         true,
 		},
-		Sidebar: SidebarSettings{Folders: []string{}},
+		Sidebar: SidebarSettings{Folders: []string{}, Visible: true},
+		Files:   FilesSettings{Exclude: defaultExcludePatterns()},
+		Search:  SearchSettings{Exclude: defaultExcludePatterns()},
+		Recent:  RecentSettings{Files: []string{}},
+		Session: SessionSettings{OpenFiles: []string{}},
 	}
 }
 
@@ -113,6 +165,53 @@ func (s *Settings) normalize() {
 	}
 
 	s.Sidebar.Folders = normalizeFolderList(s.Sidebar.Folders)
+	s.Files.Exclude = normalizePatternList(s.Files.Exclude)
+	s.Search.Exclude = normalizePatternList(s.Search.Exclude)
+
+	s.Recent.Files = normalizeFileList(s.Recent.Files)
+	if len(s.Recent.Files) > maxRecentFiles {
+		s.Recent.Files = s.Recent.Files[:maxRecentFiles]
+	}
+
+	s.Session.OpenFiles = normalizeFileList(s.Session.OpenFiles)
+	if len(s.Session.OpenFiles) > maxSessionFiles {
+		s.Session.OpenFiles = s.Session.OpenFiles[:maxSessionFiles]
+	}
+	s.Session.Active = strings.TrimSpace(s.Session.Active)
+}
+
+// normalizePatternList trims the glob patterns and drops blanks. Duplicates are
+// removed because the settings file is user-editable and repeating a pattern
+// would otherwise make every walk test it twice.
+func normalizePatternList(patterns []string) []string {
+	normalized := make([]string, 0, len(patterns))
+	seen := make(map[string]bool, len(patterns))
+	for _, pattern := range patterns {
+		pattern = strings.TrimSpace(pattern)
+		if pattern == "" || seen[pattern] {
+			continue
+		}
+		seen[pattern] = true
+		normalized = append(normalized, pattern)
+	}
+	return normalized
+}
+
+// normalizeFileList keeps the first occurrence of each path and drops blanks,
+// preserving order. Recent files and restored tabs are ordered, so unlike the
+// sidebar roots they cannot be sorted.
+func normalizeFileList(files []string) []string {
+	normalized := make([]string, 0, len(files))
+	seen := make(map[string]bool, len(files))
+	for _, file := range files {
+		file = strings.TrimSpace(file)
+		if file == "" || seen[file] {
+			continue
+		}
+		seen[file] = true
+		normalized = append(normalized, file)
+	}
+	return normalized
 }
 
 // normalizeFolderList trims paths, drops blanks and removes repeats while

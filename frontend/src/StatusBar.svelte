@@ -7,15 +7,28 @@
         language: string;
         folderLabel?: string;
         notice?: string;
+        // imageSize is the natural pixel size of the image tab, formatted for
+        // display; empty for text tabs.
+        imageSize?: string;
     }
 
-    let { line, column, language, folderLabel = '', notice = '' }: Props = $props();
+    let {
+        line,
+        column,
+        language,
+        folderLabel = '',
+        notice = '',
+        imageSize = '',
+    }: Props = $props();
 </script>
 
 <footer class="statusbar">
     <span class="statusbar__position">{formatCursorPosition(line, column)}</span>
     {#if notice !== ''}
         <span class="statusbar__notice">{notice}</span>
+    {/if}
+    {#if imageSize !== ''}
+        <span class="statusbar__image">{imageSize}</span>
     {/if}
     {#if folderLabel !== ''}
         <span class="statusbar__folder">{folderLabel}</span>
@@ -42,6 +55,10 @@
         color: var(--fg);
         overflow: hidden;
         text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .statusbar__image {
         white-space: nowrap;
     }
 

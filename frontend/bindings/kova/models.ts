@@ -60,6 +60,18 @@ export interface EditorSettings {
 }
 
 /**
+ * FilesSettings configures which entries the explorer and Quick Open hide.
+ */
+export interface FilesSettings {
+    /**
+     * Exclude holds glob patterns matched against the path relative to a
+     * sidebar root. A pattern with no slash matches a file or folder name at
+     * any depth, so the default list hides every node_modules folder.
+     */
+    "exclude": string[] | null;
+}
+
+/**
  * FolderEntry is one child of a folder in the sidebar tree. Directories are
  * expanded on demand by calling ReadFolder again, so opening a large repository
  * never walks the whole tree up front.
@@ -99,6 +111,21 @@ export interface PrintRequest {
 }
 
 /**
+ * RecentSettings is the Open Recent list, newest first.
+ */
+export interface RecentSettings {
+    "files": string[] | null;
+}
+
+/**
+ * ReplaceResult reports how much Replace All changed.
+ */
+export interface ReplaceResult {
+    "files": number;
+    "matches": number;
+}
+
+/**
  * SaveRequest is one buffer on its way to disk. ExpectedModified is the mtime
  * LoadDocument reported for the file the buffer was read from; a mismatch means
  * another program wrote it in the meantime, and nothing is written. Overwrite
@@ -125,11 +152,77 @@ export interface SaveResult {
 }
 
 /**
+ * SearchMatch is one hit: where it is and the trimmed line it was found on.
+ */
+export interface SearchMatch {
+    "path": string;
+    "name": string;
+    "line": number;
+    "column": number;
+    "text": string;
+}
+
+/**
+ * SearchRequest is one Find in Files query. The literal/regular-expression
+ * switch, the case option and the include and exclude globs mirror what the
+ * results panel shows.
+ */
+export interface SearchRequest {
+    "query": string;
+    "regex": boolean;
+    "case_sensitive": boolean;
+    "include": string;
+    "exclude": string;
+    "replacement": string;
+}
+
+/**
+ * SearchResult is every hit a project search found, plus whether the cap cut
+ * the list short.
+ */
+export interface SearchResult {
+    "matches": SearchMatch[] | null;
+    "truncated": boolean;
+    "files": number;
+}
+
+/**
+ * SearchSettings configures what Find in Files skips. The files list applies
+ * too, so a folder hidden from the explorer is never searched.
+ */
+export interface SearchSettings {
+    "exclude": string[] | null;
+}
+
+/**
+ * SessionSettings is the set of tabs restored on the next launch. Only tabs
+ * backed by a file are recorded: an untitled buffer has no text on disk, and
+ * restoring it empty would look like the work was lost.
+ */
+export interface SessionSettings {
+    "open_files": string[] | null;
+    "active": string;
+}
+
+/**
+ * SessionState is the set of open tabs a relaunch should restore. Only tabs
+ * backed by a file are recorded; untitled buffers live only in memory.
+ */
+export interface SessionState {
+    "open_files": string[] | null;
+    "active": string;
+}
+
+/**
  * Settings is the contents of the user's settings.json file.
  */
 export interface Settings {
     "editor": EditorSettings;
     "sidebar": SidebarSettings;
+    "files": FilesSettings;
+    "search": SearchSettings;
+    "recent": RecentSettings;
+    "session": SessionSettings;
 }
 
 /**
@@ -138,4 +231,10 @@ export interface Settings {
  */
 export interface SidebarSettings {
     "folders": string[] | null;
+
+    /**
+     * Visible is whether the sidebar is shown. It survives a relaunch, so
+     * Cmd+B keeps the layout the user left behind.
+     */
+    "visible": boolean;
 }

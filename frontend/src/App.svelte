@@ -1,23 +1,28 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, tick } from 'svelte';
     import {
+        CopyText,
         InstallCommandLineTool,
         OpenFileDialog,
         OpenSettings,
         PrintDocument,
+        ReplaceInProject,
         ResolveClose,
+        RevealFile,
         SaveDocument,
         SaveFileDialog,
+        SearchProject,
         SetUnsavedChanges,
         SetViewOption,
     } from '../bindings/kova/app';
-    import type { SaveResult } from '../bindings/kova/models';
+    import type { SaveResult, SearchMatch } from '../bindings/kova/models';
     import { CASE_TRANSFORMS, type CaseTransform } from './case';
     import EditorPane from './EditorPane.svelte';
     import ImageViewer from './ImageViewer.svelte';
     import Preview from './Preview.svelte';
     import Palette from './Palette.svelte';
     import Prompt from './Prompt.svelte';
+    import SearchPanel from './SearchPanel.svelte';
     import Sidebar from './Sidebar.svelte';
     import StatusBar from './StatusBar.svelte';
     import TabBar from './TabBar.svelte';
@@ -44,10 +49,13 @@
     import {
         listFiles,
         listenForQuickOpen,
+        rankCandidates,
         rankQuickOpen,
+        toQuickOpenFile,
         toQuickOpenFiles,
         type QuickOpenFile,
     } from './quickOpen';
+    import { groupSearchMatches, searchSummary } from './search';
     import {
         defaultEditorSettings,
         loadEditorSettings,
@@ -56,10 +64,12 @@
     } from './settings';
     import {
         addSidebarFolder,
+        closeAllSidebarFolders,
         errorMessage,
         listenForAddFolder,
         loadSidebarFolders,
         openFolderDialog,
+        relativePath,
         removeSidebarFolder,
         sidebarLabel,
     } from './sidebar';
@@ -67,11 +77,25 @@
     import {
         closeDocumentTab,
         listenForCloseTab,
+        listenForTabCommands,
         openDocumentTab,
         setDocumentDirty,
+        stepTabId,
+        tabIdAt,
         updateDocument,
     } from './tabs';
     import { appendFinalNewline } from './text';
+    import {
+        clearRecentFiles,
+        listenForWatchedChanges,
+        loadWorkspaceState,
+        rememberRecentFile,
+        saveSession,
+        saveSidebarVisible,
+        watchPaths,
+        type WorkspaceState,
+    } from './workspace';
+    import { listenForWorkspaceCommands, type CopyPathKind } from './workspacecommands';
 
     // UnsavedPrompt is the dialog asking what to do with modified buffers
     // before they are closed. answer resolves the promise the caller is
@@ -89,6 +113,13 @@
     interface ConflictPrompt {
         message: string;
         answer: (overwrite: boolean) => void;
+    }
+
+    // ClosedTab is one entry in the Reopen Closed Tab stack. The buffer text is
+    // kept because an untitled tab has no file to read again.
+    interface ClosedTab {
+        document: OpenDocument;
+        content: string;
     }
 
     // PreviewState is the buffer a preview is showing. It is a snapshot: the
@@ -115,6 +146,34 @@
     let quickOpenFiles = $state<QuickOpenFile[]>([]);
     let quickOpenLoading = $state(false);
     let commandPalette = $state(false);
+    let recentOpen = $state(false);
+
+    // Workspace state that outlives a window.
+    let recentFiles = $state<string[]>([]);
+    let sidebarVisible = $state(true);
+    let expandedPaths = $state<string[]>([]);
+    let treeRefreshToken = $state(0);
+    let sessionReady = $state(false);
+    // closedTabs is the Reopen Closed Tab stack. It is never rendered, so it
+    // stays a plain array instead of reactive state.
+    let closedTabs: ClosedTab[] = [];
+
+    let imageSize = $state<{ id: string; width: number; height: number } | null>(null);
+
+    // Find in Files state. The results tab is open while results exist, even
+    // when another tab is active.
+    let searchOpen = $state(false);
+    let searchActive = $state(false);
+    let searchQuery = $state('');
+    let searchInclude = $state('');
+    let searchReplacement = $state('');
+    let searchRegex = $state(false);
+    let searchCaseSensitive = $state(false);
+    let searchMatches = $state<SearchMatch[]>([]);
+    let searchTruncated = $state(false);
+    let searchBusy = $state(false);
+    let searchError = $state('');
+    let searchFocusToken = $state(0);
 
     let unsavedPrompt = $state<UnsavedPrompt | null>(null);
     let conflictPrompt = $state<ConflictPrompt | null>(null);
@@ -130,6 +189,7 @@
     // Either surface replaces the editor, which stays laid out behind it so a
     // text tab keeps its viewport.
     let viewerActive = $derived(imageActive || previewActive);
+    let paneReplaced = $derived(viewerActive || searchActive);
     let language = $derived(imageActive ? 'Image' : languageLabel(active?.path ?? ''));
     // Monaco keeps its buffers while an image tab is showing, so switching back
     // to a text tab preserves edits. The welcome buffer keeps the hidden editor
@@ -139,6 +199,21 @@
     let openIds = $derived(tabs.map((tab) => tab.id));
     let unsaved = $derived(tabs.some((tab) => tab.dirty));
     let folderLabel = $derived(sidebarLabel(folders));
+    let imageSizeLabel = $derived(
+        imageSize !== null && imageSize.id === activeId
+            ? `${imageSize.width} × ${imageSize.height}`
+            : '',
+    );
+    let searchGroups = $derived(groupSearchMatches(searchMatches));
+    let searchLabel = $derived(
+        searchSummary(searchGroups.length, searchMatches.length, searchTruncated),
+    );
+    let recentItems = $derived(toRecentItems(recentFiles));
+    // The session records file-backed tabs only: an untitled buffer has no
+    // text on disk, and restoring it empty would look like lost work.
+    let sessionFiles = $derived(tabs.filter((tab) => tab.path !== '').map((tab) => tab.path));
+    let sessionActive = $derived(active?.path ?? '');
+    let watchedPaths = $derived(Array.from(new Set([...sessionFiles, ...expandedPaths])));
     let quickOpenEmpty = $derived(
         quickOpenLoading
             ? 'Loading files…'
@@ -152,11 +227,16 @@
     }
 
     // showDocument adds a tab for the document unless its file is already open,
-    // then makes it active.
-    function showDocument(document: OpenDocument): void {
+    // then makes it active. Restoring a session passes record=false, so a
+    // relaunch does not reshuffle the Open Recent list.
+    function showDocument(document: OpenDocument, record = true): void {
         const opened = openDocumentTab(tabs, document);
         tabs = opened.tabs;
         activeId = opened.activeId;
+        searchActive = false;
+        if (record && document.path !== '') {
+            void recordRecent(document.path);
+        }
     }
 
     // addFolders saves each root from a launch request and adopts the result.
@@ -414,6 +494,7 @@
                 return;
             }
         }
+        rememberClosedTab(tab);
         removeTab(id);
     }
 
@@ -562,6 +643,7 @@
     // still being read.
     async function showQuickOpen(): Promise<void> {
         commandPalette = false;
+        recentOpen = false;
         quickOpen = true;
         quickOpenLoading = true;
         try {
@@ -601,6 +683,7 @@
 
     function showCommandPalette(): void {
         quickOpen = false;
+        recentOpen = false;
         commandPalette = true;
     }
 
@@ -629,6 +712,11 @@
         const viewOption = VIEW_OPTIONS.find((entry) => `toggle-${entry.id}` === id);
         if (viewOption !== undefined) {
             toggleViewOption(viewOption.id);
+            return;
+        }
+
+        if (id.startsWith('go-to-tab-')) {
+            goToTab(Number(id.slice('go-to-tab-'.length)));
             return;
         }
 
@@ -683,6 +771,45 @@
             case 'install-command-line-tool':
                 void installCommandLineTool();
                 break;
+            case 'open-recent':
+                showRecentFiles();
+                break;
+            case 'clear-recent':
+                void clearRecent();
+                break;
+            case 'close-all-folders':
+                void closeAllFolders();
+                break;
+            case 'reopen-closed-tab':
+                void reopenClosedTab();
+                break;
+            case 'next-tab':
+                stepTab(1);
+                break;
+            case 'previous-tab':
+                stepTab(-1);
+                break;
+            case 'find-in-files':
+                showFindInFiles();
+                break;
+            case 'refresh':
+                void refreshWorkspace();
+                break;
+            case 'toggle-sidebar':
+                toggleSidebar();
+                break;
+            case 'reveal-file':
+                void revealActiveFile();
+                break;
+            case 'copy-file-path':
+                void copyActivePath('file');
+                break;
+            case 'copy-relative-path':
+                void copyActivePath('relative');
+                break;
+            case 'copy-file-name':
+                void copyActivePath('name');
+                break;
         }
     }
 
@@ -717,12 +844,370 @@
         }
     }
 
+    // rememberClosedTab pushes a tab onto the Reopen Closed Tab stack, newest
+    // last. The stack is capped so a long session cannot grow without bound.
+    function rememberClosedTab(tab: OpenDocument): void {
+        closedTabs.push({ document: { ...tab }, content: bufferText(tab) });
+        if (closedTabs.length > 20) {
+            closedTabs.shift();
+        }
+    }
+
+    async function reopenClosedTab(): Promise<void> {
+        const closed = closedTabs.pop();
+        if (closed === undefined) {
+            notice = 'No closed tab to reopen.';
+            return;
+        }
+
+        const saved = closed.document;
+        // A clean file tab is reopened from disk. Closing a dirty tab already
+        // discarded its edits, so there is nothing newer to restore.
+        if (saved.kind === 'text' && saved.path !== '' && !saved.dirty) {
+            const opened = await readDocument(saved.path);
+            if (opened !== undefined) {
+                showDocument(opened);
+                notice = '';
+                return;
+            }
+        }
+
+        // An untitled buffer lives only in memory, so its text comes from the
+        // stack. A file that disappeared falls back to the same snapshot.
+        let restored = saved;
+        if (saved.path === '' && tabs.some((tab) => tab.id === saved.id)) {
+            // A New File made since the close may already own this name; give
+            // the restored buffer a fresh id so the two do not share a model.
+            const replacement = createUntitledDocument(tabs);
+            restored = { ...saved, id: replacement.id, name: replacement.name };
+        }
+        showDocument({
+            ...restored,
+            content: closed.content,
+            dirty: restored.dirty || (restored.path === '' && closed.content !== ''),
+        });
+        notice = '';
+    }
+
+    function stepTab(direction: 1 | -1): void {
+        if (tabs.length === 0) {
+            return;
+        }
+        searchActive = false;
+        activeId = stepTabId(tabs, activeId, direction);
+    }
+
+    function goToTab(position: number): void {
+        const id = tabIdAt(tabs, position);
+        if (id === '') {
+            return;
+        }
+        searchActive = false;
+        activeId = id;
+    }
+
+    // recordRecent puts an opened file at the top of Open Recent.
+    async function recordRecent(path: string): Promise<void> {
+        try {
+            recentFiles = await rememberRecentFile(path);
+        } catch (error) {
+            console.error('Failed to remember the recent file.', error);
+        }
+    }
+
+    function toRecentItems(paths: readonly string[]): PaletteItem[] {
+        return paths.map((path) => {
+            const file = toQuickOpenFile(path, folders);
+            return { id: path, name: file.name, detail: file.detail };
+        });
+    }
+
+    function showRecentFiles(): void {
+        if (recentFiles.length === 0) {
+            notice = 'No recent files.';
+            return;
+        }
+        quickOpen = false;
+        commandPalette = false;
+        searchActive = false;
+        recentOpen = true;
+    }
+
+    function closeRecentFiles(): void {
+        recentOpen = false;
+    }
+
+    function rankRecentFiles(query: string): PaletteItem[] {
+        return rankCandidates(query, recentItems);
+    }
+
+    async function clearRecent(): Promise<void> {
+        try {
+            recentFiles = await clearRecentFiles();
+            notice = 'Recent files cleared.';
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
+    function toggleSidebar(): void {
+        sidebarVisible = !sidebarVisible;
+        void saveSidebarVisible(sidebarVisible).catch((error) =>
+            console.error('Failed to save the sidebar state.', error),
+        );
+    }
+
+    // setExpanded tracks which folders the tree has open, so their contents can
+    // be watched for external changes.
+    function setExpanded(path: string, open: boolean): void {
+        if (open) {
+            if (!expandedPaths.includes(path)) {
+                expandedPaths = [...expandedPaths, path];
+            }
+            return;
+        }
+        expandedPaths = expandedPaths.filter((entry) => entry !== path);
+    }
+
+    async function closeAllFolders(): Promise<void> {
+        try {
+            folders = await closeAllSidebarFolders();
+            expandedPaths = [];
+            notice = '';
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
+    // applyReload replaces a clean buffer with what is on disk. The model is
+    // told first, so the editor's dirty check agrees with the tab record.
+    function applyReload(id: string, opened: OpenDocument): void {
+        if (opened.kind === 'text') {
+            editorPane?.reload(id, opened.content);
+        }
+        tabs = updateDocument(tabs, id, {
+            kind: opened.kind,
+            content: opened.content,
+            src: opened.src,
+            modified: opened.modified,
+            dirty: false,
+        });
+    }
+
+    async function refreshOpenDocuments(): Promise<void> {
+        for (const tab of tabs) {
+            if (tab.path === '') {
+                continue;
+            }
+            // External changes never overwrite edits the user has not saved;
+            // the next save reports the conflict instead.
+            if (tab.dirty) {
+                continue;
+            }
+            const opened = await readDocument(tab.path);
+            if (opened === undefined) {
+                continue;
+            }
+            applyReload(tab.id, opened);
+        }
+    }
+
+    async function refreshWorkspace(): Promise<void> {
+        treeRefreshToken++;
+        await refreshOpenDocuments();
+        notice = '';
+    }
+
+    // handleWatchedChanges reloads clean buffers and refreshes the tree for
+    // anything else. A dirty buffer stays as it is and says why.
+    async function handleWatchedChanges(paths: string[]): Promise<void> {
+        let refreshTree = false;
+        for (const path of paths) {
+            const tab = tabs.find((entry) => entry.path === path);
+            if (tab === undefined) {
+                refreshTree = true;
+                continue;
+            }
+            if (tab.dirty) {
+                notice = `${tab.name} changed on disk; your edits were kept.`;
+                continue;
+            }
+            const opened = await readDocument(path);
+            if (opened === undefined) {
+                continue;
+            }
+            applyReload(tab.id, opened);
+        }
+        if (refreshTree) {
+            treeRefreshToken++;
+        }
+    }
+
+    function showFindInFiles(): void {
+        quickOpen = false;
+        commandPalette = false;
+        recentOpen = false;
+        searchOpen = true;
+        searchActive = true;
+        searchFocusToken++;
+    }
+
+    function closeSearchTab(): void {
+        searchOpen = false;
+        searchActive = false;
+        searchMatches = [];
+        searchError = '';
+    }
+
+    async function runSearch(): Promise<void> {
+        const query = searchQuery.trim();
+        if (query === '') {
+            searchMatches = [];
+            searchError = '';
+            return;
+        }
+        searchBusy = true;
+        searchError = '';
+        try {
+            const result = await SearchProject({
+                query,
+                regex: searchRegex,
+                case_sensitive: searchCaseSensitive,
+                include: searchInclude,
+                exclude: '',
+                replacement: '',
+            });
+            searchMatches = result.matches ?? [];
+            searchTruncated = result.truncated;
+        } catch (error) {
+            searchMatches = [];
+            searchError = errorMessage(error);
+        } finally {
+            searchBusy = false;
+        }
+    }
+
+    async function replaceInFiles(): Promise<void> {
+        const query = searchQuery.trim();
+        if (query === '') {
+            return;
+        }
+        searchBusy = true;
+        searchError = '';
+        try {
+            const result = await ReplaceInProject({
+                query,
+                regex: searchRegex,
+                case_sensitive: searchCaseSensitive,
+                include: searchInclude,
+                exclude: '',
+                replacement: searchReplacement,
+            });
+            await refreshOpenDocuments();
+            treeRefreshToken++;
+            notice = `Replaced ${result.matches} in ${result.files} files.`;
+            await runSearch();
+        } catch (error) {
+            searchError = errorMessage(error);
+        } finally {
+            searchBusy = false;
+        }
+    }
+
+    // openSearchMatch switches to the file, then puts the caret on the hit.
+    // The model is created by the tab effect, so the reveal waits a tick.
+    async function openSearchMatch(path: string, line: number, column: number): Promise<void> {
+        await openFile(path);
+        const tab = tabs.find((entry) => entry.path === path);
+        if (tab === undefined) {
+            return;
+        }
+        searchActive = false;
+        await tick();
+        editorPane?.revealLine(tab.id, line, column);
+    }
+
+    async function revealActiveFile(): Promise<void> {
+        const path = active?.path ?? '';
+        if (path === '') {
+            notice = 'Open a saved file to reveal it in Finder.';
+            return;
+        }
+        try {
+            await RevealFile(path);
+            notice = '';
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
+    async function copyActivePath(kind: CopyPathKind): Promise<void> {
+        const tab = active;
+        if (tab === undefined || tab.path === '') {
+            notice = 'Open a saved file to copy its path.';
+            return;
+        }
+        const text =
+            kind === 'file'
+                ? tab.path
+                : kind === 'relative'
+                  ? relativePath(tab.path, folders)
+                  : tab.name;
+        try {
+            await CopyText(text);
+            notice = `Copied ${text}`;
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
+    // restoreSession reopens the files the previous run left open. Missing
+    // files are skipped, so one deleted file does not stop the rest.
+    async function restoreSession(session: WorkspaceState['session']): Promise<void> {
+        for (const path of session.openFiles) {
+            if (tabs.some((tab) => tab.path === path)) {
+                continue;
+            }
+            const opened = await readDocument(path);
+            if (opened === undefined) {
+                continue;
+            }
+            showDocument(opened, false);
+        }
+        const restoredActive = tabs.find((tab) => tab.path === session.active);
+        if (restoredActive !== undefined) {
+            activeId = restoredActive.id;
+        }
+    }
+
     // A preview belongs to the tab it was opened on; selecting another tab puts
     // the editor back rather than showing a stale snapshot.
     $effect(() => {
         if (preview !== null && preview.id !== activeId) {
             preview = null;
         }
+    });
+
+    // The watcher only needs paths that exist: open files and expanded folders.
+    $effect(() => {
+        const paths = watchedPaths;
+        void watchPaths(paths).catch((error) =>
+            console.error('Failed to watch the workspace.', error),
+        );
+    });
+
+    // The session is written whenever the set of file-backed tabs or the active
+    // file changes. Gating on sessionReady keeps startup from overwriting the
+    // saved session with the empty list the app begins with.
+    $effect(() => {
+        if (!sessionReady) {
+            return;
+        }
+        const files = sessionFiles;
+        const activePath = sessionActive;
+        void saveSession(files, activePath).catch((error) =>
+            console.error('Failed to save the session.', error),
+        );
     });
 
     // Go decides whether closing needs a prompt, so it is told whenever the
@@ -742,10 +1227,21 @@
         let unsubscribeFileCommands: (() => void) | undefined;
         let unsubscribeCloseRequest: (() => void) | undefined;
         let unsubscribeEditorCommands: (() => void) | undefined;
+        let unsubscribeWatched: (() => void) | undefined;
+        let unsubscribeWorkspace: (() => void) | undefined;
+        let unsubscribeTabs: (() => void) | undefined;
         let disposed = false;
 
         void (async () => {
+            const workspace = await loadWorkspaceState();
+            sidebarVisible = workspace.sidebarVisible;
+            recentFiles = workspace.recentFiles;
             folders = await loadSidebarFolders();
+            await restoreSession(workspace.session);
+            // From here on tab changes are saved as the session; before this
+            // point an empty list is just startup, not the user closing tabs.
+            sessionReady = true;
+
             const loaded = await loadEditorSettings();
             if (disposed) {
                 return;
@@ -782,6 +1278,25 @@
                 togglePreview,
                 setViewOption,
             });
+            unsubscribeWatched = listenForWatchedChanges(
+                (paths) => void handleWatchedChanges(paths),
+            );
+            unsubscribeWorkspace = listenForWorkspaceCommands({
+                openRecent: showRecentFiles,
+                clearRecent: () => void clearRecent(),
+                refresh: () => void refreshWorkspace(),
+                findInFiles: showFindInFiles,
+                toggleSidebar,
+                closeAllFolders: () => void closeAllFolders(),
+                revealFile: () => void revealActiveFile(),
+                copyPath: (kind) => void copyActivePath(kind),
+            });
+            unsubscribeTabs = listenForTabCommands({
+                next: () => stepTab(1),
+                previous: () => stepTab(-1),
+                reopen: () => void reopenClosedTab(),
+                goToTab,
+            });
         })();
 
         return () => {
@@ -794,6 +1309,9 @@
             unsubscribeFileCommands?.();
             unsubscribeCloseRequest?.();
             unsubscribeEditorCommands?.();
+            unsubscribeWatched?.();
+            unsubscribeWorkspace?.();
+            unsubscribeTabs?.();
         };
     });
 </script>
@@ -801,28 +1319,41 @@
 <div class="app">
     <TitleBar appName={APP_NAME} fileName={shownName(active)} folderLabel={folderLabel} />
     <div class="app__body">
-        <Sidebar
-            {folders}
-            selectedPath={active?.path ?? ''}
-            {busy}
-            onAddFolder={() => void addFolderFromDialog()}
-            onRemoveFolder={(path) => void removeFolder(path)}
-            onOpenFile={(path) => void openFile(path)}
-        />
+        <div class="app__sidebar" class:app__sidebar--hidden={!sidebarVisible}>
+            <Sidebar
+                {folders}
+                selectedPath={active?.path ?? ''}
+                {busy}
+                refreshToken={treeRefreshToken}
+                onAddFolder={() => void addFolderFromDialog()}
+                onRemoveFolder={(path) => void removeFolder(path)}
+                onOpenFile={(path) => void openFile(path)}
+                onExpandedChange={setExpanded}
+            />
+        </div>
         <div class="app__editor">
             <TabBar
                 {tabs}
                 activeId={activeId}
+                searchOpen={searchOpen}
+                searchActive={searchActive}
                 onSelect={(id) => {
                     activeId = id;
+                    searchActive = false;
                 }}
                 onClose={(id) => void closeTab(id)}
+                onSelectSearch={() => {
+                    searchOpen = true;
+                    searchActive = true;
+                    searchFocusToken++;
+                }}
+                onCloseSearch={closeSearchTab}
             />
             <div class="app__pane">
                 <div
                     class="app__pane-layer"
-                    class:app__pane-layer--hidden={viewerActive}
-                    inert={viewerActive}
+                    class:app__pane-layer--hidden={paneReplaced}
+                    inert={paneReplaced}
                 >
                     <EditorPane
                         bind:this={editorPane}
@@ -839,9 +1370,33 @@
                         }}
                     />
                 </div>
-                {#if active?.kind === 'image'}
+                {#if searchActive}
+                    <SearchPanel
+                        bind:query={searchQuery}
+                        bind:include={searchInclude}
+                        bind:replacement={searchReplacement}
+                        bind:regex={searchRegex}
+                        bind:caseSensitive={searchCaseSensitive}
+                        groups={searchGroups}
+                        summary={searchLabel}
+                        error={searchError}
+                        busy={searchBusy}
+                        focusToken={searchFocusToken}
+                        roots={folders}
+                        onSearch={() => void runSearch()}
+                        onReplaceAll={() => void replaceInFiles()}
+                        onOpenMatch={(path, line, column) =>
+                            void openSearchMatch(path, line, column)}
+                    />
+                {:else if active?.kind === 'image'}
                     {#key active.src}
-                        <ImageViewer src={active.src} name={active.name} />
+                        <ImageViewer
+                            src={active.src}
+                            name={active.name}
+                            onSize={(width, height) => {
+                                imageSize = { id: activeId, width, height };
+                            }}
+                        />
                     {/key}
                 {:else if previewActive && preview !== null}
                     <Preview
@@ -853,7 +1408,7 @@
             </div>
         </div>
     </div>
-    <StatusBar {line} {column} {language} {notice} {folderLabel} />
+    <StatusBar {line} {column} {language} {notice} {folderLabel} imageSize={imageSizeLabel} />
     {#if quickOpen}
         <Palette
             title="Quick Open"
@@ -862,6 +1417,19 @@
             empty={quickOpenEmpty}
             onSelect={(path) => void openFromQuickOpen(path)}
             onClose={closeQuickOpen}
+        />
+    {/if}
+    {#if recentOpen}
+        <Palette
+            title="Open Recent"
+            placeholder="Search recent files"
+            rank={rankRecentFiles}
+            empty="No recent files."
+            onSelect={(path) => {
+                recentOpen = false;
+                void openFile(path);
+            }}
+            onClose={closeRecentFiles}
         />
     {/if}
     {#if commandPalette}
@@ -913,6 +1481,16 @@
         display: flex;
         flex: 1 1 auto;
         min-height: 0;
+    }
+
+    .app__sidebar {
+        display: flex;
+        flex: 0 0 auto;
+        min-height: 0;
+    }
+
+    .app__sidebar--hidden {
+        display: none;
     }
 
     .app__editor {

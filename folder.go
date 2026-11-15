@@ -19,12 +19,28 @@ type FolderEntry struct {
 }
 
 // ReadFolder lists one level of a folder for the sidebar. The tree loads the
-// rest lazily, so only the entries the user can see are read.
+// rest lazily, so only the entries the user can see are read. Entries that
+// files.exclude hides are left out, which keeps the tree and Quick Open
+// agreeing on what exists.
 func (a *App) ReadFolder(path string) ([]FolderEntry, error) {
-	return readFolder(path)
+	return readFolderExcluding(path, a.filesExcludeMatcher())
 }
 
-func readFolder(path string) ([]FolderEntry, error) {
+// filesExcludeMatcher loads the files.exclude patterns. A missing or broken
+// settings file hides nothing: browsing still works while the user repairs it.
+func (a *App) filesExcludeMatcher() excludeMatcher {
+	path, err := settingsFilePath()
+	if err != nil {
+		return excludeMatcher{}
+	}
+	settings, err := loadSettings(path)
+	if err != nil {
+		return excludeMatcher{}
+	}
+	return newExcludeMatcher(settings.Files.Exclude)
+}
+
+func readFolderExcluding(path string, excludes excludeMatcher) ([]FolderEntry, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
@@ -42,10 +58,14 @@ func readFolder(path string) ([]FolderEntry, error) {
 	// instead of null, which the sidebar reads as a list.
 	entries := make([]FolderEntry, 0, len(dirEntries))
 	for _, entry := range dirEntries {
+		isDir := isDirectory(path, entry)
+		if excludes.matches(entry.Name(), isDir) {
+			continue
+		}
 		entries = append(entries, FolderEntry{
 			Path:  filepath.Join(path, entry.Name()),
 			Name:  entry.Name(),
-			IsDir: isDirectory(path, entry),
+			IsDir: isDir,
 		})
 	}
 

@@ -74,3 +74,58 @@ export function setDocumentDirty(tabs: OpenDocument[], id: string, dirty: boolea
 export function listenForCloseTab(handler: () => void): () => void {
     return Events.On('kova:close-tab', () => handler());
 }
+
+// stepTabId returns the tab a next/previous command activates, wrapping at
+// either end. When nothing is active the first tab wins, so the command always
+// does something visible.
+export function stepTabId(
+    tabs: readonly OpenDocument[],
+    activeId: string,
+    direction: 1 | -1,
+): string {
+    if (tabs.length === 0) {
+        return activeId;
+    }
+    const index = tabs.findIndex((tab) => tab.id === activeId);
+    if (index === -1) {
+        return tabs[0].id;
+    }
+    const next = (index + direction + tabs.length) % tabs.length;
+    return tabs[next].id;
+}
+
+// tabIdAt returns the tab at a 1-based position, or an empty id when the list
+// is shorter. The Go menu numbers its items from one, matching what the user
+// sees in the tab bar.
+export function tabIdAt(tabs: readonly OpenDocument[], position: number): string {
+    if (position < 1 || position > tabs.length) {
+        return '';
+    }
+    return tabs[position - 1].id;
+}
+
+// listenForTabCommands runs the handler for the tab navigation menu items.
+// Returns an unsubscribe function.
+export function listenForTabCommands(handlers: {
+    next: () => void;
+    previous: () => void;
+    reopen: () => void;
+    goToTab: (position: number) => void;
+}): () => void {
+    const offs = [
+        Events.On('kova:next-tab', () => handlers.next()),
+        Events.On('kova:previous-tab', () => handlers.previous()),
+        Events.On('kova:reopen-closed-tab', () => handlers.reopen()),
+        Events.On('kova:go-to-tab', (event) => {
+            const position = event.data as number | undefined;
+            if (typeof position === 'number') {
+                handlers.goToTab(position);
+            }
+        }),
+    ];
+    return () => {
+        for (const off of offs) {
+            off();
+        }
+    };
+}

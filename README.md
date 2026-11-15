@@ -12,10 +12,22 @@ A minimal text editor for macOS.
   changed warns first.
 - **Folder sidebar** — several folders as roots, children read only on
   expansion, [File Icons](https://github.com/file-icons/icons) glyphs matched
-  by name, and the list persisted in `settings.json`.
+  by name, and the list persisted in `settings.json`. **Toggle Sidebar**
+  (<kbd>Cmd</kbd>+<kbd>B</kbd>) and **Close All Folders** are in the View and
+  File menus.
 - **Quick Open** (<kbd>Cmd</kbd>+<kbd>P</kbd>) — fuzzy-find a file by name or
-  path across the sidebar folders, skipping version-control metadata and
-  `node_modules`.
+  path across the sidebar folders, skipping whatever `files.exclude` hides.
+- **Find in Files** (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>) — search the
+  sidebar folders with literal or regular-expression matching, case and
+  include-glob options, results in a tab, and Replace All. Excludes and every
+  `.gitignore` are honoured.
+- **Navigation** — Open Recent (<kbd>Ctrl</kbd>+<kbd>R</kbd>) with Clear Recent,
+  Reopen Closed Tab, next/previous tab, jump to a tab with
+  <kbd>Cmd</kbd>+<kbd>1</kbd>–<kbd>9</kbd>, and Reveal in Finder or copy the
+  absolute, relative or file name from the File menu.
+- **Fresh state** — Kova watches the open buffers and expanded folders, so
+  external edits reload clean tabs and the tree follows new files; **View →
+  Refresh** rereads on demand. Restored tabs reopen on the next launch.
 - **Command palette** (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>) — run any
   menu action by name.
 - **Syntax highlighting** — the language comes from the file's extension and
@@ -29,7 +41,8 @@ A minimal text editor for macOS.
   indent guides, folding, auto-close brackets and smart indent from the View
   menu; zoom in, out and back to actual size.
 - **Image viewer** — PNG, JPEG, GIF, WebP, BMP, TIFF and ICO open in a viewer
-  with Cmd-scroll zoom and fit/actual-size toggle (up to 32 MB).
+  with Cmd-scroll zoom, fit/actual-size toggle and the image's pixel size in
+  the status bar (up to 32 MB).
 - **Native printing** — the macOS print panel for the active buffer, laid out
   in the editor font; images print scaled to one page.
 - **Command line tool** — open files or add folders from a shell.

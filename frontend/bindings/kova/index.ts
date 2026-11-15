@@ -9,11 +9,20 @@ export {
 export type {
     Document,
     EditorSettings,
+    FilesSettings,
     FolderEntry,
     LaunchRequest,
     PrintRequest,
+    RecentSettings,
+    ReplaceResult,
     SaveRequest,
     SaveResult,
+    SearchMatch,
+    SearchRequest,
+    SearchResult,
+    SearchSettings,
+    SessionSettings,
+    SessionState,
     Settings,
     SidebarSettings
 } from "./models.js";

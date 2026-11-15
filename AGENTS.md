@@ -62,7 +62,15 @@ introduce one unprompted.
   first expansion, so adding a large folder costs one directory read. Roots are
   saved through `App.AddSidebarFolder`/`App.RemoveSidebarFolder` into
   `settings.json`; `sidebar.folders` is the persistence layer that a future
-  workspace feature will replace with named projects.
+  workspace feature will replace with named projects. `files.exclude` hides
+  entries from the same read, and **View → Toggle Sidebar**
+  (<kbd>Cmd</kbd>+<kbd>B</kbd>) saves `sidebar.visible`.
+- **Excludes are configurable globs.** `exclude.go` matches `files.exclude`
+  and `search.exclude` for the tree, Quick Open and Find in Files: a bare name
+  matches at any depth, a leading slash anchors it, `**` spans directories and
+  a trailing slash means folders only. `gitignore.go` adds the `.gitignore`
+  rules a search honors; version control directories are never searched even
+  when the user removes them from the list.
 - **Every folder entry point shares one code path.** The `+` button,
   **File → Add Folder to Sidebar…**, and `kova <folder>` all funnel through
   `addFolderFromDialog`/`applyLaunch` in `App.svelte`, so they share one busy
@@ -77,6 +85,11 @@ introduce one unprompted.
   model per open id and reports `onDirtyChange` by comparing the buffer's text
   with the text last loaded or saved; models are disposed when their tab closes.
   **File → Close Tab** (<kbd>Cmd</kbd>+<kbd>W</kbd>) emits `kova:close-tab`.
+- **Tab navigation and the session are frontend state.** `tabs.ts` steps and
+  jumps between tabs, and `App.svelte` keeps the Reopen Closed Tab stack.
+  `workspace.ts` persists `session.open_files`/`session.active` whenever the
+  file-backed tabs change, so a relaunch restores them; untitled buffers are
+  deliberately left out because there is no text on disk to restore.
 - **Saving writes what the frontend holds.** `SaveDocument` in `save.go` writes
   the buffer text the frontend hands it, and returns `Conflict: true` without
   writing when the file's mtime moved since `LoadDocument` reported it;
@@ -84,6 +97,12 @@ introduce one unprompted.
   pushes `SetUnsavedChanges`, so `ShouldQuit` and a `WindowClosing` hook can
   cancel a quit or window close and emit `kova:confirm-close`, which the
   Save/Don't Save prompt answers with `ResolveClose`.
+- **File watching polls rather than subscribing.** `watch.go` stats open
+  buffers and expanded folders once a second and emits `kova:watched-changed`
+  with the changed paths. `App.svelte` reloads clean buffers, keeps dirty ones
+  (with a notice), and refreshes the tree; `SaveDocument` rebaselines the path
+  it wrote so Kova's own save is not echoed back. **View → Refresh** forces the
+  same reread on demand.
 - **Printing is native.** `PrintDocument` in `print.go` chooses text or image
   and calls `print_darwin.go`, whose cgo AppKit code (`print_darwin.m`) runs the
   standard print panel as a sheet on the main thread. `print_unsupported.go`
@@ -102,7 +121,10 @@ introduce one unprompted.
   fallback when the backend call fails). `EditorSettings` also carries
   indentation, cursor and **View toggle** options; since some default to
   `true`, `loadSettings` decodes over `defaultSettings()` so an absent key
-  keeps its default. `App.UpdateEditorSettings` is the write path.
+  keeps its default. `App.UpdateEditorSettings` is the write path; the
+  exclude lists, recent files and session are written by `workspace.go`
+  (`AddRecentFile`, `ClearRecentFiles`, `SetSession`, `SetSidebarVisible`)
+  behind the same `settingsMu`.
 - **Editor commands forward from Go to the frontend.** `main.go` builds the
   Edit menu (case transforms, trim trailing whitespace) and the View menu
   (zoom, preview, checkable toggles) and emits `kova:transform-case`,
@@ -111,6 +133,12 @@ introduce one unprompted.
   natively, so `App.SetViewOption` moves the same checkmark when the toggle
   came from the command palette. Monaco options are built in `editor.ts`
   (indentation lives on the model, so every buffer is updated too).
+- **Find in Files is Go-side.** `SearchProject`/`ReplaceInProject` in
+  `search.go` walk the sidebar roots with the excludes and `.gitignore`, then
+  return flat matches (capped) that the results tab groups; `SearchPanel.svelte`
+  is the form and `search.ts` has the grouping and summary helpers. A literal
+  query is quoted before it becomes a regexp, and Replace All uses literal
+  replacement unless regex mode is on.
 - **Preview is dependency-free.** `markdown.ts` renders a Markdown subset from
   the buffer, escaping text and limiting link schemes before `{@html}`;
   SVG previews go through an `<img>` data URL so scripts never run. Transforms

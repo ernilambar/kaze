@@ -9,10 +9,12 @@
         name: string;
         depth?: number;
         selectedPath?: string;
+        refreshToken?: number;
         expanded?: boolean;
         removable?: boolean;
         onOpenFile: (path: string) => void;
         onRemove?: (path: string) => void;
+        onExpandedChange?: (path: string, open: boolean) => void;
     }
 
     let {
@@ -20,10 +22,12 @@
         name,
         depth = 0,
         selectedPath = '',
+        refreshToken = 0,
         expanded = false,
         removable = false,
         onOpenFile,
         onRemove,
+        onExpandedChange,
     }: Props = $props();
 
     // `expanded` is only the initial state: a root starts open, and after that
@@ -56,10 +60,28 @@
 
     function toggle(): void {
         open = !open;
+        onExpandedChange?.(path, open);
         if (open) {
             void ensureLoaded(true);
         }
     }
+
+    // Refresh rereads the children of an open node. A token rather than a
+    // boolean lets repeated refreshes, from the menu or from external changes,
+    // each land.
+    let lastRefreshToken = -1;
+    $effect(() => {
+        const token = refreshToken;
+        if (token === lastRefreshToken) {
+            return;
+        }
+        lastRefreshToken = token;
+        untrack(() => {
+            if (open) {
+                void ensureLoaded(true);
+            }
+        });
+    });
 
     // Opening a file from the command line should show where it lives, so a
     // node on the selected file's path expands itself and loads its children.
@@ -81,9 +103,11 @@
     }
 
     onMount(() => {
+        onExpandedChange?.(path, open);
         if (open) {
             void ensureLoaded();
         }
+        return () => onExpandedChange?.(path, false);
     });
 </script>
 
@@ -126,7 +150,15 @@
             <ul class="node__children">
                 {#each entries as entry (entry.path)}
                     {#if entry.isDir}
-                        <Self depth={depth + 1} name={entry.name} path={entry.path} {selectedPath} {onOpenFile} />
+                        <Self
+                            depth={depth + 1}
+                            name={entry.name}
+                            path={entry.path}
+                            {selectedPath}
+                            {refreshToken}
+                            {onOpenFile}
+                            {onExpandedChange}
+                        />
                     {:else}
                         {@const icon = fileIcon(entry.name)}
                         <li class="node">

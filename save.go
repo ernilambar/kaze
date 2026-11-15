@@ -36,7 +36,13 @@ type SaveResult struct {
 // it passes the whole buffer instead of a path Go could reread: an unsaved edit
 // is exactly what should land in the file.
 func (a *App) SaveDocument(request SaveRequest) (SaveResult, error) {
-	return saveDocument(request)
+	result, err := saveDocument(request)
+	if err == nil && !result.Conflict {
+		// The watcher sees the write this call just made; treat it as the new
+		// baseline so the buffer is not reloaded over itself.
+		a.watcher.rebaseline(result.Path)
+	}
+	return result, err
 }
 
 func saveDocument(request SaveRequest) (SaveResult, error) {

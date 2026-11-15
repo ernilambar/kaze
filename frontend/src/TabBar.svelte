@@ -4,18 +4,33 @@
     interface Props {
         tabs: OpenDocument[];
         activeId: string;
+        // The Find in Files results view is a tab too, but it has no document
+        // behind it, so it is rendered from these props instead of the list.
+        searchOpen?: boolean;
+        searchActive?: boolean;
         onSelect: (id: string) => void;
         onClose: (id: string) => void;
+        onSelectSearch?: () => void;
+        onCloseSearch?: () => void;
     }
 
-    let { tabs, activeId, onSelect, onClose }: Props = $props();
+    let {
+        tabs,
+        activeId,
+        searchOpen = false,
+        searchActive = false,
+        onSelect,
+        onClose,
+        onSelectSearch,
+        onCloseSearch,
+    }: Props = $props();
 
     function label(tab: OpenDocument): string {
         return tab.path !== '' ? tab.path : `${tab.name} (unsaved)`;
     }
 </script>
 
-{#if tabs.length > 0}
+{#if tabs.length > 0 || searchOpen}
     <div class="tabs" role="tablist" aria-label="Open files">
         {#each tabs as tab (tab.id)}
             <div class="tab" class:tab--active={tab.id === activeId}>
@@ -41,6 +56,27 @@
                 </button>
             </div>
         {/each}
+        {#if searchOpen}
+            <div class="tab" class:tab--active={searchActive}>
+                <button
+                    class="tab__label"
+                    role="tab"
+                    aria-selected={searchActive}
+                    title="Find in Files"
+                    onclick={onSelectSearch}
+                >Search Results</button>
+                <button
+                    class="tab__close"
+                    aria-label="Close Search Results"
+                    title="Close Search Results"
+                    onclick={onCloseSearch}
+                >
+                    <svg aria-hidden="true" height="8" viewBox="0 0 8 8" width="8">
+                        <path d="M1 1 L7 7 M7 1 L1 7" fill="none" stroke="currentColor" stroke-width="1.2" />
+                    </svg>
+                </button>
+            </div>
+        {/if}
     </div>
 {/if}
 

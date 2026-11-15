@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { errorMessage, folderName, isWithin, sidebarLabel, toFolderEntry } from './sidebar';
+import {
+    errorMessage,
+    folderName,
+    isWithin,
+    relativePath,
+    sidebarLabel,
+    toFolderEntry,
+} from './sidebar';
 
 describe('folderName', () => {
     it.each([
@@ -62,5 +69,23 @@ describe('errorMessage', () => {
     it('never renders an empty notice', () => {
         expect(errorMessage(undefined)).toBe('Something went wrong');
         expect(errorMessage('')).toBe('Something went wrong');
+    });
+});
+
+describe('relativePath', () => {
+    it('removes the innermost root', () => {
+        expect(relativePath('/projects/kova/src/app.ts', ['/projects', '/projects/kova'])).toBe(
+            'src/app.ts',
+        );
+    });
+
+    it('normalizes Windows separators', () => {
+        expect(relativePath('C:\\projects\\kova\\src\\app.ts', ['C:\\projects\\kova'])).toBe(
+            'src/app.ts',
+        );
+    });
+
+    it('returns a path outside every root unchanged', () => {
+        expect(relativePath('/elsewhere/app.ts', ['/projects'])).toBe('/elsewhere/app.ts');
     });
 });
