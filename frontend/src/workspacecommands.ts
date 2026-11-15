@@ -7,6 +7,9 @@ export type CopyPathKind = 'file' | 'relative' | 'name';
 export interface WorkspaceCommandHandlers {
     openRecent: () => void;
     clearRecent: () => void;
+    openWorkspace: () => void;
+    saveWorkspaceAs: () => void;
+    closeWorkspace: () => void;
     refresh: () => void;
     findInFiles: () => void;
     toggleSidebar: () => void;
@@ -24,6 +27,9 @@ export function listenForWorkspaceCommands(
     const offs = [
         Events.On('kova:open-recent', () => handlers.openRecent?.()),
         Events.On('kova:clear-recent', () => handlers.clearRecent?.()),
+        Events.On('kova:open-workspace', () => handlers.openWorkspace?.()),
+        Events.On('kova:save-workspace-as', () => handlers.saveWorkspaceAs?.()),
+        Events.On('kova:close-workspace', () => handlers.closeWorkspace?.()),
         Events.On('kova:refresh', () => handlers.refresh?.()),
         Events.On('kova:find-in-files', () => handlers.findInFiles?.()),
         Events.On('kova:toggle-sidebar', () => handlers.toggleSidebar?.()),

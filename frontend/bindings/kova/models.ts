@@ -299,8 +299,9 @@ export interface Settings {
 }
 
 /**
- * SidebarSettings is the folder tree's saved state. A future workspace feature
- * will replace it with a named project list.
+ * SidebarSettings is the folder tree's saved state. Opening a workspace
+ * replaces the roots with the file's folders; the list is still persisted so a
+ * relaunch without the workspace file keeps its tree.
  */
 export interface SidebarSettings {
     "folders": string[] | null;
@@ -365,6 +366,17 @@ export interface UISettings {
     "tab_icons": boolean;
     "icon_style": string;
     "sidebar_position": string;
+}
+
+/**
+ * WorkspaceInfo is what the frontend receives after opening or saving a
+ * workspace file. Folders are resolved absolute paths; Name is the file's base
+ * name without the extension, used as the workspace label.
+ */
+export interface WorkspaceInfo {
+    "path": string;
+    "name": string;
+    "folders": string[] | null;
 }
 
 /**

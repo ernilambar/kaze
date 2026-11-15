@@ -5,6 +5,7 @@
         CopyText,
         GetKeybindings,
         InstallCommandLineTool,
+        MinimiseWindow,
         OpenDefaultSettings,
         OpenFileDialog,
         OpenKeybindings,
@@ -20,9 +21,11 @@
         SetAppearanceMode,
         SetUnsavedChanges,
         SetViewOption,
+        ToggleFullScreen,
         WatchConfig,
+        ZoomWindow,
     } from '../bindings/kova/app';
-    import type { SaveResult, SearchMatch } from '../bindings/kova/models';
+    import type { SaveResult, SearchMatch, WorkspaceInfo } from '../bindings/kova/models';
     import { CASE_TRANSFORMS, type CaseTransform } from './case';
     import ChangesView from './ChangesView.svelte';
     import EditorPane from './EditorPane.svelte';
@@ -120,6 +123,7 @@
         openFolderDialog,
         relativePath,
         removeSidebarFolder,
+        setSidebarFolders,
         sidebarLabel,
     } from './sidebar';
     import { noticeFor } from './status';
@@ -138,9 +142,11 @@
         clearRecentFiles,
         listenForWatchedChanges,
         loadWorkspaceState,
+        openWorkspaceDialog,
         rememberRecentFile,
         saveSession,
         saveSidebarVisible,
+        saveWorkspaceAs,
         watchPaths,
         type WorkspaceState,
     } from './workspace';
@@ -185,6 +191,9 @@
     let tabs = $state<OpenDocument[]>([]);
     let activeId = $state('');
     let folders = $state<string[]>([]);
+    // activeWorkspace is the file the roots came from. It is session state: the
+    // roots themselves are what settings.json restores.
+    let activeWorkspace = $state<WorkspaceInfo | null>(null);
     let notice = $state('');
     let busy = $state(false);
 
@@ -268,7 +277,11 @@
     let editorContent = $derived(imageActive ? '' : (active?.content ?? ''));
     let openIds = $derived(tabs.map((tab) => tab.id));
     let unsaved = $derived(tabs.some((tab) => tab.dirty));
-    let folderLabel = $derived(sidebarLabel(folders));
+    let folderLabel = $derived(
+        activeWorkspace !== null && activeWorkspace.name !== ''
+            ? activeWorkspace.name
+            : sidebarLabel(folders),
+    );
     // The tree looks statuses up by path; the changes list keeps the ordered
     // records. Both come from the same snapshot.
     let gitStatuses = $derived.by(() => {
@@ -1078,6 +1091,13 @@
         }
     }
 
+    // runWindowCommand reports a failed native window action in the status bar.
+    function runWindowCommand(command: () => Promise<void>): void {
+        void command().catch((error) => {
+            notice = errorMessage(error);
+        });
+    }
+
     // selectCommand closes the palette before running the command, so commands
     // that open another dialog (Quick Open, the folder picker) start clean.
     function selectCommand(id: string): void {
@@ -1187,6 +1207,24 @@
             case 'clear-recent':
                 void clearRecent();
                 break;
+            case 'open-workspace':
+                void openWorkspaceFromDialog();
+                break;
+            case 'save-workspace-as':
+                void saveWorkspaceAsDialog();
+                break;
+            case 'close-workspace':
+                void closeWorkspace();
+                break;
+            case 'minimize-window':
+                runWindowCommand(() => MinimiseWindow());
+                break;
+            case 'zoom-window':
+                runWindowCommand(() => ZoomWindow());
+                break;
+            case 'toggle-full-screen':
+                runWindowCommand(() => ToggleFullScreen());
+                break;
             case 'close-all-folders':
                 void closeAllFolders();
                 break;
@@ -1244,11 +1282,73 @@
         }
     }
 
+    // openWorkspaceFromDialog replaces the sidebar roots with the folders in
+    // the picked file. Open tabs stay open; a workspace only changes the tree.
+    async function openWorkspaceFromDialog(): Promise<void> {
+        if (busy) {
+            return;
+        }
+        busy = true;
+        try {
+            const workspace = await openWorkspaceDialog();
+            if (workspace.path === '') {
+                return;
+            }
+            folders = await setSidebarFolders(workspace.folders ?? []);
+            activeWorkspace = workspace;
+            expandedPaths = [];
+            void refreshGitStatus();
+            notice = '';
+        } catch (error) {
+            notice = errorMessage(error);
+        } finally {
+            busy = false;
+        }
+    }
+
+    // saveWorkspaceAsDialog writes the current roots to a workspace file and
+    // remembers its name for the title and status bars.
+    async function saveWorkspaceAsDialog(): Promise<void> {
+        if (busy) {
+            return;
+        }
+        busy = true;
+        try {
+            const workspace = await saveWorkspaceAs(folders);
+            if (workspace.path === '') {
+                return;
+            }
+            activeWorkspace = workspace;
+            notice = `Saved workspace ${workspace.name}`;
+        } catch (error) {
+            notice = errorMessage(error);
+        } finally {
+            busy = false;
+        }
+    }
+
+    // closeWorkspace clears the roots just like Close All Folders, and drops
+    // the workspace file's name from the title bar.
+    async function closeWorkspace(): Promise<void> {
+        try {
+            folders = await closeAllSidebarFolders();
+            activeWorkspace = null;
+            expandedPaths = [];
+            void refreshGitStatus();
+            notice = '';
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
     // Removing a root only drops it from the sidebar: tabs stay open, because
     // they hold their own buffers and are closed from the tab bar.
     async function removeFolder(path: string): Promise<void> {
         try {
             folders = await removeSidebarFolder(path);
+            if (folders.length === 0) {
+                activeWorkspace = null;
+            }
             void refreshGitStatus();
             notice = '';
         } catch (error) {
@@ -1386,6 +1486,7 @@
     async function closeAllFolders(): Promise<void> {
         try {
             folders = await closeAllSidebarFolders();
+            activeWorkspace = null;
             expandedPaths = [];
             void refreshGitStatus();
             notice = '';
@@ -1741,6 +1842,9 @@
             unsubscribeWorkspace = listenForWorkspaceCommands({
                 openRecent: showRecentFiles,
                 clearRecent: () => void clearRecent(),
+                openWorkspace: () => void openWorkspaceFromDialog(),
+                saveWorkspaceAs: () => void saveWorkspaceAsDialog(),
+                closeWorkspace: () => void closeWorkspace(),
                 refresh: () => void refreshWorkspace(),
                 findInFiles: showFindInFiles,
                 toggleSidebar,

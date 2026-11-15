@@ -67,8 +67,9 @@ type EditorSettings struct {
 	SmartIndent         bool `json:"smart_indent"`
 }
 
-// SidebarSettings is the folder tree's saved state. A future workspace feature
-// will replace it with a named project list.
+// SidebarSettings is the folder tree's saved state. Opening a workspace
+// replaces the roots with the file's folders; the list is still persisted so a
+// relaunch without the workspace file keeps its tree.
 type SidebarSettings struct {
 	Folders []string `json:"folders"`
 	// Visible is whether the sidebar is shown. It survives a relaunch, so

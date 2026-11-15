@@ -3,6 +3,8 @@ import {
     AddRecentFile,
     ClearRecentFiles,
     GetSettings,
+    OpenWorkspaceDialog,
+    SaveWorkspaceAs,
     SetSession,
     SetSidebarVisible,
     WatchPaths,
@@ -60,6 +62,18 @@ export async function saveSession(openFiles: readonly string[], active: string):
 
 export async function saveSidebarVisible(visible: boolean): Promise<void> {
     await SetSidebarVisible(visible);
+}
+
+// openWorkspaceDialog asks for a workspace file and returns its resolved
+// folders. An empty path means the picker was cancelled.
+export async function openWorkspaceDialog(): Promise<models.WorkspaceInfo> {
+    return await OpenWorkspaceDialog();
+}
+
+// saveWorkspaceAs writes the current roots to a workspace file. An empty path
+// means the save panel was cancelled.
+export async function saveWorkspaceAs(folders: readonly string[]): Promise<models.WorkspaceInfo> {
+    return await SaveWorkspaceAs(folders.slice());
 }
 
 // watchPaths tells Go which files and folders to poll for external changes.

@@ -10,6 +10,10 @@ A minimal text editor for macOS.
 - **Welcome screen** — with no open tab, the editor shows the Kova logo, start
   actions and the usual shortcuts for New File, Open, Quick Open, Command
   Palette, Find in Files and Settings.
+- **Workspaces** — Open, Save As and Close; the workspace file keeps folders
+  relative to itself, so it can be committed with the project.
+- **Window commands** — Minimize, Zoom and Toggle Full Screen from the Window
+  menu or the command palette.
 - **File handling** — New, Open, Save, Save As and Save All. Closing a dirty
   tab, window or quit prompts to save, and saving over a file another program
   changed warns first.

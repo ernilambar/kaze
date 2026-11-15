@@ -210,6 +210,22 @@ func (a *App) AddSidebarFolder(folder string) ([]string, error) {
 	})
 }
 
+// SetSidebarFolders replaces the sidebar roots in one write. Opening a
+// workspace uses it so a half-applied list never survives a failed folder.
+func (a *App) SetSidebarFolders(folders []string) ([]string, error) {
+	normalized := normalizeFolderList(folders)
+	for _, folder := range normalized {
+		info, err := os.Stat(folder)
+		if err != nil {
+			return nil, err
+		}
+		if !info.IsDir() {
+			return nil, fmt.Errorf("%s is not a folder", filepath.Base(folder))
+		}
+	}
+	return a.updateSidebarFolders(func([]string) []string { return normalized })
+}
+
 // RemoveSidebarFolder drops one folder from the sidebar's saved list and
 // returns the new list.
 func (a *App) RemoveSidebarFolder(folder string) ([]string, error) {
@@ -374,18 +390,21 @@ const closeTabEvent = "kova:close-tab"
 // The navigation commands work on the frontend's tab list. nextTabEvent and
 // previousTabEvent step through it; goToTabEvent carries the 1-based position.
 const (
-	nextTabEvent       = "kova:next-tab"
-	previousTabEvent   = "kova:previous-tab"
-	reopenTabEvent     = "kova:reopen-closed-tab"
-	goToTabEvent       = "kova:go-to-tab"
-	openRecentEvent    = "kova:open-recent"
-	clearRecentEvent   = "kova:clear-recent"
-	refreshEvent       = "kova:refresh"
-	findInFilesEvent   = "kova:find-in-files"
-	toggleSidebarEvent = "kova:toggle-sidebar"
-	closeFoldersEvent  = "kova:close-all-folders"
-	revealFileEvent    = "kova:reveal-file"
-	copyPathEvent      = "kova:copy-path"
+	nextTabEvent        = "kova:next-tab"
+	previousTabEvent    = "kova:previous-tab"
+	reopenTabEvent      = "kova:reopen-closed-tab"
+	goToTabEvent        = "kova:go-to-tab"
+	openRecentEvent     = "kova:open-recent"
+	clearRecentEvent    = "kova:clear-recent"
+	openWorkspaceEvent  = "kova:open-workspace"
+	saveWorkspaceEvent  = "kova:save-workspace-as"
+	closeWorkspaceEvent = "kova:close-workspace"
+	refreshEvent        = "kova:refresh"
+	findInFilesEvent    = "kova:find-in-files"
+	toggleSidebarEvent  = "kova:toggle-sidebar"
+	closeFoldersEvent   = "kova:close-all-folders"
+	revealFileEvent     = "kova:reveal-file"
+	copyPathEvent       = "kova:copy-path"
 )
 
 // emitNextTab tells the frontend to activate the next tab.
@@ -405,6 +424,16 @@ func (a *App) emitOpenRecent() { a.emitEvent(openRecentEvent) }
 
 // emitClearRecent tells the frontend to empty the recent files list.
 func (a *App) emitClearRecent() { a.emitEvent(clearRecentEvent) }
+
+// emitOpenWorkspace tells the frontend to show the workspace picker.
+func (a *App) emitOpenWorkspace() { a.emitEvent(openWorkspaceEvent) }
+
+// emitSaveWorkspaceAs tells the frontend to save the current roots as a
+// workspace file.
+func (a *App) emitSaveWorkspaceAs() { a.emitEvent(saveWorkspaceEvent) }
+
+// emitCloseWorkspace tells the frontend to drop the current workspace.
+func (a *App) emitCloseWorkspace() { a.emitEvent(closeWorkspaceEvent) }
 
 // emitRefresh tells the frontend to reread the tree and clean buffers.
 func (a *App) emitRefresh() { a.emitEvent(refreshEvent) }

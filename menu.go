@@ -88,7 +88,7 @@ func appMenu(m *application.Menu, name string, app *App, b *menuBuilder) {
 	b.item(m, "", "Quit "+name, "CmdOrCtrl+q", func(*application.Context) { app.quit() })
 }
 
-// fileMenu holds the document and window commands. Buffers, their paths and
+// fileMenu holds the document and workspace commands. Buffers, their paths and
 // their tabs live in the frontend, so every item forwards a command instead of
 // acting on the file itself.
 func fileMenu(m *application.Menu, app *App, b *menuBuilder) {
@@ -104,6 +104,16 @@ func fileMenu(m *application.Menu, app *App, b *menuBuilder) {
 		app.emitOpenRecent()
 	})
 	b.item(m, "clear-recent", "Clear Recent", "", func(*application.Context) { app.emitClearRecent() })
+	m.AddSeparator()
+	b.item(m, "open-workspace", "Open Workspace…", "", func(*application.Context) {
+		app.emitOpenWorkspace()
+	})
+	b.item(m, "save-workspace-as", "Save Workspace As…", "", func(*application.Context) {
+		app.emitSaveWorkspaceAs()
+	})
+	b.item(m, "close-workspace", "Close Workspace", "", func(*application.Context) {
+		app.emitCloseWorkspace()
+	})
 	m.AddSeparator()
 	b.item(m, "save", "Save", "CmdOrCtrl+s", func(*application.Context) { app.emitSave() })
 	b.item(m, "save-as", "Save As…", "CmdOrCtrl+Shift+s", func(*application.Context) {
@@ -262,6 +272,26 @@ func viewMenu(m *application.Menu, app *App, b *menuBuilder, editor EditorSettin
 	}
 }
 
+// windowMenu holds the three native window commands. They act on the Wails
+// window rather than on a buffer, so the menu calls the bindings directly.
+func windowMenu(m *application.Menu, app *App, b *menuBuilder) {
+	b.item(m, "minimize-window", "Minimize", "CmdOrCtrl+m", func(*application.Context) {
+		if err := app.MinimiseWindow(); err != nil {
+			app.reportMenuError("Minimize", err)
+		}
+	})
+	b.item(m, "zoom-window", "Zoom", "", func(*application.Context) {
+		if err := app.ZoomWindow(); err != nil {
+			app.reportMenuError("Zoom", err)
+		}
+	})
+	b.item(m, "toggle-full-screen", "Toggle Full Screen", "CmdOrCtrl+Ctrl+f", func(*application.Context) {
+		if err := app.ToggleFullScreen(); err != nil {
+			app.reportMenuError("Toggle Full Screen", err)
+		}
+	})
+}
+
 // buildMenu assembles the whole native menu. It is run at startup and again
 // after keybindings.json changes, so custom bindings never leave a stale
 // accelerator behind.
@@ -281,6 +311,7 @@ func buildMenu(
 	fileMenu(menu.AddSubmenu("File"), app, builder)
 	editMenu(menu.AddSubmenu("Edit"), app, builder)
 	viewMenu(menu.AddSubmenu("View"), app, builder, editor, theme)
+	windowMenu(menu.AddSubmenu("Window"), app, builder)
 	return menu
 }
 

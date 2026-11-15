@@ -153,6 +153,14 @@ export function LoadTheme(name: string): $CancellablePromise<$models.ThemePalett
 }
 
 /**
+ * MinimiseWindow minimises the window. The native Window menu calls it
+ * directly; the command palette reaches it through the generated binding.
+ */
+export function MinimiseWindow(): $CancellablePromise<void> {
+    return $Call.ByID(722444756);
+}
+
+/**
  * OpenDefaultSettings writes the defaults Kova would use on a fresh install to
  * default-settings.json and opens it. It never touches the user's settings.json.
  */
@@ -200,6 +208,14 @@ export function OpenSettings(): $CancellablePromise<void> {
  */
 export function OpenThemesFolder(): $CancellablePromise<void> {
     return $Call.ByID(1095547067);
+}
+
+/**
+ * OpenWorkspaceDialog asks for a workspace file and loads its folders. An empty
+ * WorkspaceInfo means the user cancelled, which is not an error.
+ */
+export function OpenWorkspaceDialog(): $CancellablePromise<$models.WorkspaceInfo> {
+    return $Call.ByID(3825048786);
 }
 
 /**
@@ -281,6 +297,15 @@ export function SaveFileDialog(suggested: string): $CancellablePromise<string> {
 }
 
 /**
+ * SaveWorkspaceAs asks where to write the current folder list and writes a
+ * workspace file there. The folders are stored relative to the file when they
+ * share a directory tree, so the result can live in the repository.
+ */
+export function SaveWorkspaceAs(folders: string[] | null): $CancellablePromise<$models.WorkspaceInfo> {
+    return $Call.ByID(771674549, folders);
+}
+
+/**
  * SearchProject finds query across the sidebar roots. files.exclude and
  * search.exclude decide what is read, and every .gitignore file on the way is
  * honoured, so generated and ignored trees stay out of the results.
@@ -307,6 +332,14 @@ export function SetSession(session: $models.SessionState): $CancellablePromise<v
 }
 
 /**
+ * SetSidebarFolders replaces the sidebar roots in one write. Opening a
+ * workspace uses it so a half-applied list never survives a failed folder.
+ */
+export function SetSidebarFolders(folders: string[] | null): $CancellablePromise<string[] | null> {
+    return $Call.ByID(1107392794, folders);
+}
+
+/**
  * SetSidebarVisible records whether the folder tree is showing, so Cmd+B keeps
  * the layout the user left behind.
  */
@@ -330,6 +363,14 @@ export function SetUnsavedChanges(unsaved: boolean): $CancellablePromise<void> {
  */
 export function SetViewOption(option: string, checked: boolean): $CancellablePromise<void> {
     return $Call.ByID(359865011, option, checked);
+}
+
+/**
+ * ToggleFullScreen switches the window between fullscreen and its previous
+ * size.
+ */
+export function ToggleFullScreen(): $CancellablePromise<void> {
+    return $Call.ByID(203905296);
 }
 
 /**
@@ -374,4 +415,12 @@ export function WatchConfig(): $CancellablePromise<void> {
  */
 export function WatchPaths(paths: string[] | null): $CancellablePromise<void> {
     return $Call.ByID(2033137100, paths);
+}
+
+/**
+ * ZoomWindow toggles the window between its standard and zoomed size, matching
+ * the macOS Window > Zoom item.
+ */
+export function ZoomWindow(): $CancellablePromise<void> {
+    return $Call.ByID(939524438);
 }

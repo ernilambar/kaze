@@ -167,3 +167,45 @@ func TestAddSidebarFolderKeepsConcurrentAdditions(t *testing.T) {
 		t.Fatalf("saved folders = %q, want all %d additions", settings.Sidebar.Folders, len(folders))
 	}
 }
+
+func TestSetSidebarFoldersReplacesSavedRoots(t *testing.T) {
+	useTempSettingsDir(t)
+	first := t.TempDir()
+	second := t.TempDir()
+	app := NewApp()
+
+	if _, err := app.AddSidebarFolder(first); err != nil {
+		t.Fatalf("AddSidebarFolder() error = %v", err)
+	}
+	got, err := app.SetSidebarFolders([]string{second, second})
+	if err != nil {
+		t.Fatalf("SetSidebarFolders() error = %v", err)
+	}
+
+	want := []string{second}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("SetSidebarFolders() = %q, want %q", got, want)
+	}
+}
+
+func TestSetSidebarFoldersKeepsOldListOnMissingFolder(t *testing.T) {
+	useTempSettingsDir(t)
+	folder := t.TempDir()
+	app := NewApp()
+
+	if _, err := app.AddSidebarFolder(folder); err != nil {
+		t.Fatalf("AddSidebarFolder() error = %v", err)
+	}
+	if _, err := app.SetSidebarFolders([]string{filepath.Join(folder, "missing")}); err == nil {
+		t.Fatal("SetSidebarFolders() error = nil, want a missing folder error")
+	}
+
+	settings, err := app.GetSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{folder}
+	if !reflect.DeepEqual(settings.Sidebar.Folders, want) {
+		t.Fatalf("saved folders = %q, want %q", settings.Sidebar.Folders, want)
+	}
+}

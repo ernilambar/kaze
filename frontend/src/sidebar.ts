@@ -6,6 +6,7 @@ import {
     ReadFolder,
     RemoveAllSidebarFolders,
     RemoveSidebarFolder,
+    SetSidebarFolders,
 } from '../bindings/kova/app';
 import { Events } from '@wailsio/runtime';
 
@@ -129,4 +130,10 @@ export function relativePath(path: string, roots: readonly string[]): string {
 // closeAllSidebarFolders drops every root and returns the empty list.
 export async function closeAllSidebarFolders(): Promise<string[]> {
     return (await RemoveAllSidebarFolders()) ?? [];
+}
+
+// setSidebarFolders replaces every root in one write. Opening a workspace uses
+// it so the sidebar and settings.json change together.
+export async function setSidebarFolders(folders: readonly string[]): Promise<string[]> {
+    return (await SetSidebarFolders(folders.slice())) ?? [];
 }

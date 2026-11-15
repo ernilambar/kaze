@@ -35,5 +35,6 @@ export type {
     ThemePalette,
     ThemeSettings,
     ThemeSummary,
-    UISettings
+    UISettings,
+    WorkspaceInfo
 } from "./models.js";

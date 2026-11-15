@@ -61,10 +61,16 @@ introduce one unprompted.
   one level at a time and the recursive `FolderTree.svelte` reads children on
   first expansion, so adding a large folder costs one directory read. Roots are
   saved through `App.AddSidebarFolder`/`App.RemoveSidebarFolder` into
-  `settings.json`; `sidebar.folders` is the persistence layer that a future
-  workspace feature will replace with named projects. `files.exclude` hides
-  entries from the same read, and **View → Toggle Sidebar**
+  `settings.json`. `files.exclude` hides entries from the same read, and
+  **View → Toggle Sidebar**
   (<kbd>Cmd</kbd>+<kbd>B</kbd>) saves `sidebar.visible`.
+- **Workspaces are committable files.** `workspacefile.go` reads and writes
+  `.kova-workspace` JSON files whose `folders` entries are relative to the file
+  when they sit inside its directory, so the file can live in the repository.
+  Opening one resolves and validates every folder before `SetSidebarFolders`
+  replaces `sidebar.folders` in one write; the workspace name comes from the
+  file name and is session state. Open, Save As and Close are in the File menu,
+  the command palette and `workspacecommands.ts`.
 - **Excludes are configurable globs.** `exclude.go` matches `files.exclude`
   and `search.exclude` for the tree, Quick Open and Find in Files: a bare name
   matches at any depth, a leading slash anchors it, `**` spans directories and
@@ -166,6 +172,9 @@ introduce one unprompted.
   `default-settings.json` beside the real file. The View menu's Appearance
   radio emits `kova:appearance`, and `SetAppearanceMode` moves the checkmark
   when the mode came from the overlay or a keybinding.
+- **Window commands are native.** `window.go` exposes `MinimiseWindow`,
+  `ZoomWindow` and `ToggleFullScreen`, which the Window menu calls directly and
+  the command palette reaches through the bindings.
 - **Editor commands forward from Go to the frontend.** `main.go` builds the
   Edit menu (case transforms, trim trailing whitespace) and the View menu
   (zoom, preview, appearance, checkable toggles) and emits `kova:transform-case`,
