@@ -127,6 +127,33 @@ export interface GitSnapshot {
 }
 
 /**
+ * Keybinding is one entry in keybindings.json, using VS Code's shape. Command
+ * is a Kova command id; a leading "-" removes that command's default shortcut.
+ */
+export interface Keybinding {
+    "key": string;
+    "command": string;
+    "when"?: string;
+}
+
+/**
+ * KeybindingsState is what the frontend receives: the accepted bindings plus a
+ * human-readable list of entries that were rejected.
+ */
+export interface KeybindingsState {
+    "bindings": Keybinding[] | null;
+    "error": string;
+
+    /**
+     * Parsed says the file decoded; entries may still have been rejected. The
+     * frontend installs the accepted list when it is true, even if every entry
+     * was rejected, and keeps the previous list when a broken file made the
+     * whole decode fail.
+     */
+    "parsed": boolean;
+}
+
+/**
  * LaunchRequest is what a `kova` command line asked the app to open. It travels
  * from the invocation that saw the arguments to the running UI, so paths are
  * absolute by then and every rejected argument is reported back to the user.
@@ -267,6 +294,8 @@ export interface Settings {
     "search": SearchSettings;
     "recent": RecentSettings;
     "session": SessionSettings;
+    "theme": ThemeSettings;
+    "ui": UISettings;
 }
 
 /**
@@ -281,4 +310,68 @@ export interface SidebarSettings {
      * Cmd+B keeps the layout the user left behind.
      */
     "visible": boolean;
+}
+
+/**
+ * ThemeCatalog is the set of readable themes plus the files that failed to
+ * parse. One broken theme file must not hide the working ones.
+ */
+export interface ThemeCatalog {
+    "themes": ThemeSummary[] | null;
+    "errors": string[] | null;
+}
+
+/**
+ * ThemePalette is the frontend-facing form of one theme. UI keys are CSS
+ * variable names without the leading `--`; Editor keys are Monaco color ids.
+ */
+export interface ThemePalette {
+    "family": string;
+    "name": string;
+    "appearance": string;
+    "ui": { [_ in string]?: string } | null;
+    "editor": { [_ in string]?: string } | null;
+    "syntax": { [_ in string]?: themeHighlight } | null;
+}
+
+/**
+ * ThemeSettings selects the palette. Mode is system, light or dark; the other
+ * two name the variant to use for each appearance. Names are variant names,
+ * matching the `name` field inside a Zed theme file.
+ */
+export interface ThemeSettings {
+    "mode": string;
+    "light": string;
+    "dark": string;
+}
+
+/**
+ * ThemeSummary is one variant in the theme picker. Name is what settings.json
+ * stores; Family is what the file calls the group it belongs to.
+ */
+export interface ThemeSummary {
+    "family": string;
+    "name": string;
+    "appearance": string;
+}
+
+/**
+ * UISettings controls the chrome around the editor: typography, the explorer's
+ * file icons and which side the sidebar opens on.
+ */
+export interface UISettings {
+    "font_family": string;
+    "font_size": number;
+    "tab_icons": boolean;
+    "icon_style": string;
+    "sidebar_position": string;
+}
+
+/**
+ * themeHighlight is one syntax capture's color and font style.
+ */
+export interface themeHighlight {
+    "color": string;
+    "font_style": string;
+    "font_weight": number;
 }

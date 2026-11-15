@@ -17,6 +17,7 @@
         // onExpandedChange reports which folders are open, so the app can watch
         // them for external changes.
         onExpandedChange?: (path: string, open: boolean) => void;
+        iconStyle?: 'colorful' | 'monochrome';
     }
 
     let {
@@ -29,6 +30,7 @@
         onRemoveFolder,
         onOpenFile,
         onExpandedChange,
+        iconStyle = 'colorful',
     }: Props = $props();
 </script>
 
@@ -65,6 +67,7 @@
                     removable={true}
                     {onOpenFile}
                     {onExpandedChange}
+                    {iconStyle}
                     onRemove={onRemoveFolder}
                 />
             {/each}
@@ -97,7 +100,7 @@
 
     .sidebar__title {
         color: var(--fg-muted);
-        font-size: 11px;
+        font-size: var(--ui-font-small);
         font-weight: 600;
         letter-spacing: 0.06em;
         text-transform: uppercase;

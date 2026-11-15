@@ -130,13 +130,45 @@ introduce one unprompted.
   fallback when the backend call fails). `EditorSettings` also carries
   indentation, cursor and **View toggle** options; since some default to
   `true`, `loadSettings` decodes over `defaultSettings()` so an absent key
-  keeps its default. `App.UpdateEditorSettings` is the write path; the
-  exclude lists, recent files and session are written by `workspace.go`
+  keeps its default. `ThemeSettings` chooses `system`/`light`/`dark` and one
+  variant name per appearance; `UISettings` holds the UI font family and size,
+  tab icons, icon style and sidebar side. `App.UpdateEditorSettings`,
+  `UpdateThemeSettings` and `UpdateUISettings` are the write paths; the exclude
+  lists, recent files and session are written by `workspace.go`
   (`AddRecentFile`, `ClearRecentFiles`, `SetSession`, `SetSidebarVisible`)
   behind the same `settingsMu`.
+- **Appearance is a Zed theme family.** `themes.go` embeds
+  `themes/kova.json` (Kova Dark and Kova Light) and reads user files from
+  `<config>/Kova/themes`, seeding `kova.json` when the folder has no JSON yet.
+  Each file is a Zed family (`author`, `name`, `themes[]` with `appearance` and
+  `style`). Kova consumes a documented subset: UI keys become CSS variables
+  (`--bg`, `--fg`, `--border`, `--git-*`, …), `editor.*` keys become Monaco
+  color ids, and `syntax` captures map to Monaco token rules in
+  `frontend/src/theme.ts`. Missing keys fall back to the matching built-in
+  palette; a malformed file is reported without hiding the rest. A user variant
+  with the same name shadows the built-in one. `configwatch.go` polls the
+  folder and keybindings file and emits `kova:config-changed`, so edits apply
+  without a restart; `OpenThemesFolder` reveals the directory.
+- **Custom keybindings are VS Code-shaped.** `keybindings.json` sits beside
+  `settings.json`; `keybindings.go` accepts JSONC comments, validates keys
+  (a modifier or a non-printing key), drops bad entries with a warning, and
+  returns the accepted list to the frontend. `menu.go` registers every command
+  by id and omits a default accelerator when that command, or its key, is
+  claimed by a custom binding. `frontend/src/keybindings.ts` installs one
+  capture-phase listener that runs the command, supports chord sequences and
+  `when` contexts (`editorFocus`, `sidebarVisible`, `hasActiveTab`,
+  `hasDirtyTab`, `!`, `&&`, `||`). `OpenKeybindings` creates the commented
+  template.
+- **The settings overlay is frontend state.** `SettingsOverlay.svelte` edits
+  the appearance and interface sections and links to Settings JSON, Default
+  Settings, Themes Folder and Keybindings. The native Settings… item emits
+  `kova:settings-overlay`; `App.OpenDefaultSettings` writes
+  `default-settings.json` beside the real file. The View menu's Appearance
+  radio emits `kova:appearance`, and `SetAppearanceMode` moves the checkmark
+  when the mode came from the overlay or a keybinding.
 - **Editor commands forward from Go to the frontend.** `main.go` builds the
   Edit menu (case transforms, trim trailing whitespace) and the View menu
-  (zoom, preview, checkable toggles) and emits `kova:transform-case`,
+  (zoom, preview, appearance, checkable toggles) and emits `kova:transform-case`,
   `kova:trim-whitespace`, `kova:zoom`, `kova:toggle-preview` and
   `kova:toggle-view`; `editorcommands.ts` listens. A menu checkbox flips
   natively, so `App.SetViewOption` moves the same checkmark when the toggle

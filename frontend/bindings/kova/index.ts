@@ -15,6 +15,8 @@ export type {
     GitChange,
     GitRepo,
     GitSnapshot,
+    Keybinding,
+    KeybindingsState,
     LaunchRequest,
     PrintRequest,
     RecentSettings,
@@ -28,5 +30,10 @@ export type {
     SessionSettings,
     SessionState,
     Settings,
-    SidebarSettings
+    SidebarSettings,
+    ThemeCatalog,
+    ThemePalette,
+    ThemeSettings,
+    ThemeSummary,
+    UISettings
 } from "./models.js";

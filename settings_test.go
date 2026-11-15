@@ -329,3 +329,88 @@ func TestUpdateEditorSettingsPersistsAndRepairs(t *testing.T) {
 		t.Fatalf("Sidebar.Folders = %q, want the folder to survive the update", settings.Sidebar.Folders)
 	}
 }
+
+func TestNormalizeThemeAndUI(t *testing.T) {
+	settings := defaultSettings()
+	settings.Theme = ThemeSettings{Mode: "LIGHT", Light: "  ", Dark: "  Custom Dark  "}
+	settings.UI = UISettings{
+		FontFamily:      "  Fira Sans  ",
+		FontSize:        0,
+		TabIcons:        false,
+		IconStyle:       "neon",
+		SidebarPosition: "RIGHT",
+	}
+	settings.normalize()
+
+	if settings.Theme.Mode != "light" {
+		t.Errorf("theme mode = %q, want light", settings.Theme.Mode)
+	}
+	if settings.Theme.Light != defaultThemeLight {
+		t.Errorf("light theme = %q, want %q", settings.Theme.Light, defaultThemeLight)
+	}
+	if settings.Theme.Dark != "Custom Dark" {
+		t.Errorf("dark theme = %q, want Custom Dark", settings.Theme.Dark)
+	}
+	if settings.UI.FontFamily != "Fira Sans" {
+		t.Errorf("ui font = %q, want Fira Sans", settings.UI.FontFamily)
+	}
+	if settings.UI.FontSize != defaultUIFontSize {
+		t.Errorf("ui font size = %v, want %v", settings.UI.FontSize, defaultUIFontSize)
+	}
+	if settings.UI.TabIcons {
+		t.Error("tab icons = true, want the explicit false")
+	}
+	if settings.UI.IconStyle != defaultUIIconStyle {
+		t.Errorf("icon style = %q, want %q", settings.UI.IconStyle, defaultUIIconStyle)
+	}
+	if settings.UI.SidebarPosition != "right" {
+		t.Errorf("sidebar position = %q, want right", settings.UI.SidebarPosition)
+	}
+}
+
+func TestUpdateThemeSettingsPersistsNormalizedValues(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	app := NewApp()
+
+	got, err := app.UpdateThemeSettings(ThemeSettings{Mode: "dark", Light: "", Dark: "  "})
+	if err != nil {
+		t.Fatalf("UpdateThemeSettings() error = %v", err)
+	}
+	if got.Mode != "dark" || got.Light != defaultThemeLight || got.Dark != defaultThemeDark {
+		t.Fatalf("UpdateThemeSettings() = %+v, want normalized defaults", got)
+	}
+
+	path, err := settingsFilePath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings, err := loadSettings(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.Theme != got {
+		t.Fatalf("stored theme = %+v, want %+v", settings.Theme, got)
+	}
+}
+
+func TestUpdateUISettingsPersistsNormalizedValues(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	app := NewApp()
+
+	got, err := app.UpdateUISettings(UISettings{
+		FontFamily:      "  IBM Plex Sans ",
+		FontSize:        15,
+		TabIcons:        false,
+		IconStyle:       "monochrome",
+		SidebarPosition: "right",
+	})
+	if err != nil {
+		t.Fatalf("UpdateUISettings() error = %v", err)
+	}
+	if got.FontFamily != "IBM Plex Sans" || got.FontSize != 15 || got.TabIcons {
+		t.Fatalf("UpdateUISettings() = %+v, want the stored values", got)
+	}
+	if got.IconStyle != "monochrome" || got.SidebarPosition != "right" {
+		t.Fatalf("UpdateUISettings() = %+v, want the selected layout", got)
+	}
+}

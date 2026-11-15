@@ -80,6 +80,15 @@ export function GetGitStatus(folders: string[] | null): $CancellablePromise<$mod
 }
 
 /**
+ * GetKeybindings returns the accepted bindings and any per-entry problems. The
+ * frontend installs the list and reports the error without losing the valid
+ * entries.
+ */
+export function GetKeybindings(): $CancellablePromise<$models.KeybindingsState> {
+    return $Call.ByID(3015840904);
+}
+
+/**
  * GetLaunchRequest hands the frontend the paths Kova was started with. The
  * frontend calls it once after attaching its listener, so anything passed in
  * before the UI was ready is still opened.
@@ -118,6 +127,14 @@ export function ListFiles(): $CancellablePromise<string[] | null> {
 }
 
 /**
+ * ListThemes returns the installed variants, with per-file errors rather than
+ * one failure for the whole folder.
+ */
+export function ListThemes(): $CancellablePromise<$models.ThemeCatalog> {
+    return $Call.ByID(3487303623);
+}
+
+/**
  * LoadDocument reads a file for the editor. Directories, special files,
  * oversized files and non-UTF-8 content are rejected with a message the UI can
  * show as-is, instead of rendering garbage. Supported image formats are
@@ -125,6 +142,22 @@ export function ListFiles(): $CancellablePromise<string[] | null> {
  */
 export function LoadDocument(path: string): $CancellablePromise<$models.Document> {
     return $Call.ByID(3916855336, path);
+}
+
+/**
+ * LoadTheme resolves one variant and returns the CSS and Monaco values that
+ * apply it. Missing style keys fall back to the matching built-in palette.
+ */
+export function LoadTheme(name: string): $CancellablePromise<$models.ThemePalette> {
+    return $Call.ByID(2120010470, name);
+}
+
+/**
+ * OpenDefaultSettings writes the defaults Kova would use on a fresh install to
+ * default-settings.json and opens it. It never touches the user's settings.json.
+ */
+export function OpenDefaultSettings(): $CancellablePromise<void> {
+    return $Call.ByID(2620863367);
 }
 
 /**
@@ -145,12 +178,28 @@ export function OpenFolderDialog(): $CancellablePromise<string> {
 }
 
 /**
+ * OpenKeybindings opens keybindings.json with the user's editor, creating the
+ * commented template on first use.
+ */
+export function OpenKeybindings(): $CancellablePromise<void> {
+    return $Call.ByID(292477838);
+}
+
+/**
  * OpenSettings opens settings.json in the editor named by the user's
  * environment, falling back to the platform's default file handler. The command
  * palette reports the error; the menu logs it.
  */
 export function OpenSettings(): $CancellablePromise<void> {
     return $Call.ByID(2024983644);
+}
+
+/**
+ * OpenThemesFolder reveals the user's themes directory, creating it with the
+ * built-in family when this is the first visit.
+ */
+export function OpenThemesFolder(): $CancellablePromise<void> {
+    return $Call.ByID(1095547067);
 }
 
 /**
@@ -241,6 +290,15 @@ export function SearchProject(request: $models.SearchRequest): $CancellablePromi
 }
 
 /**
+ * SetAppearanceMode moves the Appearance submenu's radio checkmark when the
+ * mode changed somewhere other than the native menu, such as the settings
+ * overlay or a custom keybinding.
+ */
+export function SetAppearanceMode(mode: string): $CancellablePromise<void> {
+    return $Call.ByID(4261762262, mode);
+}
+
+/**
  * SetSession records the tabs that should reopen on the next launch. The
  * frontend calls it whenever the tab list or the active tab changes.
  */
@@ -281,6 +339,32 @@ export function SetViewOption(option: string, checked: boolean): $CancellablePro
  */
 export function UpdateEditorSettings(editor: $models.EditorSettings): $CancellablePromise<$models.EditorSettings> {
     return $Call.ByID(3125471320, editor);
+}
+
+/**
+ * UpdateThemeSettings replaces the theme section of settings.json and returns
+ * the normalized result. The frontend calls it when the appearance mode or one
+ * of the selected palettes changes.
+ */
+export function UpdateThemeSettings(theme: $models.ThemeSettings): $CancellablePromise<$models.ThemeSettings> {
+    return $Call.ByID(1834452164, theme);
+}
+
+/**
+ * UpdateUISettings replaces the interface section of settings.json and returns
+ * the normalized result. Typography, icon style and sidebar side all travel
+ * through this one write path.
+ */
+export function UpdateUISettings(ui: $models.UISettings): $CancellablePromise<$models.UISettings> {
+    return $Call.ByID(379592115, ui);
+}
+
+/**
+ * WatchConfig starts the config watcher. The first call wins; later calls are
+ * no-ops, so the frontend can call it on every mount safely.
+ */
+export function WatchConfig(): $CancellablePromise<void> {
+    return $Call.ByID(441194558);
 }
 
 /**

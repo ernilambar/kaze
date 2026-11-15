@@ -94,6 +94,13 @@
         decorations.set(key, model.deltaDecorations(current, []));
     }
 
+    // cssColor reads the active theme's git colors. Monaco decorations need a
+    // literal color, so the CSS variable is resolved when the bar is drawn.
+    function cssColor(name: string, fallback: string): string {
+        const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return value === '' ? fallback : value;
+    }
+
     // updateDecorations recomputes the changed-line bars for one model. The
     // model owns its decorations, so switching tabs keeps every buffer's marks
     // and only the visible one is painted.
@@ -109,6 +116,8 @@
         }
 
         const changed = changedLines(baseline, model.getValue());
+        const addedColor = cssColor('--git-added', '#2ea043');
+        const modifiedColor = cssColor('--git-modified', '#1f6feb');
         const next = changed.map<monaco.editor.IModelDeltaDecoration>((entry) => ({
             range: {
                 startLineNumber: entry.line,
@@ -120,7 +129,7 @@
                 isWholeLine: true,
                 linesDecorationsClassName: `kova-gutter-${entry.kind}`,
                 overviewRuler: {
-                    color: entry.kind === 'added' ? '#2ea043' : '#1f6feb',
+                    color: entry.kind === 'added' ? addedColor : modifiedColor,
                     position: monaco.editor.OverviewRulerLane.Left,
                 },
             },

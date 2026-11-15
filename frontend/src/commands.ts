@@ -17,6 +17,12 @@ const EDIT_COMMANDS: readonly Command[] = [
     { id: 'trim-whitespace', name: 'Trim Trailing Whitespace', detail: 'Edit' },
 ];
 
+const APPEARANCE_COMMANDS: readonly Command[] = [
+    { id: 'appearance-system', name: 'Appearance: System', detail: 'View' },
+    { id: 'appearance-light', name: 'Appearance: Light', detail: 'View' },
+    { id: 'appearance-dark', name: 'Appearance: Dark', detail: 'View' },
+];
+
 const VIEW_COMMANDS: readonly Command[] = [
     { id: 'show-explorer', name: 'Show Explorer', detail: 'View' },
     { id: 'show-changes', name: 'Show Changes', detail: 'View' },
@@ -58,6 +64,7 @@ export const COMMANDS: readonly Command[] = [
     { id: 'save-as', name: 'Save As…', detail: 'File' },
     { id: 'save-all', name: 'Save All', detail: 'File' },
     { id: 'print', name: 'Print…', detail: 'File' },
+    { id: 'command-palette', name: 'Command Palette…', detail: 'View' },
     { id: 'quick-open', name: 'Quick Open…', detail: 'File' },
     { id: 'add-folder', name: 'Add Folder to Sidebar…', detail: 'File' },
     { id: 'close-all-folders', name: 'Close All Folders', detail: 'File' },
@@ -70,7 +77,12 @@ export const COMMANDS: readonly Command[] = [
     { id: 'copy-file-name', name: 'Copy File Name', detail: 'File' },
     ...EDIT_COMMANDS,
     ...VIEW_COMMANDS,
+    ...APPEARANCE_COMMANDS,
     { id: 'settings', name: 'Settings…', detail: 'Kova' },
+    { id: 'open-settings-json', name: 'Open Settings JSON', detail: 'Kova' },
+    { id: 'open-default-settings', name: 'Open Default Settings', detail: 'Kova' },
+    { id: 'open-themes-folder', name: 'Open Themes Folder', detail: 'Kova' },
+    { id: 'open-keybindings', name: 'Open Keybindings…', detail: 'Kova' },
     { id: 'install-command-line-tool', name: 'Install Command Line Tool…', detail: 'Kova' },
 ];
 

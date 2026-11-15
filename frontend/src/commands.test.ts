@@ -24,6 +24,10 @@ describe('rankCommands', () => {
 
         expect(matches.map((entry) => entry.id)).toEqual([
             'settings',
+            'open-keybindings',
+            'open-settings-json',
+            'open-themes-folder',
+            'open-default-settings',
             'install-command-line-tool',
         ]);
     });

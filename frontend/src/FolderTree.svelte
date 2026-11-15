@@ -17,6 +17,7 @@
         onOpenFile: (path: string) => void;
         onRemove?: (path: string) => void;
         onExpandedChange?: (path: string, open: boolean) => void;
+        iconStyle?: 'colorful' | 'monochrome';
     }
 
     let {
@@ -31,6 +32,7 @@
         onOpenFile,
         onRemove,
         onExpandedChange,
+        iconStyle = 'colorful',
     }: Props = $props();
 
     // `expanded` is only the initial state: a root starts open, and after that
@@ -162,6 +164,7 @@
                             {statuses}
                             {onOpenFile}
                             {onExpandedChange}
+                            {iconStyle}
                         />
                     {:else}
                         {@const icon = fileIcon(entry.name)}
@@ -177,7 +180,7 @@
                                     <span
                                         class="row__icon"
                                         aria-hidden="true"
-                                        style:color={icon.color}
+                                        style:color={iconStyle === 'monochrome' ? 'var(--fg-muted)' : icon.color}
                                         style:font-family={icon.family}
                                         style:font-size={`${icon.size}px`}
                                         style:top={`${icon.top}px`}
@@ -287,7 +290,7 @@
         margin-left: auto;
         padding: 0 4px;
         font-family: Menlo, monospace;
-        font-size: 11px;
+        font-size: var(--ui-font-small);
         font-weight: 600;
     }
 
@@ -345,7 +348,7 @@
         padding-top: 2px;
         padding-bottom: 4px;
         color: var(--fg-danger);
-        font-size: 12px;
+        font-size: calc(var(--ui-font-size) - 1px);
     }
 
     .node__empty {
@@ -353,7 +356,7 @@
         padding-top: 2px;
         padding-bottom: 4px;
         color: var(--fg-muted);
-        font-size: 12px;
+        font-size: calc(var(--ui-font-size) - 1px);
         font-style: italic;
     }
 </style>

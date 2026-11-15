@@ -35,6 +35,10 @@
 
 :root {
     color-scheme: dark;
+    --ui-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --ui-font-size: 13px;
+    --ui-font-small: calc(var(--ui-font-size) - 2px);
+    --ui-font-tiny: calc(var(--ui-font-size) - 3px);
     --bg: #1e1e1e;
     --bg-raised: #252526;
     --bg-sidebar: #1b1b1c;
@@ -65,8 +69,8 @@ body {
     overflow: hidden;
     background: var(--bg);
     color: var(--fg);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 13px;
+    font-family: var(--ui-font-family);
+    font-size: var(--ui-font-size);
 }
 
 /* Changed-line bars in Monaco's gutter. The decoration class lands on a

@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { OpenDocument } from './document';
+    import { fileIcon } from './fileIcons';
 
     interface Props {
         tabs: OpenDocument[];
@@ -12,6 +13,9 @@
         onClose: (id: string) => void;
         onSelectSearch?: () => void;
         onCloseSearch?: () => void;
+        // showIcons draws the file-type glyph next to each label.
+        showIcons?: boolean;
+        iconStyle?: 'colorful' | 'monochrome';
     }
 
     let {
@@ -23,6 +27,8 @@
         onClose,
         onSelectSearch,
         onCloseSearch,
+        showIcons = true,
+        iconStyle = 'colorful',
     }: Props = $props();
 
     function label(tab: OpenDocument): string {
@@ -36,7 +42,19 @@
 {#if tabs.length > 0 || searchOpen}
     <div class="tabs" role="tablist" aria-label="Open files">
         {#each tabs as tab (tab.id)}
+            {@const icon = fileIcon(tab.path || tab.name)}
             <div class="tab" class:tab--active={tab.id === activeId}>
+                {#if showIcons}
+                    <span
+                        class="tab__icon"
+                        aria-hidden="true"
+                        style:color={iconStyle === 'monochrome' ? 'var(--fg-muted)' : icon.color}
+                        style:font-family={icon.family}
+                        style:font-size={`${icon.size}px`}
+                        style:top={`${icon.top}px`}
+                        style:left={`${icon.left}px`}
+                    >{icon.glyph}</span>
+                {/if}
                 <button
                     class="tab__label"
                     role="tab"
@@ -123,6 +141,24 @@
 
     .tab--active:hover {
         background: var(--bg);
+    }
+
+    .tab__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        align-self: center;
+        width: 16px;
+        height: 16px;
+        margin-left: 8px;
+        position: relative;
+        line-height: 1;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    .tab__icon + .tab__label {
+        padding-left: 4px;
     }
 
     .tab__label {

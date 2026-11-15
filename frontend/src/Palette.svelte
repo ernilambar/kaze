@@ -152,7 +152,7 @@
         background: var(--bg-sidebar);
         color: var(--fg);
         font: inherit;
-        font-size: 14px;
+        font-size: calc(var(--ui-font-size) + 1px);
         outline: none;
     }
 
@@ -197,7 +197,7 @@
         flex: 0 1 auto;
         margin-left: auto;
         color: var(--fg-muted);
-        font-size: 11px;
+        font-size: var(--ui-font-small);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;

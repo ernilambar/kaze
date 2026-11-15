@@ -172,7 +172,6 @@ export function createEditor(
 ): monaco.editor.IStandaloneCodeEditor {
     return monaco.editor.create(container, {
         model,
-        theme: 'vs-dark',
         automaticLayout: true,
         ...editorOptions(settings),
     });

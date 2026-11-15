@@ -16,6 +16,13 @@ const (
 	defaultFontWeight  = 400.0
 	defaultTabSize     = 4
 	defaultCursorWidth = 1
+
+	defaultThemeMode    = "system"
+	defaultThemeLight   = "Kova Light"
+	defaultThemeDark    = "Kova Dark"
+	defaultUIFontSize   = 13.0
+	defaultUIIconStyle  = "colorful"
+	defaultSidebarPlace = "left"
 )
 
 // Settings is the contents of the user's settings.json file.
@@ -26,6 +33,8 @@ type Settings struct {
 	Search  SearchSettings  `json:"search"`
 	Recent  RecentSettings  `json:"recent"`
 	Session SessionSettings `json:"session"`
+	Theme   ThemeSettings   `json:"theme"`
+	UI      UISettings      `json:"ui"`
 }
 
 // EditorSettings tunes the Monaco editor instance. Booleans that default to
@@ -94,6 +103,25 @@ type SessionSettings struct {
 	Active    string   `json:"active"`
 }
 
+// ThemeSettings selects the palette. Mode is system, light or dark; the other
+// two name the variant to use for each appearance. Names are variant names,
+// matching the `name` field inside a Zed theme file.
+type ThemeSettings struct {
+	Mode  string `json:"mode"`
+	Light string `json:"light"`
+	Dark  string `json:"dark"`
+}
+
+// UISettings controls the chrome around the editor: typography, the explorer's
+// file icons and which side the sidebar opens on.
+type UISettings struct {
+	FontFamily      string  `json:"font_family"`
+	FontSize        float64 `json:"font_size"`
+	TabIcons        bool    `json:"tab_icons"`
+	IconStyle       string  `json:"icon_style"`
+	SidebarPosition string  `json:"sidebar_position"`
+}
+
 // maxRecentFiles caps the Open Recent list. More than a screenful is never
 // read, and the list is stored in settings.json.
 const maxRecentFiles = 20
@@ -137,6 +165,18 @@ func defaultSettings() Settings {
 		Search:  SearchSettings{Exclude: defaultExcludePatterns()},
 		Recent:  RecentSettings{Files: []string{}},
 		Session: SessionSettings{OpenFiles: []string{}},
+		Theme: ThemeSettings{
+			Mode:  defaultThemeMode,
+			Light: defaultThemeLight,
+			Dark:  defaultThemeDark,
+		},
+		UI: UISettings{
+			FontFamily:      "",
+			FontSize:        defaultUIFontSize,
+			TabIcons:        true,
+			IconStyle:       defaultUIIconStyle,
+			SidebarPosition: defaultSidebarPlace,
+		},
 	}
 }
 
@@ -178,6 +218,48 @@ func (s *Settings) normalize() {
 		s.Session.OpenFiles = s.Session.OpenFiles[:maxSessionFiles]
 	}
 	s.Session.Active = strings.TrimSpace(s.Session.Active)
+
+	s.Theme.Mode = normalizeThemeMode(s.Theme.Mode)
+	s.Theme.Light = strings.TrimSpace(s.Theme.Light)
+	if s.Theme.Light == "" {
+		s.Theme.Light = defaultThemeLight
+	}
+	s.Theme.Dark = strings.TrimSpace(s.Theme.Dark)
+	if s.Theme.Dark == "" {
+		s.Theme.Dark = defaultThemeDark
+	}
+
+	s.UI.FontFamily = strings.TrimSpace(s.UI.FontFamily)
+	if s.UI.FontSize <= 0 {
+		s.UI.FontSize = defaultUIFontSize
+	}
+	if s.UI.FontSize < 9 {
+		s.UI.FontSize = 9
+	}
+	if s.UI.FontSize > 48 {
+		s.UI.FontSize = 48
+	}
+	if !strings.EqualFold(s.UI.IconStyle, "monochrome") {
+		s.UI.IconStyle = defaultUIIconStyle
+	} else {
+		s.UI.IconStyle = "monochrome"
+	}
+	if !strings.EqualFold(s.UI.SidebarPosition, "right") {
+		s.UI.SidebarPosition = defaultSidebarPlace
+	} else {
+		s.UI.SidebarPosition = "right"
+	}
+}
+
+// normalizeThemeMode keeps the three supported modes and treats a typo as the
+// system default instead of leaving an unusable value in the file.
+func normalizeThemeMode(mode string) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "light", "dark":
+		return strings.ToLower(strings.TrimSpace(mode))
+	default:
+		return defaultThemeMode
+	}
 }
 
 // normalizePatternList trims the glob patterns and drops blanks. Duplicates are

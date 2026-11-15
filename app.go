@@ -38,9 +38,15 @@ type App struct {
 	settingsMu sync.Mutex
 
 	// viewItems are the View menu's checkable items by editor option name. They
-	// are built once, before Run, and let a toggle made from the command palette
+	// are rebuilt with the menu and let a toggle made from the command palette
 	// move the menu's checkmark to match.
 	viewItems map[string]*application.MenuItem
+	// appearanceItems are the Appearance submenu's radio items by mode, so a
+	// change made in the settings overlay moves the menu's checkmark.
+	appearanceItems map[string]*application.MenuItem
+	// meta is the bundle metadata, kept so a menu rebuild after a keybindings
+	// edit can use the same product name.
+	meta appMetadata
 
 	// unsaved is set by the frontend whenever any buffer holds edits that are
 	// not on disk. Closing the window or quitting asks the frontend first, so
@@ -58,11 +64,19 @@ type App struct {
 	// a path.
 	watcher   fileWatcher
 	watchOnce sync.Once
+
+	// configWatchOnce starts the themes/keybindings watcher on the frontend's
+	// first call.
+	configWatchOnce sync.Once
 }
 
 // NewApp creates a new App application struct.
 func NewApp() *App {
-	return &App{pending: emptyLaunchRequest(), viewItems: map[string]*application.MenuItem{}}
+	return &App{
+		pending:         emptyLaunchRequest(),
+		viewItems:       map[string]*application.MenuItem{},
+		appearanceItems: map[string]*application.MenuItem{},
+	}
 }
 
 // attach records the running application so dialogs, events and window calls
@@ -104,6 +118,64 @@ func (a *App) UpdateEditorSettings(editor EditorSettings) (EditorSettings, error
 		return settings.Editor, err
 	}
 	return settings.Editor, nil
+}
+
+// UpdateThemeSettings replaces the theme section of settings.json and returns
+// the normalized result. The frontend calls it when the appearance mode or one
+// of the selected palettes changes.
+func (a *App) UpdateThemeSettings(theme ThemeSettings) (ThemeSettings, error) {
+	path, err := settingsFilePath()
+	if err != nil {
+		return theme, err
+	}
+
+	a.settingsMu.Lock()
+	defer a.settingsMu.Unlock()
+
+	settings, err := loadSettings(path)
+	if err != nil {
+		return theme, err
+	}
+	settings.Theme = theme
+	settings.normalize()
+	if err := writeSettings(path, settings); err != nil {
+		return settings.Theme, err
+	}
+	return settings.Theme, nil
+}
+
+// UpdateUISettings replaces the interface section of settings.json and returns
+// the normalized result. Typography, icon style and sidebar side all travel
+// through this one write path.
+func (a *App) UpdateUISettings(ui UISettings) (UISettings, error) {
+	path, err := settingsFilePath()
+	if err != nil {
+		return ui, err
+	}
+
+	a.settingsMu.Lock()
+	defer a.settingsMu.Unlock()
+
+	settings, err := loadSettings(path)
+	if err != nil {
+		return ui, err
+	}
+	settings.UI = ui
+	settings.normalize()
+	if err := writeSettings(path, settings); err != nil {
+		return settings.UI, err
+	}
+	return settings.UI, nil
+}
+
+// SetAppearanceMode moves the Appearance submenu's radio checkmark when the
+// mode changed somewhere other than the native menu, such as the settings
+// overlay or a custom keybinding.
+func (a *App) SetAppearanceMode(mode string) {
+	mode = normalizeThemeMode(mode)
+	for id, item := range a.appearanceItems {
+		item.SetChecked(id == mode)
+	}
 }
 
 // SetViewOption moves one View menu checkmark. The frontend owns the editor
@@ -196,6 +268,20 @@ func (a *App) openSettingsFile() error {
 // palette reports the error; the menu logs it.
 func (a *App) OpenSettings() error {
 	return a.openSettingsFile()
+}
+
+// OpenDefaultSettings writes the defaults Kova would use on a fresh install to
+// default-settings.json and opens it. It never touches the user's settings.json.
+func (a *App) OpenDefaultSettings() error {
+	path, err := settingsFilePath()
+	if err != nil {
+		return err
+	}
+	defaultPath := filepath.Join(filepath.Dir(path), "default-settings.json")
+	if err := writeSettings(defaultPath, defaultSettings()); err != nil {
+		return err
+	}
+	return openInEditor(defaultPath)
 }
 
 // openSettingsFromMenu opens settings.json from the app menu. A menu click has
@@ -436,6 +522,18 @@ type ViewToggle struct {
 func (a *App) emitToggleView(option string, checked bool) {
 	a.emitEventWith(toggleViewEvent, ViewToggle{Option: option, Checked: checked})
 }
+
+// settingsOverlayEvent asks the frontend to open the settings overlay.
+const settingsOverlayEvent = "kova:settings-overlay"
+
+// emitSettingsOverlay tells the frontend to show the settings overlay.
+func (a *App) emitSettingsOverlay() { a.emitEvent(settingsOverlayEvent) }
+
+// appearanceEvent carries the mode the Appearance submenu selected.
+const appearanceEvent = "kova:appearance"
+
+// emitAppearance tells the frontend that the menu selected a new mode.
+func (a *App) emitAppearance(mode string) { a.emitEventWith(appearanceEvent, mode) }
 
 // GetLaunchRequest hands the frontend the paths Kova was started with. The
 // frontend calls it once after attaching its listener, so anything passed in

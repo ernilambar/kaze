@@ -189,7 +189,7 @@
 
     .search__input--small {
         height: 24px;
-        font-size: 12px;
+        font-size: calc(var(--ui-font-size) - 1px);
     }
 
     .search__toggle {
@@ -202,7 +202,7 @@
         background: none;
         color: var(--fg-muted);
         font: inherit;
-        font-size: 12px;
+        font-size: calc(var(--ui-font-size) - 1px);
         cursor: pointer;
     }
 
@@ -242,7 +242,7 @@
         flex: 0 0 auto;
         margin: 0;
         color: var(--fg-muted);
-        font-size: 12px;
+        font-size: calc(var(--ui-font-size) - 1px);
     }
 
     .search__error {
@@ -263,7 +263,7 @@
         gap: 8px;
         margin-top: 8px;
         padding: 2px 4px;
-        font-size: 12px;
+        font-size: calc(var(--ui-font-size) - 1px);
     }
 
     .search__file-name {
@@ -300,14 +300,14 @@
     .search__line {
         flex: 0 0 44px;
         color: var(--fg-muted);
-        font-size: 12px;
+        font-size: calc(var(--ui-font-size) - 1px);
         text-align: right;
     }
 
     .search__text {
         overflow: hidden;
         font-family: monospace;
-        font-size: 12px;
+        font-size: calc(var(--ui-font-size) - 1px);
         text-overflow: ellipsis;
         white-space: pre;
     }

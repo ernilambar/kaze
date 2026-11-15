@@ -92,7 +92,7 @@
     }
 
     .preview__page :global(a) {
-        color: #4daafc;
+        color: var(--link, #4daafc);
         text-decoration: none;
     }
 

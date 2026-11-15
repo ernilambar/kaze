@@ -1,10 +1,15 @@
 <script lang="ts">
+    import * as monaco from 'monaco-editor';
     import { onMount, tick } from 'svelte';
     import {
         CopyText,
+        GetKeybindings,
         InstallCommandLineTool,
+        OpenDefaultSettings,
         OpenFileDialog,
+        OpenKeybindings,
         OpenSettings,
+        OpenThemesFolder,
         PrintDocument,
         ReplaceInProject,
         ResolveClose,
@@ -12,8 +17,10 @@
         SaveDocument,
         SaveFileDialog,
         SearchProject,
+        SetAppearanceMode,
         SetUnsavedChanges,
         SetViewOption,
+        WatchConfig,
     } from '../bindings/kova/app';
     import type { SaveResult, SearchMatch } from '../bindings/kova/models';
     import { CASE_TRANSFORMS, type CaseTransform } from './case';
@@ -24,11 +31,12 @@
     import Palette from './Palette.svelte';
     import Prompt from './Prompt.svelte';
     import SearchPanel from './SearchPanel.svelte';
+    import SettingsOverlay from './SettingsOverlay.svelte';
     import Sidebar from './Sidebar.svelte';
     import StatusBar from './StatusBar.svelte';
     import TabBar from './TabBar.svelte';
     import TitleBar from './TitleBar.svelte';
-    import { listenForCommandPalette, rankCommands } from './commands';
+    import { COMMANDS, listenForCommandPalette, rankCommands } from './commands';
     import {
         createDiffDocument,
         createUntitledDocument,
@@ -72,10 +80,36 @@
     import { groupSearchMatches, searchSummary } from './search';
     import {
         defaultEditorSettings,
+        defaultThemeSettings,
+        defaultUISettings,
         loadEditorSettings,
+        loadPreferences,
         saveEditorSettings,
+        saveThemeSettings,
+        saveUISettings,
         type EditorSettings,
+        type ThemeSettings,
+        type UISettings,
     } from './settings';
+    import {
+        installKeybindings,
+        isUsableBinding,
+        type KeyContext,
+    } from './keybindings';
+    import {
+        applyThemeCSS,
+        applyUISettings,
+        listThemes,
+        listenForAppearance,
+        listenForConfigChanges,
+        listenForSettingsOverlay,
+        loadTheme,
+        resolveThemeName,
+        systemPrefersDark,
+        themeData,
+        type ThemeInfo,
+        type ThemePalette,
+    } from './theme';
     import {
         addSidebarFolder,
         closeAllSidebarFolders,
@@ -160,6 +194,13 @@
     let gitChanges = $state<GitChange[]>([]);
 
     let editorSettings = $state<EditorSettings>({ ...defaultEditorSettings });
+    let themeSettings = $state<ThemeSettings>({ ...defaultThemeSettings });
+    let uiSettings = $state<UISettings>({ ...defaultUISettings });
+    let themes = $state<ThemeInfo[]>([]);
+    let themeErrors = $state<string[]>([]);
+    let settingsOverlay = $state(false);
+    let keybindingError = $state('');
+    let disposeKeybindings: (() => void) | undefined;
     let preview = $state<PreviewState | null>(null);
 
     let quickOpen = $state(false);
@@ -238,6 +279,9 @@
         repoForPath(gitRepos, active?.path || active?.sourcePath || ''),
     );
     let branch = $derived(branchLabel(activeRepo));
+    let settingsWarning = $derived(
+        keybindingError !== '' ? keybindingError : (themeErrors[0] ?? ''),
+    );
     let imageSizeLabel = $derived(
         imageSize !== null && imageSize.id === activeId
             ? `${imageSize.width} × ${imageSize.height}`
@@ -722,6 +766,183 @@
         }
     }
 
+    // Theme application: CSS variables cover the app chrome; Monaco gets its
+    // own theme definition. A stable name per palette lets a live reload
+    // replace the data and re-select the same theme.
+    function applyThemePalette(palette: ThemePalette): void {
+        applyThemeCSS(palette);
+        const name = `kova-${palette.name.replace(/[^A-Za-z0-9_-]/g, '-')}`;
+        monaco.editor.defineTheme(name, themeData(palette));
+        monaco.editor.setTheme(name);
+    }
+
+    async function applyCurrentTheme(): Promise<void> {
+        const prefersDark = systemPrefersDark();
+        const name = resolveThemeName(themeSettings, prefersDark);
+        try {
+            applyThemePalette(await loadTheme(name));
+            return;
+        } catch (error) {
+            console.error('Failed to apply the selected theme.', error);
+        }
+        const fallback = prefersDark ? 'Kova Dark' : 'Kova Light';
+        try {
+            applyThemePalette(await loadTheme(fallback));
+            notice = `Theme "${name}" is unavailable.`;
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
+    // refreshThemes lists installed themes and repairs a name that no longer
+    // exists. The first theme for an appearance is the fallback, so deleting a
+    // theme file does not leave Kova stuck on the old palette.
+    async function refreshThemes(): Promise<void> {
+        try {
+            const catalog = await listThemes();
+            themes = catalog.themes;
+            themeErrors = catalog.errors;
+            const lightFallback = catalog.themes.find(
+                (entry) => entry.appearance === 'light',
+            )?.name;
+            const darkFallback = catalog.themes.find(
+                (entry) => entry.appearance === 'dark',
+            )?.name;
+            const names = new Set(catalog.themes.map((entry) => entry.name));
+            let next = themeSettings;
+            if (!names.has(next.light) && lightFallback !== undefined) {
+                next = { ...next, light: lightFallback };
+            }
+            if (!names.has(next.dark) && darkFallback !== undefined) {
+                next = { ...next, dark: darkFallback };
+            }
+            if (next.light !== themeSettings.light || next.dark !== themeSettings.dark) {
+                themeSettings = next;
+                themeSettings = await saveThemeSettings(next);
+            }
+            if (themeErrors.length > 0) {
+                notice = themeErrors[0];
+            }
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
+    async function changeThemeSettings(next: ThemeSettings): Promise<void> {
+        themeSettings = next;
+        void SetAppearanceMode(next.mode).catch((error) =>
+            console.error('Failed to update the Appearance menu.', error),
+        );
+        await applyCurrentTheme();
+        try {
+            themeSettings = await saveThemeSettings(next);
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
+    async function changeUISettings(next: UISettings): Promise<void> {
+        uiSettings = next;
+        applyUISettings(next);
+        try {
+            uiSettings = await saveUISettings(next);
+            applyUISettings(uiSettings);
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
+    function showSettingsOverlay(): void {
+        settingsOverlay = true;
+    }
+
+    function closeSettingsOverlay(): void {
+        settingsOverlay = false;
+    }
+
+    async function openDefaultSettings(): Promise<void> {
+        try {
+            await OpenDefaultSettings();
+            notice = '';
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
+    async function openThemesFolder(): Promise<void> {
+        try {
+            await OpenThemesFolder();
+            notice = '';
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
+    async function openKeybindings(): Promise<void> {
+        try {
+            await OpenKeybindings();
+            notice = '';
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
+    // keybindingContext is what a `when` expression can test. Focus inside
+    // Monaco's textarea still counts as editor focus.
+    function keybindingContext(): KeyContext {
+        const focused = document.activeElement;
+        return {
+            editorFocus: focused instanceof Element && focused.closest('.monaco-editor') !== null,
+            sidebarVisible,
+            hasActiveTab: activeId !== '',
+            hasDirtyTab: unsaved,
+        };
+    }
+
+    function knownCommand(id: string): boolean {
+        return COMMANDS.some((command) => command.id === id);
+    }
+
+    function runKeybindingCommand(id: string): void {
+        if (!knownCommand(id)) {
+            notice = `Unknown keybinding command: ${id}`;
+            return;
+        }
+        selectCommand(id);
+    }
+
+    async function refreshKeybindings(): Promise<void> {
+        let state;
+        try {
+            state = await GetKeybindings();
+        } catch (error) {
+            keybindingError = errorMessage(error);
+            return;
+        }
+        keybindingError = state.error;
+        // A broken file did not decode; keep the previous listener and native
+        // menu rather than silently dropping every shortcut. A file that
+        // decoded has an authoritative list even when entries were rejected.
+        if (!state.parsed) {
+            return;
+        }
+        const bindings = state.bindings ?? [];
+        const actionable = bindings.filter((binding) => !binding.command.startsWith('-'));
+        const usable = actionable.filter(isUsableBinding);
+        if (usable.length < actionable.length) {
+            const dropped = actionable.length - usable.length;
+            keybindingError = `${keybindingError === '' ? '' : `${keybindingError}; `}${dropped} binding(s) need a modifier or a non-printing key`;
+        }
+        disposeKeybindings?.();
+        disposeKeybindings = installKeybindings(usable, {
+            run: runKeybindingCommand,
+            context: keybindingContext,
+        });
+        if (keybindingError !== '') {
+            notice = keybindingError;
+        }
+    }
+
     // printActive prints the active buffer: text comes from the editor so an
     // unsaved edit prints as it looks, pictures come from their file.
     async function printActive(): Promise<void> {
@@ -928,8 +1149,31 @@
                     void closeTab(activeId);
                 }
                 break;
+            case 'command-palette':
+                showCommandPalette();
+                break;
             case 'settings':
+                showSettingsOverlay();
+                break;
+            case 'open-settings-json':
                 void openSettings();
+                break;
+            case 'open-default-settings':
+                void openDefaultSettings();
+                break;
+            case 'open-themes-folder':
+                void openThemesFolder();
+                break;
+            case 'open-keybindings':
+                void openKeybindings();
+                break;
+            case 'appearance-system':
+            case 'appearance-light':
+            case 'appearance-dark':
+                void changeThemeSettings({
+                    ...themeSettings,
+                    mode: id.slice('appearance-'.length) as ThemeSettings['mode'],
+                });
                 break;
             case 'install-command-line-tool':
                 void installCommandLineTool();
@@ -1413,7 +1657,18 @@
         let unsubscribeWatched: (() => void) | undefined;
         let unsubscribeWorkspace: (() => void) | undefined;
         let unsubscribeTabs: (() => void) | undefined;
+        let unsubscribeConfig: (() => void) | undefined;
+        let unsubscribeAppearance: (() => void) | undefined;
+        let unsubscribeSettings: (() => void) | undefined;
+        let systemTheme: MediaQueryList | undefined;
         let disposed = false;
+
+        // System mode follows the OS appearance without a restart.
+        const onSystemTheme = (): void => {
+            if (themeSettings.mode === 'system') {
+                void applyCurrentTheme();
+            }
+        };
 
         void (async () => {
             const workspace = await loadWorkspaceState();
@@ -1433,6 +1688,19 @@
                 return;
             }
             editorSettings = loaded;
+
+            const preferences = await loadPreferences();
+            if (disposed) {
+                return;
+            }
+            themeSettings = preferences.theme;
+            uiSettings = preferences.ui;
+            applyUISettings(uiSettings);
+            await refreshThemes();
+            await applyCurrentTheme();
+            void SetAppearanceMode(themeSettings.mode).catch((error) =>
+                console.error('Failed to update the Appearance menu.', error),
+            );
 
             const off = await listenForLaunch((request) => void applyLaunch(request));
             if (disposed) {
@@ -1483,6 +1751,26 @@
                 reopen: () => void reopenClosedTab(),
                 goToTab,
             });
+            unsubscribeConfig = listenForConfigChanges((change) => {
+                if (change.themes) {
+                    void (async () => {
+                        await refreshThemes();
+                        await applyCurrentTheme();
+                    })();
+                }
+                if (change.keybindings) {
+                    void refreshKeybindings();
+                }
+            });
+            unsubscribeAppearance = listenForAppearance((mode) =>
+                void changeThemeSettings({ ...themeSettings, mode }),
+            );
+            unsubscribeSettings = listenForSettingsOverlay(showSettingsOverlay);
+            await refreshKeybindings();
+            void WatchConfig();
+
+            systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+            systemTheme.addEventListener('change', onSystemTheme);
         })();
 
         return () => {
@@ -1498,13 +1786,18 @@
             unsubscribeWatched?.();
             unsubscribeWorkspace?.();
             unsubscribeTabs?.();
+            unsubscribeConfig?.();
+            unsubscribeAppearance?.();
+            unsubscribeSettings?.();
+            systemTheme?.removeEventListener('change', onSystemTheme);
+            disposeKeybindings?.();
         };
     });
 </script>
 
 <div class="app">
     <TitleBar appName={APP_NAME} fileName={shownName(active)} folderLabel={folderLabel} />
-    <div class="app__body">
+    <div class="app__body" class:app__body--sidebar-right={uiSettings.sidebarPosition === 'right'}>
         <div class="app__sidebar" class:app__sidebar--hidden={!sidebarVisible}>
             {#if sidebarView === 'changes'}
                 <ChangesView
@@ -1520,6 +1813,7 @@
                     {busy}
                     refreshToken={treeRefreshToken}
                     statuses={gitStatuses}
+                    iconStyle={uiSettings.iconStyle}
                     onAddFolder={() => void addFolderFromDialog()}
                     onRemoveFolder={(path) => void removeFolder(path)}
                     onOpenFile={(path) => void openFile(path)}
@@ -1531,6 +1825,8 @@
             <TabBar
                 {tabs}
                 activeId={activeId}
+                showIcons={uiSettings.tabIcons}
+                iconStyle={uiSettings.iconStyle}
                 searchOpen={searchOpen}
                 searchActive={searchActive}
                 onSelect={(id) => {
@@ -1676,6 +1972,21 @@
             onCancel={() => answerConflict(false)}
         />
     {/if}
+    {#if settingsOverlay}
+        <SettingsOverlay
+            theme={themeSettings}
+            ui={uiSettings}
+            {themes}
+            warning={settingsWarning}
+            onTheme={(next) => void changeThemeSettings(next)}
+            onUI={(next) => void changeUISettings(next)}
+            onOpenSettings={() => void openSettings()}
+            onOpenDefaults={() => void openDefaultSettings()}
+            onOpenThemes={() => void openThemesFolder()}
+            onOpenKeybindings={() => void openKeybindings()}
+            onClose={closeSettingsOverlay}
+        />
+    {/if}
 </div>
 
 <style>
@@ -1689,6 +2000,16 @@
         display: flex;
         flex: 1 1 auto;
         min-height: 0;
+    }
+
+    .app__body--sidebar-right {
+        flex-direction: row-reverse;
+    }
+
+    .app__body--sidebar-right .app__sidebar :global(.sidebar),
+    .app__body--sidebar-right .app__sidebar :global(.changes) {
+        border-right: none;
+        border-left: 1px solid var(--border);
     }
 
     .app__sidebar {

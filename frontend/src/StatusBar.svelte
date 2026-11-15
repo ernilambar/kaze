@@ -120,7 +120,7 @@ let {
         background: none;
         color: var(--fg-muted);
         font: inherit;
-        font-size: 11px;
+        font-size: var(--ui-font-small);
         cursor: pointer;
     }
 
@@ -139,7 +139,7 @@ let {
         border-radius: 7px;
         background: var(--bg-hover);
         color: var(--fg);
-        font-size: 10px;
+        font-size: var(--ui-font-tiny);
         line-height: 14px;
         text-align: center;
     }

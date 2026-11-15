@@ -87,7 +87,7 @@
 
     .changes__title {
         color: var(--fg-muted);
-        font-size: 11px;
+        font-size: var(--ui-font-small);
         font-weight: 600;
         letter-spacing: 0.06em;
         text-transform: uppercase;
@@ -153,7 +153,7 @@
         flex: 0 0 auto;
         width: 12px;
         font-family: Menlo, monospace;
-        font-size: 12px;
+        font-size: calc(var(--ui-font-size) - 1px);
         font-weight: 600;
         text-align: center;
     }
