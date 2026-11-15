@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -34,6 +35,12 @@ type Document struct {
 	Kind    string `json:"kind"`
 	Content string `json:"content"`
 	Src     string `json:"src"`
+	// Modified is the file's mtime in Unix milliseconds when the content was
+	// read. The frontend hands it back on save, so a write never silently
+	// overwrites a change another program made. Milliseconds, not nanoseconds:
+	// the value travels through JavaScript, whose numbers lose precision above
+	// 2^53.
+	Modified int64 `json:"modified"`
 }
 
 // imageMIMETypes are the formats the viewer can display, keyed by lower-case
@@ -69,6 +76,7 @@ func loadDocument(path string) (Document, error) {
 		return Document{}, err
 	}
 	name := filepath.Base(path)
+	modified := info.ModTime().UnixMilli()
 	switch {
 	case info.IsDir():
 		return Document{}, fmt.Errorf("%s is a folder", name)
@@ -80,7 +88,7 @@ func loadDocument(path string) (Document, error) {
 		if info.Size() > maxImageSize {
 			return Document{}, fmt.Errorf("%s is larger than %d MB", name, maxImageSize>>20)
 		}
-		return loadImage(path, name, mimeType)
+		return loadImage(path, name, mimeType, modified)
 	}
 
 	if info.Size() > maxDocumentSize {
@@ -95,22 +103,41 @@ func loadDocument(path string) (Document, error) {
 		return Document{}, fmt.Errorf("%s is not a text file", name)
 	}
 
-	return Document{Path: path, Name: name, Kind: documentKindText, Content: string(data)}, nil
+	return Document{
+		Path:     path,
+		Name:     name,
+		Kind:     documentKindText,
+		Content:  string(data),
+		Modified: modified,
+	}, nil
 }
 
 // loadImage reads an image and returns it as a data URL. Sending the bytes
 // inline keeps the viewer out of the filesystem, matching how text documents
 // are loaded, and works for formats the asset server cannot map to a path.
-func loadImage(path, name, mimeType string) (Document, error) {
+func loadImage(path, name, mimeType string, modified int64) (Document, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Document{}, err
 	}
 	encoded := base64.StdEncoding.EncodeToString(data)
 	return Document{
-		Path: path,
-		Name: name,
-		Kind: documentKindImage,
-		Src:  "data:" + mimeType + ";base64," + encoded,
+		Path:     path,
+		Name:     name,
+		Kind:     documentKindImage,
+		Src:      "data:" + mimeType + ";base64," + encoded,
+		Modified: modified,
 	}, nil
+}
+
+// OpenFileDialog asks for one file to open. An empty string means the user
+// cancelled, which is not an error. No filter is added, so images can be picked
+// for the viewer and text files for the editor from the same dialog.
+func (a *App) OpenFileDialog() (string, error) {
+	if a.wails == nil {
+		return "", errors.New("file dialog is not available before startup")
+	}
+	return a.wails.Dialog.OpenFile().
+		SetTitle("Open File").
+		PromptForSingleSelection()
 }

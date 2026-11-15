@@ -32,9 +32,32 @@ func appMenu(m *application.Menu, name string, app *App) {
 	m.Add("Quit " + name).SetAccelerator("CmdOrCtrl+q").OnClick(func(*application.Context) { app.quit() })
 }
 
-// fileMenu holds the window commands. Adding a folder and closing a tab are
-// window actions, so they live here rather than in the app menu.
+// fileMenu holds the document and window commands. Buffers, their paths and
+// their tabs live in the frontend, so every item forwards a command instead of
+// acting on the file itself.
 func fileMenu(m *application.Menu, app *App) {
+	m.Add("New File").SetAccelerator("CmdOrCtrl+n").OnClick(func(*application.Context) {
+		app.emitNewFile()
+	})
+	m.Add("Open…").SetAccelerator("CmdOrCtrl+o").OnClick(func(*application.Context) {
+		app.emitOpenFile()
+	})
+	m.AddSeparator()
+	m.Add("Save").SetAccelerator("CmdOrCtrl+s").OnClick(func(*application.Context) {
+		app.emitSave()
+	})
+	m.Add("Save As…").SetAccelerator("CmdOrCtrl+Shift+s").OnClick(func(*application.Context) {
+		app.emitSaveAs()
+	})
+	m.Add("Save All").SetAccelerator("CmdOrCtrl+Alt+s").OnClick(func(*application.Context) {
+		app.emitSaveAll()
+	})
+	m.AddSeparator()
+	// Print deliberately has no shortcut: Cmd+P is Quick Open.
+	m.Add("Print…").OnClick(func(*application.Context) {
+		app.emitPrint()
+	})
+	m.AddSeparator()
 	m.Add("Command Palette…").SetAccelerator("CmdOrCtrl+Shift+p").OnClick(func(*application.Context) {
 		app.emitCommandPalette()
 	})
@@ -80,6 +103,15 @@ func main() {
 		Services: []application.Service{
 			application.NewService(app),
 		},
+		// Quitting with unsaved buffers is the frontend's decision: macOS asks
+		// this first, and a false answer keeps the app alive until the user has
+		// saved, discarded, or cancelled.
+		ShouldQuit: app.shouldQuit,
+		Mac: application.MacOptions{
+			// The window is the app. Closing it ends the app instead of leaving
+			// a process with no window to reopen.
+			ApplicationShouldTerminateAfterLastWindowClosed: true,
+		},
 		// One window, one document set: a second `kova <file>` from the terminal
 		// or Finder hands its paths to the instance already running.
 		SingleInstance: &application.SingleInstanceOptions{
@@ -116,6 +148,16 @@ func main() {
 		BackgroundColour:   application.NewRGB(30, 30, 30),
 		URL:                "/",
 		UseApplicationMenu: true,
+	})
+
+	// The red close button bypasses ShouldQuit, so it gets the same guard: the
+	// close is cancelled and the frontend decides before the window goes away.
+	app.window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
+		if app.allowClose() {
+			return
+		}
+		event.Cancel()
+		app.requestClose()
 	})
 
 	if err := wailsApp.Run(); err != nil {

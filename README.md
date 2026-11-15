@@ -2,6 +2,22 @@
 
 A minimal text editor for macOS.
 
+## Files
+
+**File → New File** (<kbd>Cmd</kbd>+<kbd>N</kbd>) opens an empty buffer, and its
+first **Save** asks where to put it. **Open…** (<kbd>Cmd</kbd>+<kbd>O</kbd>) picks
+a file from disk; **Save** (<kbd>Cmd</kbd>+<kbd>S</kbd>), **Save As…**
+(<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>) and **Save All**
+(<kbd>Cmd</kbd>+<kbd>Alt</kbd>+<kbd>S</kbd>) write buffers back.
+
+A buffer with edits that are not on disk shows a dot on its tab. Closing that
+tab, closing the window or quitting asks whether to save first. Saving a file
+another program changed in the meantime warns before overwriting it, so the
+other program's work is never lost by accident.
+
+**Print…** opens the macOS print panel for the active buffer, laid out in the
+editor font; images print scaled to one page.
+
 ## Sidebar
 
 Add folders with the `+` button in the sidebar header or
@@ -22,7 +38,8 @@ limitations, and [docs/settings.md](docs/settings.md) for the saved format.
 Every opened file gets a tab above the editor. Click a tab to switch to it, or
 close it with its `×` or **File → Close Tab** (<kbd>Cmd</kbd>+<kbd>W</kbd>).
 Each tab keeps its own buffer and undo history, so switching away and back does
-not lose edits. Closing the last tab returns to the welcome buffer.
+not lose edits, and a dot marks a buffer with unsaved changes. Closing the last
+tab returns to the welcome buffer.
 
 ## Images
 
@@ -43,11 +60,12 @@ the arrow keys, and press <kbd>Enter</kbd> to open the selected file;
 ## Command palette
 
 Press **File → Command Palette…** (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>)
-to run a command by name. It lists the same actions as the menus—Quick Open,
-adding a folder, closing a tab, Settings, and installing the command line
-tool—and ranks matches exactly like Quick Open. Type to narrow the list, use
-the arrow keys to move, and press <kbd>Enter</kbd> to run the selected command;
-<kbd>Esc</kbd> dismisses the palette.
+to run a command by name. It lists the same actions as the menus—new file,
+open, save, save as, save all, print, Quick Open, adding a folder, closing a
+tab, Settings, and installing the command line tool—and ranks matches exactly
+like Quick Open. Type to narrow the list, use the arrow keys to move, and press
+<kbd>Enter</kbd> to run the selected command; <kbd>Esc</kbd> dismisses the
+palette.
 
 ## Command line
 

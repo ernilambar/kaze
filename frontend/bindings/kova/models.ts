@@ -12,6 +12,15 @@ export interface Document {
     "kind": string;
     "content": string;
     "src": string;
+
+    /**
+     * Modified is the file's mtime in Unix milliseconds when the content was
+     * read. The frontend hands it back on save, so a write never silently
+     * overwrites a change another program made. Milliseconds, not nanoseconds:
+     * the value travels through JavaScript, whose numbers lose precision above
+     * 2^53.
+     */
+    "modified": number;
 }
 
 /**
@@ -43,6 +52,49 @@ export interface LaunchRequest {
     "files": string[] | null;
     "folders": string[] | null;
     "missing": string[] | null;
+}
+
+/**
+ * PrintRequest is the buffer to print. An image prints from Path, which lets
+ * the print panel read the file at its full resolution; text prints from
+ * Content, so an unsaved edit appears on paper exactly as it does on screen.
+ */
+export interface PrintRequest {
+    "path": string;
+    "content": string;
+
+    /**
+     * Image picks the picture at Path over the text in Content. The frontend
+     * knows the tab's kind, which is more reliable than guessing from the
+     * extension after a Save As renamed the buffer.
+     */
+    "image": boolean;
+}
+
+/**
+ * SaveRequest is one buffer on its way to disk. ExpectedModified is the mtime
+ * LoadDocument reported for the file the buffer was read from; a mismatch means
+ * another program wrote it in the meantime, and nothing is written. Overwrite
+ * skips that check, once the user has been told.
+ */
+export interface SaveRequest {
+    "path": string;
+    "content": string;
+    "expected_modified": number;
+    "overwrite": boolean;
+}
+
+/**
+ * SaveResult reports what a save did. A Conflict means the buffer was not
+ * written and the user has to decide whether to overwrite; the other fields are
+ * then the file that caused it. Path and Name describe where the text belongs,
+ * so Save As can move a buffer to its new home in one step.
+ */
+export interface SaveResult {
+    "path": string;
+    "name": string;
+    "modified": number;
+    "conflict": boolean;
 }
 
 /**

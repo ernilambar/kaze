@@ -22,6 +22,11 @@ func TestLoadDocumentReadsTextFile(t *testing.T) {
 	}
 
 	want := Document{Path: path, Name: "notes.txt", Kind: documentKindText, Content: "first\nsecond\n"}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat file: %v", err)
+	}
+	want.Modified = info.ModTime().UnixMilli()
 	if doc != want {
 		t.Fatalf("loadDocument() = %+v, want %+v", doc, want)
 	}

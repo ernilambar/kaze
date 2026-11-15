@@ -14,3 +14,30 @@ func TestMenuCommandsBeforeAttachAreNoOps(t *testing.T) {
 	app.emitCommandPalette()
 	app.quit()
 }
+
+func TestQuitGuardAsksBeforeDroppingUnsavedBuffers(t *testing.T) {
+	app := NewApp()
+
+	// Nothing modified: quitting needs no prompt.
+	if !app.shouldQuit() {
+		t.Fatal("shouldQuit() = false with no unsaved buffers")
+	}
+
+	app.SetUnsavedChanges(true)
+	if app.shouldQuit() {
+		t.Fatal("shouldQuit() = true, want unsaved buffers to hold the quit")
+	}
+
+	// Cancelling the prompt clears the request so the next quit asks again.
+	app.ResolveClose(false)
+	if app.closeRequested.Load() {
+		t.Fatal("closeRequested = true after a cancelled prompt")
+	}
+
+	// Confirming lets the guarded quit through. Tests never attach a runtime,
+	// so the quit itself must stay a no-op.
+	app.ResolveClose(true)
+	if !app.shouldQuit() {
+		t.Fatal("shouldQuit() = false after the user confirmed the quit")
+	}
+}

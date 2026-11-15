@@ -3,30 +3,37 @@
 
     interface Props {
         tabs: OpenDocument[];
-        activePath: string;
-        onSelect: (path: string) => void;
-        onClose: (path: string) => void;
+        activeId: string;
+        onSelect: (id: string) => void;
+        onClose: (id: string) => void;
     }
 
-    let { tabs, activePath, onSelect, onClose }: Props = $props();
+    let { tabs, activeId, onSelect, onClose }: Props = $props();
+
+    function label(tab: OpenDocument): string {
+        return tab.path !== '' ? tab.path : `${tab.name} (unsaved)`;
+    }
 </script>
 
 {#if tabs.length > 0}
     <div class="tabs" role="tablist" aria-label="Open files">
-        {#each tabs as tab (tab.path)}
-            <div class="tab" class:tab--active={tab.path === activePath}>
+        {#each tabs as tab (tab.id)}
+            <div class="tab" class:tab--active={tab.id === activeId}>
                 <button
                     class="tab__label"
                     role="tab"
-                    aria-selected={tab.path === activePath}
-                    title={tab.path}
-                    onclick={() => onSelect(tab.path)}
+                    aria-selected={tab.id === activeId}
+                    title={label(tab)}
+                    onclick={() => onSelect(tab.id)}
                 >{tab.name}</button>
+                {#if tab.dirty}
+                    <span class="tab__dot" role="img" aria-label="Unsaved changes" title="Unsaved changes"></span>
+                {/if}
                 <button
                     class="tab__close"
                     aria-label={`Close ${tab.name}`}
                     title={`Close ${tab.name}`}
-                    onclick={() => onClose(tab.path)}
+                    onclick={() => onClose(tab.id)}
                 >
                     <svg aria-hidden="true" height="8" viewBox="0 0 8 8" width="8">
                         <path d="M1 1 L7 7 M7 1 L1 7" fill="none" stroke="currentColor" stroke-width="1.2" />
@@ -100,6 +107,22 @@
         outline-offset: -2px;
     }
 
+    /* A modified buffer shows a dot where the close button will appear, so a
+       tab keeps one width whether it can be closed or only saved. */
+    .tab__dot {
+        flex: 0 0 auto;
+        align-self: center;
+        width: 7px;
+        height: 7px;
+        margin-right: 8px;
+        border-radius: 50%;
+        background: currentColor;
+    }
+
+    .tab:hover .tab__dot {
+        display: none;
+    }
+
     .tab__close {
         display: inline-flex;
         align-items: center;
@@ -115,7 +138,6 @@
     }
 
     .tab:hover .tab__close,
-    .tab--active .tab__close,
     .tab__close:focus-visible {
         opacity: 1;
     }

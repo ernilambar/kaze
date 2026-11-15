@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -35,6 +36,17 @@ type App struct {
 	// folder changes at once would otherwise read the same list and one of them
 	// would be lost.
 	settingsMu sync.Mutex
+
+	// unsaved is set by the frontend whenever any buffer holds edits that are
+	// not on disk. Closing the window or quitting asks the frontend first, so
+	// the guard can reject the request and let the user decide.
+	unsaved atomic.Bool
+	// confirmed records that the frontend answered a close request with "go
+	// ahead", so the guard stands aside for the quit it asked for.
+	confirmed atomic.Bool
+	// closeRequested keeps a second Cmd+Q or a close click from stacking a
+	// second prompt on the one the frontend is already showing.
+	closeRequested atomic.Bool
 }
 
 // NewApp creates a new App application struct.
@@ -150,6 +162,48 @@ func (a *App) openSettingsFromMenu() {
 	}
 }
 
+// SetUnsavedChanges records whether any open buffer has edits that are not on
+// disk yet. The frontend pushes it whenever that answer changes, so a close or
+// quit can tell whether it must ask before throwing work away.
+func (a *App) SetUnsavedChanges(unsaved bool) {
+	a.unsaved.Store(unsaved)
+}
+
+// allowClose reports whether the app may go away without asking the frontend.
+func (a *App) allowClose() bool {
+	return !a.unsaved.Load() || a.confirmed.Load()
+}
+
+// shouldQuit answers macOS's terminate request. Unsaved buffers cancel the
+// quit and hand the decision to the frontend, which shows one prompt and then
+// answers with ResolveClose.
+func (a *App) shouldQuit() bool {
+	if a.allowClose() {
+		return true
+	}
+	a.requestClose()
+	return false
+}
+
+// requestClose asks the frontend to confirm before unsaved edits are lost.
+func (a *App) requestClose() {
+	if a.wails == nil || !a.closeRequested.CompareAndSwap(false, true) {
+		return
+	}
+	a.emitCloseRequest()
+}
+
+// ResolveClose answers a close request. Cancelling clears the request so the
+// next Cmd+Q asks again; quitting records the answer and terminates.
+func (a *App) ResolveClose(quit bool) {
+	a.closeRequested.Store(false)
+	if !quit {
+		return
+	}
+	a.confirmed.Store(true)
+	a.quit()
+}
+
 // quit shuts the app down so its shutdown path runs.
 func (a *App) quit() {
 	if a.wails != nil {
@@ -202,6 +256,43 @@ const commandPaletteEvent = "kova:command-palette"
 func (a *App) emitCommandPalette() {
 	a.emitEvent(commandPaletteEvent)
 }
+
+// The file menu's commands are frontend state: buffers, their dirty flags and
+// their paths all live in the UI, so Go only forwards each click. One name per
+// command keeps the menu and the App listener honest about what exists.
+const (
+	newFileEvent  = "kova:new-file"
+	openFileEvent = "kova:open-file"
+	saveEvent     = "kova:save"
+	saveAsEvent   = "kova:save-as"
+	saveAllEvent  = "kova:save-all"
+	printEvent    = "kova:print"
+)
+
+// emitNewFile tells the frontend to open a new untitled buffer.
+func (a *App) emitNewFile() { a.emitEvent(newFileEvent) }
+
+// emitOpenFile tells the frontend to show the Open dialog.
+func (a *App) emitOpenFile() { a.emitEvent(openFileEvent) }
+
+// emitSave tells the frontend to save the active buffer.
+func (a *App) emitSave() { a.emitEvent(saveEvent) }
+
+// emitSaveAs tells the frontend to save the active buffer under a new path.
+func (a *App) emitSaveAs() { a.emitEvent(saveAsEvent) }
+
+// emitSaveAll tells the frontend to save every modified buffer.
+func (a *App) emitSaveAll() { a.emitEvent(saveAllEvent) }
+
+// emitPrint tells the frontend to print the active buffer.
+func (a *App) emitPrint() { a.emitEvent(printEvent) }
+
+// closeRequestEvent asks the frontend to deal with unsaved buffers before the
+// window closes. The prompt is the frontend's, because only it can save them.
+const closeRequestEvent = "kova:confirm-close"
+
+// emitCloseRequest tells the frontend to confirm losing unsaved edits.
+func (a *App) emitCloseRequest() { a.emitEvent(closeRequestEvent) }
 
 // GetLaunchRequest hands the frontend the paths Kova was started with. The
 // frontend calls it once after attaching its listener, so anything passed in

@@ -68,11 +68,26 @@ introduce one unprompted.
   `addFolderFromDialog`/`applyLaunch` in `App.svelte`, so they share one busy
   flag and one error notice.
 - **Open files are tabs held in frontend state.** `App.svelte` keeps the tab
-  list and the active path; `tabs.ts` has the pure open/close rules (one tab per
-  path, activate the right neighbour when the active tab closes). `EditorPane`
-  owns one Monaco model per open path, so each tab keeps its edits, undo stack
-  and scroll position; models are disposed when their tab closes. **File →
-  Close Tab** (<kbd>Cmd</kbd>+<kbd>W</kbd>) emits `kova:close-tab`.
+  list and the active tab id; `tabs.ts` has the pure open/close rules (one tab
+  per path, activate the right neighbour when the active tab closes).
+  `OpenDocument` in `document.ts` carries a stable `id` (the path for a file,
+  `untitled:<name>` for a **New File** buffer), the on-disk `content`, the
+  file's `modified` mtime and a `dirty` flag, so **Save As** moves a buffer to
+  its new path without the editor losing its Monaco model. `EditorPane` owns one
+  model per open id and reports `onDirtyChange` by comparing the buffer's text
+  with the text last loaded or saved; models are disposed when their tab closes.
+  **File → Close Tab** (<kbd>Cmd</kbd>+<kbd>W</kbd>) emits `kova:close-tab`.
+- **Saving writes what the frontend holds.** `SaveDocument` in `save.go` writes
+  the buffer text the frontend hands it, and returns `Conflict: true` without
+  writing when the file's mtime moved since `LoadDocument` reported it;
+  `SaveFileDialog` and `OpenFileDialog` wrap the native panels. The frontend
+  pushes `SetUnsavedChanges`, so `ShouldQuit` and a `WindowClosing` hook can
+  cancel a quit or window close and emit `kova:confirm-close`, which the
+  Save/Don't Save prompt answers with `ResolveClose`.
+- **Printing is native.** `PrintDocument` in `print.go` chooses text or image
+  and calls `print_darwin.go`, whose cgo AppKit code (`print_darwin.m`) runs the
+  standard print panel as a sheet on the main thread. `print_unsupported.go`
+  covers other platforms and `CGO_ENABLED=0` builds.
 - **`kova` is a shell launcher, not a second binary.** `install.go` writes a
   script to `/usr/local/bin/kova` that execs the bundle's executable, escalating
   through `osascript … with administrator privileges` when the directory is not

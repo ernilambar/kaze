@@ -11,6 +11,9 @@ export type {
     EditorSettings,
     FolderEntry,
     LaunchRequest,
+    PrintRequest,
+    SaveRequest,
+    SaveResult,
     Settings,
     SidebarSettings
 } from "./models.js";

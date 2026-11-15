@@ -74,6 +74,15 @@ export function LoadDocument(path: string): $CancellablePromise<$models.Document
 }
 
 /**
+ * OpenFileDialog asks for one file to open. An empty string means the user
+ * cancelled, which is not an error. No filter is added, so images can be picked
+ * for the viewer and text files for the editor from the same dialog.
+ */
+export function OpenFileDialog(): $CancellablePromise<string> {
+    return $Call.ByID(4196526771);
+}
+
+/**
  * OpenFolderDialog asks for a folder to add to the sidebar. An empty string
  * means the user cancelled, which is not an error.
  */
@@ -91,6 +100,15 @@ export function OpenSettings(): $CancellablePromise<void> {
 }
 
 /**
+ * PrintDocument opens the platform's print panel for a buffer. Printing is done
+ * by the native toolkit so the panel, page setup and printer list are the ones
+ * the user already knows.
+ */
+export function PrintDocument(request: $models.PrintRequest): $CancellablePromise<void> {
+    return $Call.ByID(3607023689, request);
+}
+
+/**
  * ReadFolder lists one level of a folder for the sidebar. The tree loads the
  * rest lazily, so only the entries the user can see are read.
  */
@@ -104,4 +122,39 @@ export function ReadFolder(path: string): $CancellablePromise<$models.FolderEntr
  */
 export function RemoveSidebarFolder(folder: string): $CancellablePromise<string[] | null> {
     return $Call.ByID(1753677811, folder);
+}
+
+/**
+ * ResolveClose answers a close request. Cancelling clears the request so the
+ * next Cmd+Q asks again; quitting records the answer and terminates.
+ */
+export function ResolveClose(quit: boolean): $CancellablePromise<void> {
+    return $Call.ByID(2112675041, quit);
+}
+
+/**
+ * SaveDocument writes a buffer's text to disk. The frontend owns the text, so
+ * it passes the whole buffer instead of a path Go could reread: an unsaved edit
+ * is exactly what should land in the file.
+ */
+export function SaveDocument(request: $models.SaveRequest): $CancellablePromise<$models.SaveResult> {
+    return $Call.ByID(83010905, request);
+}
+
+/**
+ * SaveFileDialog asks where a buffer should be written. suggested is a full
+ * path when the buffer already has a file, and a plain name (an untitled
+ * buffer's) when it does not; an empty path means the user cancelled.
+ */
+export function SaveFileDialog(suggested: string): $CancellablePromise<string> {
+    return $Call.ByID(1166008166, suggested);
+}
+
+/**
+ * SetUnsavedChanges records whether any open buffer has edits that are not on
+ * disk yet. The frontend pushes it whenever that answer changes, so a close or
+ * quit can tell whether it must ask before throwing work away.
+ */
+export function SetUnsavedChanges(unsaved: boolean): $CancellablePromise<void> {
+    return $Call.ByID(1769354848, unsaved);
 }

@@ -10,6 +10,12 @@ export type Command = PaletteItem;
 // detail names the menu the command comes from, so typing "file" or "kova"
 // narrows the list by category as well as by name.
 export const COMMANDS: readonly Command[] = [
+    { id: 'new-file', name: 'New File', detail: 'File' },
+    { id: 'open-file', name: 'Open…', detail: 'File' },
+    { id: 'save', name: 'Save', detail: 'File' },
+    { id: 'save-as', name: 'Save As…', detail: 'File' },
+    { id: 'save-all', name: 'Save All', detail: 'File' },
+    { id: 'print', name: 'Print…', detail: 'File' },
     { id: 'quick-open', name: 'Quick Open…', detail: 'File' },
     { id: 'add-folder', name: 'Add Folder to Sidebar…', detail: 'File' },
     { id: 'close-tab', name: 'Close Tab', detail: 'File' },
