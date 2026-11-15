@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -9,13 +8,19 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // App is the application struct. Exported methods become callable from the
 // frontend through the generated Wails bindings.
 type App struct {
-	ctx context.Context
+	// wails is the running application, set once main has created it. Menu
+	// callbacks and dialogs go through it; tests call the exported methods
+	// without one, so every use is nil-checked.
+	wails *application.App
+	// window is the single webview window, used to surface the app when a
+	// second `kova <file>` arrives.
+	window *application.WebviewWindow
 
 	mu sync.Mutex
 	// pending holds a launch request the frontend has not collected yet. It is
@@ -37,10 +42,10 @@ func NewApp() *App {
 	return &App{pending: emptyLaunchRequest()}
 }
 
-// startup is called when the app starts. The context is saved so runtime
-// methods can be called later.
-func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
+// attach records the running application so dialogs, events and window calls
+// have somewhere to go. Main calls it before the app runs; unit tests never do.
+func (a *App) attach(wails *application.App) {
+	a.wails = wails
 }
 
 // GetSettings loads the user's settings.json, creating it with defaults on
@@ -140,15 +145,15 @@ func (a *App) OpenSettings() error {
 // openSettingsFromMenu opens settings.json from the app menu. A menu click has
 // no caller to return to, so failures are logged.
 func (a *App) openSettingsFromMenu() {
-	if err := a.OpenSettings(); err != nil {
-		runtime.LogError(a.ctx, err.Error())
+	if err := a.OpenSettings(); err != nil && a.wails != nil {
+		a.wails.Logger.Error(err.Error())
 	}
 }
 
-// quit shuts the app down through Wails so its shutdown path runs.
+// quit shuts the app down so its shutdown path runs.
 func (a *App) quit() {
-	if a.ctx != nil {
-		runtime.Quit(a.ctx)
+	if a.wails != nil {
+		a.wails.Quit()
 	}
 }
 
@@ -159,8 +164,14 @@ const addFolderEvent = "kova:add-folder"
 
 // emitAddFolder tells the frontend to open the folder picker.
 func (a *App) emitAddFolder() {
-	if a.ctx != nil {
-		runtime.EventsEmit(a.ctx, addFolderEvent)
+	a.emitEvent(addFolderEvent)
+}
+
+// emitEvent sends one menu command to the frontend. Before main has attached
+// the application there is no one to tell, so it is a no-op.
+func (a *App) emitEvent(name string) {
+	if a.wails != nil {
+		a.wails.Event.Emit(name)
 	}
 }
 
@@ -170,9 +181,7 @@ const closeTabEvent = "kova:close-tab"
 
 // emitCloseTab tells the frontend to close the active tab.
 func (a *App) emitCloseTab() {
-	if a.ctx != nil {
-		runtime.EventsEmit(a.ctx, closeTabEvent)
-	}
+	a.emitEvent(closeTabEvent)
 }
 
 // quickOpenEvent asks the frontend to show the Quick Open palette. The file
@@ -182,9 +191,7 @@ const quickOpenEvent = "kova:quick-open"
 
 // emitQuickOpen tells the frontend to show Quick Open.
 func (a *App) emitQuickOpen() {
-	if a.ctx != nil {
-		runtime.EventsEmit(a.ctx, quickOpenEvent)
-	}
+	a.emitEvent(quickOpenEvent)
 }
 
 // commandPaletteEvent asks the frontend to show the command palette. Commands
@@ -193,9 +200,7 @@ const commandPaletteEvent = "kova:command-palette"
 
 // emitCommandPalette tells the frontend to show the command palette.
 func (a *App) emitCommandPalette() {
-	if a.ctx != nil {
-		runtime.EventsEmit(a.ctx, commandPaletteEvent)
-	}
+	a.emitEvent(commandPaletteEvent)
 }
 
 // GetLaunchRequest hands the frontend the paths Kova was started with. The
@@ -233,9 +238,13 @@ func (a *App) queueLaunch(request LaunchRequest) {
 	}
 	// A second launch should surface the window, not leave files open behind
 	// another app.
-	runtime.WindowUnminimise(a.ctx)
-	runtime.WindowShow(a.ctx)
-	runtime.EventsEmit(a.ctx, launchEvent, payload)
+	if a.window != nil {
+		a.window.UnMinimise()
+		a.window.Show()
+	}
+	if a.wails != nil {
+		a.wails.Event.Emit(launchEvent, payload)
+	}
 }
 
 // queueLaunchPaths is queueLaunch for callers that only have path strings: the
@@ -255,19 +264,22 @@ func (a *App) queueLaunchPaths(paths []string) {
 func (a *App) InstallCommandLineTool() {
 	err := installCommandLineTool()
 	if err != nil {
-		runtime.LogError(a.ctx, err.Error())
-		runtime.MessageDialog(a.ctx, runtime.MessageDialogOptions{
-			Type:    runtime.ErrorDialog,
-			Title:   "Install Command Line Tool",
-			Message: err.Error(),
-		})
+		if a.wails != nil {
+			a.wails.Logger.Error(err.Error())
+			a.wails.Dialog.Error().
+				SetTitle("Install Command Line Tool").
+				SetMessage(err.Error()).
+				Show()
+		}
 		return
 	}
 
 	path := commandInstallPath()
-	runtime.MessageDialog(a.ctx, runtime.MessageDialogOptions{
-		Type:    runtime.InfoDialog,
-		Title:   "Install Command Line Tool",
-		Message: "Installed " + path + ".\n\nOpen a new terminal and run:\n\n  kova notes.txt\n  kova .",
-	})
+	if a.wails == nil {
+		return
+	}
+	a.wails.Dialog.Info().
+		SetTitle("Install Command Line Tool").
+		SetMessage("Installed " + path + ".\n\nOpen a new terminal and run:\n\n  kova notes.txt\n  kova .").
+		Show()
 }

@@ -12,16 +12,15 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
+# shellcheck source=scripts/config.sh
+. "$root/scripts/config.sh"
 
-read_info() {
-    plutil -extract "$1" raw -o - "$root/wails.json" 2>/dev/null || true
-}
-
-app_name="$(read_info info.productName)"
-output_name="$(read_info outputfilename)"
-version="$(read_info info.productVersion)"
-if [ -z "$app_name" ] || [ -z "$output_name" ] || [ -z "$version" ]; then
-    printf 'error: wails.json must define outputfilename, info.productName and info.productVersion\n' >&2
+app_name="$(read_info productName)"
+version="$(read_info version)"
+exe_name="$(bundle_executable)"
+if [ -z "$app_name" ] || [ -z "$version" ] || [ -z "$exe_name" ]; then
+    printf 'error: build/config.yml must define productName and version, and\n' >&2
+    printf '       build/darwin/Info.plist must define CFBundleExecutable\n' >&2
     exit 1
 fi
 
@@ -66,23 +65,20 @@ if $release; then
     "$root/scripts/bundle.sh"
     app="$root/dist/$app_name.app"
 else
-    wails_version="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)"
-    wails="${WAILS:-$(command -v wails || true)}"
-    if [ -z "$wails" ]; then
-        wails="$(go env GOPATH)/bin/wails"
+    wails_version="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+    wails3="${WAILS3:-$(command -v wails3 || true)}"
+    if [ -z "$wails3" ]; then
+        wails3="$(go env GOPATH)/bin/wails3"
     fi
-    if [ ! -x "$wails" ]; then
-        printf 'error: wails CLI not found; install with:\n' >&2
-        printf '  go install github.com/wailsapp/wails/v2/cmd/wails@%s\n' "$wails_version" >&2
+    if [ ! -x "$wails3" ]; then
+        printf 'error: wails3 CLI not found; install with:\n' >&2
+        printf '  go install github.com/wailsapp/wails/v3/cmd/wails3@%s\n' "$wails_version" >&2
         exit 1
     fi
 
-    printf '==> wails build (debug)\n'
-    "$wails" build -clean -debug -platform darwin/arm64
-    # Wails writes generated files executable; keep the tree free of mode-only
-    # changes.
-    find frontend/wailsjs -type f -exec chmod 644 {} +
-    app="$root/build/bin/$output_name.app"
+    printf '==> wails3 package (debug)\n'
+    "$wails3" task darwin:package DEV=true
+    app="$root/bin/$exe_name.app"
 fi
 
 if [ ! -d "$app" ]; then

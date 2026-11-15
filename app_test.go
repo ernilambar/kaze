@@ -1,21 +1,16 @@
 package main
 
-import (
-	"context"
-	"errors"
-	"testing"
-)
+import "testing"
 
-func TestStartupStoresContext(t *testing.T) {
+func TestMenuCommandsBeforeAttachAreNoOps(t *testing.T) {
 	app := NewApp()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	app.startup(ctx)
-	cancel()
-
-	// Runtime calls made after startup rely on the stored context; losing it
-	// silently breaks the app, so assert it survives startup.
-	if err := app.ctx.Err(); !errors.Is(err, context.Canceled) {
-		t.Fatalf("expected stored context to be canceled after startup, got %v", err)
-	}
+	// A menu callback can fire before main has attached the application, and
+	// unit tests never attach one at all. The guards must absorb that instead
+	// of dereferencing a nil runtime.
+	app.emitAddFolder()
+	app.emitCloseTab()
+	app.emitQuickOpen()
+	app.emitCommandPalette()
+	app.quit()
 }

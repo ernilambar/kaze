@@ -1,5 +1,7 @@
-build/bin
+/bin
 /kova
 node_modules
 frontend/dist
 /dist
+.task
+.wails

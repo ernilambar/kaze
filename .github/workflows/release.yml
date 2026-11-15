@@ -39,26 +39,27 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Install Wails
-        run: go install "github.com/wailsapp/wails/v2/cmd/wails@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)"
+        run: go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
 
       - name: Check tag matches version
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          # The version lives in wails.json, which also feeds the bundle's
+          # The version lives in build/config.yml, which also feeds the bundle's
           # Info.plist. A tag that disagrees must not publish.
-          version="$(plutil -extract info.productVersion raw -o - wails.json)"
+          . scripts/config.sh
+          version="$(read_info version)"
           if [ -z "$version" ]; then
-            echo "wails.json has no info.productVersion" >&2
+            echo "build/config.yml has no info.version" >&2
             exit 1
           fi
           if [ "v$version" != "$TAG" ]; then
-            echo "tag $TAG does not match wails.json version $version" >&2
+            echo "tag $TAG does not match build/config.yml version $version" >&2
             exit 1
           fi
-          app_name="$(plutil -extract info.productName raw -o - wails.json)"
+          app_name="$(read_info productName)"
           if [ -z "$app_name" ]; then
-            echo "wails.json has no info.productName" >&2
+            echo "build/config.yml has no info.productName" >&2
             exit 1
           fi
           echo "APP_NAME=$app_name" >> "$GITHUB_ENV"

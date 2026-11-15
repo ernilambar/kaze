@@ -11,26 +11,23 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
+# shellcheck source=scripts/config.sh
+. "$root/scripts/config.sh"
 
-read_info() {
-    plutil -extract "$1" raw -o - "$root/wails.json" 2>/dev/null || true
-}
-
-app_name="$(read_info info.productName)"
-project_name="$(read_info name)"
-output_name="$(read_info outputfilename)"
-version="$(read_info info.productVersion)"
+app_name="$(read_info productName)"
+version="$(read_info version)"
+exe_name="$(bundle_executable)"
 
 if [ -z "$app_name" ]; then
-    printf 'error: wails.json has no info.productName\n' >&2
-    exit 1
-fi
-if [ -z "$project_name" ] || [ -z "$output_name" ]; then
-    printf 'error: wails.json has no name or outputfilename\n' >&2
+    printf 'error: build/config.yml has no info.productName\n' >&2
     exit 1
 fi
 if [ -z "$version" ]; then
-    printf 'error: wails.json has no info.productVersion\n' >&2
+    printf 'error: build/config.yml has no info.version\n' >&2
+    exit 1
+fi
+if [ -z "$exe_name" ]; then
+    printf 'error: build/darwin/Info.plist has no CFBundleExecutable\n' >&2
     exit 1
 fi
 
@@ -47,14 +44,14 @@ if [ "$(sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" != "1" ]; then
     exit 1
 fi
 
-wails_version="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)"
-wails="${WAILS:-$(command -v wails || true)}"
-if [ -z "$wails" ]; then
-    wails="$(go env GOPATH)/bin/wails"
+wails_version="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+wails3="${WAILS3:-$(command -v wails3 || true)}"
+if [ -z "$wails3" ]; then
+    wails3="$(go env GOPATH)/bin/wails3"
 fi
-if [ ! -x "$wails" ]; then
-    printf 'error: wails CLI not found; install with:\n' >&2
-    printf '  go install github.com/wailsapp/wails/v2/cmd/wails@%s\n' "$wails_version" >&2
+if [ ! -x "$wails3" ]; then
+    printf 'error: wails3 CLI not found; install with:\n' >&2
+    printf '  go install github.com/wailsapp/wails/v3/cmd/wails3@%s\n' "$wails_version" >&2
     exit 1
 fi
 
@@ -62,25 +59,22 @@ printf '==> frontend\n'
 (
     cd frontend
     pnpm install --frozen-lockfile
-    # main.go embeds frontend/dist, and wails generate module compiles the main
+    # main.go embeds frontend/dist, and binding generation compiles the main
     # package, so the frontend must exist before bindings are regenerated.
     pnpm run build
 )
 
 printf '==> wails bindings\n'
 bindings_state() {
-    git status --porcelain -- frontend/wailsjs
-    git diff -- frontend/wailsjs
+    git status --porcelain -- frontend/bindings
+    git diff -- frontend/bindings
 }
 bindings_before="$(bindings_state)"
-"$wails" generate module
-# Wails writes generated files executable. Normalise them so generation does
-# not dirty the tree with mode-only changes.
-find frontend/wailsjs -type f -exec chmod 644 {} +
+"$wails3" generate bindings -ts -i
 bindings_after="$(bindings_state)"
 if [ "$bindings_before" != "$bindings_after" ]; then
     printf 'error: wails bindings changed during generation; commit them and retry:\n' >&2
-    git status --short -- frontend/wailsjs >&2
+    git status --short -- frontend/bindings >&2
     exit 1
 fi
 
@@ -109,24 +103,31 @@ go vet ./...
 printf '==> go test\n'
 go test -race ./...
 
-printf '==> wails build (release)\n'
+printf '==> wails3 package (release)\n'
 rm -rf dist
 mkdir -p dist
-# -s skips the second frontend build; the gate above already produced
-# frontend/dist. -skipbindings reuses the bindings checked above, and -m keeps
-# go.mod untouched. Production mode adds the linker's -s -w flags.
-"$wails" build -clean -platform darwin/arm64 -trimpath -s -skipbindings -m
+# The production build task compiles with -tags production -trimpath and strips
+# the binary, then bundles it with the generated Info.plist.
+"$wails3" task darwin:package
 
-built_app="$root/build/bin/$output_name.app"
+built_app="$root/bin/$exe_name.app"
 if [ ! -d "$built_app" ]; then
     printf 'error: expected bundle not found: %s\n' "$built_app" >&2
+    exit 1
+fi
+
+# The build task regenerates bindings; a change here means committed bindings
+# are stale, and the archive would ship a frontend built against them.
+if [ "$(bindings_state)" != "$bindings_before" ]; then
+    printf 'error: wails bindings changed during the release build; commit them and retry:\n' >&2
+    git status --short -- frontend/bindings >&2
     exit 1
 fi
 
 dist_app="$root/dist/$app_name.app"
 ditto "$built_app" "$dist_app"
 
-app_arch="$(lipo -archs "$dist_app/Contents/MacOS/$output_name")"
+app_arch="$(lipo -archs "$dist_app/Contents/MacOS/$exe_name")"
 if [ "$app_arch" != "arm64" ]; then
     printf 'error: expected arm64 app binary, got: %s\n' "$app_arch" >&2
     exit 1

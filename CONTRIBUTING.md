@@ -5,7 +5,7 @@ conventions and the checks a change must pass before review.
 
 ## Setup and development
 
-Prerequisites, local setup, `wails dev` hot reload, bundle testing, and builds
+Prerequisites, local setup, `wails3 dev` hot reload, bundle testing, and builds
 are covered in [docs/development.md](docs/development.md). Read it first; the
 rest of this guide covers conventions and review.
 
@@ -17,18 +17,18 @@ rest of this guide covers conventions and review.
 | `app.go` | `App` struct; exported methods become frontend bindings |
 | `settings.go` | Loads and validates `settings.json`; defaults on first run |
 | `frontend/src/` | Svelte UI (`App.svelte` and components, `main.ts`, `style.css`) |
-| `frontend/wailsjs/` | Generated bindings; never edit by hand |
+| `frontend/bindings/` | Generated bindings; never edit by hand |
 | `docs/` | User documentation (`settings.md`) and developer documentation (`development.md`) |
-| `build/` | Platform packaging assets |
-| `wails.json` | Wails project config and frontend hooks |
+| `build/` | Platform packaging assets (`config.yml` holds product metadata) |
+| `Taskfile.yml` | Build, package and dev tasks (Wails v3) |
 
 ## Coding guidelines
 
 - Go code must be `gofmt`-clean and idiomatic. Keep platform/native behavior
   (file I/O, dialogs, OS integration) in Go.
 - Export a method on `App` when the frontend needs to call it; Wails generates
-  the TypeScript bindings during `wails dev`/`wails build`. Do not hand-edit
-  `frontend/wailsjs/`.
+  the TypeScript bindings during `wails3 dev`, `wails3 task darwin:package`, or
+  `wails3 generate bindings -ts -i`. Do not hand-edit `frontend/bindings/`.
 - The UI is built with Svelte 5 and TypeScript, using runes (`$state`,
   `$props`) rather than legacy reactive syntax. TypeScript is strict
   (`noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`);
@@ -37,34 +37,33 @@ rest of this guide covers conventions and review.
 - Monaco Editor must stay excluded from Vite dependency pre-bundling
   (`optimizeDeps.exclude` in `vite.config.ts`) unless worker loading is
   reworked; pre-bundling breaks worker URLs.
-- Do not commit build output (`build/bin`, `frontend/dist`, `node_modules`).
+- Do not commit build output (`bin`, `dist`, `frontend/dist`, `node_modules`).
 - Use pnpm for the frontend; do not add `package-lock.json` or run
   `npm install`.
 
 ## Versioning
 
-The application version is defined once, in `wails.json`:
+The application version is defined once, in `build/config.yml`:
 
-```json
-"info": {
-  "productVersion": "0.1.0"
-}
+```yaml
+info:
+  version: "0.1.0"
 ```
 
 That value populates the macOS bundle version (`CFBundleShortVersionString`,
-`CFBundleVersion`), the Windows executable version, and the NSIS installer
-metadata. To release a new version, bump `info.productVersion` there and tag
-the commit (for example `v0.2.0`).
+`CFBundleVersion`), the Windows executable version, and the installer metadata.
+To release a new version, bump `info.version` there, run `wails3 task
+common:update:build-assets`, and tag the commit (for example `v0.2.0`).
+`about.go` embeds the same file, so `kova --version`, the app menu and the
+bundle never disagree.
 
-The macOS bundle identifier is fixed as `net.nilambar.kova` in
-`build/darwin/Info.plist` and `build/darwin/Info.dev.plist` (Wails v2 has no
-`wails.json` field for it). Do not change it casually: macOS keys permissions,
-preferences, and update identity to it.
+The macOS bundle identifier is `info.productIdentifier` (`net.nilambar.kova`),
+and `wails3 update build-assets` writes it into `build/darwin/Info.plist` and
+`build/darwin/Info.dev.plist`. Do not change it casually: macOS keys
+permissions, preferences, and update identity to it.
 
 `frontend/package.json` is a private, unpublished package; its `version` field
-is not the application version. If the app later displays its version at
-runtime, inject it with `wails build -ldflags "-X main.version=$(...)"` derived
-from `wails.json` rather than hardcoding a second copy.
+is not the application version.
 
 ## Releasing and quality gate
 

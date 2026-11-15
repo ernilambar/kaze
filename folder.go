@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // FolderEntry is one child of a folder in the sidebar tree. Directories are
@@ -82,10 +80,12 @@ func isDirectory(parent string, entry os.DirEntry) bool {
 // OpenFolderDialog asks for a folder to add to the sidebar. An empty string
 // means the user cancelled, which is not an error.
 func (a *App) OpenFolderDialog() (string, error) {
-	if a.ctx == nil {
+	if a.wails == nil {
 		return "", errors.New("folder dialog is not available before startup")
 	}
-	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "Add Folder to Sidebar",
-	})
+	return a.wails.Dialog.OpenFile().
+		SetTitle("Add Folder to Sidebar").
+		CanChooseFiles(false).
+		CanChooseDirectories(true).
+		PromptForSingleSelection()
 }

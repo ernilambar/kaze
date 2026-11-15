@@ -33,7 +33,7 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Install Wails
-        run: go install "github.com/wailsapp/wails/v2/cmd/wails@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)"
+        run: go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
 
       - name: Frontend build
         working-directory: frontend
@@ -43,11 +43,10 @@ jobs:
 
       - name: Check generated bindings
         run: |
-          "$(go env GOPATH)/bin/wails" generate module
-          find frontend/wailsjs -type f -exec chmod 644 {} +
-          if [ -n "$(git status --porcelain -- frontend/wailsjs)" ]; then
+          "$(go env GOPATH)/bin/wails3" generate bindings -ts -i
+          if [ -n "$(git status --porcelain -- frontend/bindings)" ]; then
             echo "wails bindings are out of date:" >&2
-            git status --short -- frontend/wailsjs >&2
+            git status --short -- frontend/bindings >&2
             exit 1
           fi
 

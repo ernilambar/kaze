@@ -1,4 +1,4 @@
-import { EventsOn } from '../wailsjs/runtime/runtime';
+import { Events } from '@wailsio/runtime';
 import type { OpenDocument } from './document';
 
 // openDocumentTab returns tabs with document appended, unless a tab for the
@@ -38,5 +38,5 @@ export function closeDocumentTab(
 // listenForCloseTab runs handler when the File menu asks to close the active
 // tab. Returns an unsubscribe function.
 export function listenForCloseTab(handler: () => void): () => void {
-    return EventsOn('kova:close-tab', () => handler());
+    return Events.On('kova:close-tab', () => handler());
 }

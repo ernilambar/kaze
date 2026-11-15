@@ -46,7 +46,7 @@ a second window is never created.
 ## Help and version
 
 `kova --help` prints the argument rules and `kova --version` prints the version
-taken from `info.productVersion` in `wails.json`. Both are answered by the
+taken from `info.version` in `build/config.yml`. Both are answered by the
 invoked process, so they work even while Kova is running and never raise the
 window. Help wins when both flags are given. Nothing after `--` is read as a
 flag, so `kova -- --help` looks for a file named `--help`.

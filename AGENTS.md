@@ -2,7 +2,7 @@
 
 ## Overview
 
-Kova is a desktop text editor built with Wails v2 (Go backend) and Monaco Editor
+Kova is a desktop text editor built with Wails v3 (Go backend) and Monaco Editor
 (Svelte 5 + TypeScript frontend bundled by Vite). The Go binary embeds
 `frontend/dist` and serves it as the app's assets; exported `App` methods are
 exposed to the UI via generated Wails bindings.
@@ -10,7 +10,7 @@ exposed to the UI via generated Wails bindings.
 ## Setup
 
 ```sh
-go install github.com/wailsapp/wails/v2/cmd/wails@latest
+go install github.com/wailsapp/wails/v3/cmd/wails3@latest
 go mod download
 cd frontend && pnpm install
 ```
@@ -21,8 +21,10 @@ ensure that directory is on `PATH`. No `.env` or other local config is needed.
 ## Commands
 
 ```sh
-wails dev                              # dev mode with hot reload
-wails build                            # packaged app in build/bin
+wails3 dev                             # dev mode with hot reload
+wails3 task darwin:package             # packaged app in bin/kova.app
+wails3 generate bindings -ts -i        # regenerate frontend/bindings
+wails3 task --list                     # every build task
 go build ./...                         # compile Go only
 go test -race ./...                    # Go tests
 go vet ./...                           # Go lint
@@ -40,11 +42,16 @@ introduce one unprompted.
 
 ## Conventions
 
-- **Bindings are generated.** `frontend/wailsjs/` is produced by Wails; never
-  hand-edit it. Add frontend-callable behavior as exported methods on `App` in
-  `app.go`, then let `wails dev`/`wails build` regenerate bindings.
+- **Bindings are generated.** `frontend/bindings/` is produced by `wails3
+  generate bindings -ts -i`; never hand-edit it. Add frontend-callable behavior
+  as exported methods on `App` in `app.go`, then let the build (or that command)
+  regenerate bindings.
 - **Go owns native behavior.** File I/O, dialogs, and OS integration belong in
   Go; the Svelte/TypeScript layer handles UI only.
+- **The runtime handle is injected, not global.** `main.go` creates the
+  `application.App`, registers `App` as its service, and calls `app.attach(...)`
+  before `Run`. Menu callbacks and dialogs go through that handle; unit tests
+  never attach one, so every use is nil-checked.
 - **Filesystem access is a binding, not a web API.** Documents are read by
   `App.LoadDocument` in `document.go`, folder levels by `App.ReadFolder` in
   `folder.go`, and the CLI paths by `App.GetLaunchRequest` in `app.go`; the
@@ -83,7 +90,7 @@ introduce one unprompted.
   keep it unless you also rework worker loading.
 - **Embedded assets are build output.** `main.go` uses
   `//go:embed all:frontend/dist`, so `frontend/dist` must exist before building
-  Go; run `pnpm run build` (or `wails build`) first.
+  Go; run `pnpm run build` (or `wails3 task darwin:package`) first.
 - **Style:** idiomatic Go via `gofmt`; TypeScript is strict (`noUnusedLocals`,
   `noUnusedParameters`, `noImplicitReturns`) and uses 4-space indentation,
   single quotes, and named exports (`export function createEditor`).
@@ -103,14 +110,16 @@ introduce one unprompted.
   frontend tests use Vitest (`*.test.ts`) and cover pure helpers only, not
   Svelte components, Monaco, or generated bindings. Test logic in Go; test
   presentation helpers in TypeScript.
-- **App version lives in `wails.json`.** `info.productVersion` is the single
-  source of truth for packaged metadata (macOS bundle, Windows exe, NSIS
-  installer); bump it there. `frontend/package.json`'s `version` is not the app
-  version. A runtime version must be injected via `-ldflags
-  "-X main.version=..."` derived from `wails.json`.
-- **macOS bundle ID is `net.nilambar.kova`.** Wails v2 has no config field for
-  it; it lives in `build/darwin/Info.plist` and `build/darwin/Info.dev.plist`.
-  Changing it later resets macOS permissions and app preferences.
+- **App version lives in `build/config.yml`.** `info.version` is the single
+  source of truth for packaged metadata (macOS bundle, Windows exe, installer);
+  bump it there, then run `wails3 task common:update:build-assets` to refresh
+  the plists. `frontend/package.json`'s `version` is not the app version.
+  `about.go` embeds the same file so the app menu and `kova --version` read the
+  same values, and `scripts/config.sh` reads it from shell.
+- **macOS bundle ID is `net.nilambar.kova`.** It lives in `build/config.yml` as
+  `info.productIdentifier`, and `wails3 update build-assets` writes it into
+  `build/darwin/Info.plist` and `Info.dev.plist`. Changing it later resets
+  macOS permissions and app preferences.
 - **Scope discipline:** no new dependencies or config files without explicit
   approval.
 
@@ -130,4 +139,4 @@ go build ./...
 ```
 
 `gofmt -l .` must print nothing. For changes that touch native app behavior or
-Wails config, also run `wails build` and confirm it succeeds.
+Wails config, also run `wails3 task darwin:package` and confirm it succeeds.

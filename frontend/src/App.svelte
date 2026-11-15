@@ -16,7 +16,7 @@
         type OpenDocument,
     } from './document';
     import { WELCOME_KEY, WELCOME_TEXT } from './editor';
-    import { InstallCommandLineTool, OpenSettings } from '../wailsjs/go/main/App';
+    import { InstallCommandLineTool, OpenSettings } from '../bindings/kova/app';
     import type { PaletteItem } from './palette';
     import {
         listFiles,

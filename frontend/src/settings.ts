@@ -1,5 +1,5 @@
-import type { main } from '../wailsjs/go/models';
-import { GetSettings } from '../wailsjs/go/main/App';
+import type * as models from '../bindings/kova/models';
+import { GetSettings } from '../bindings/kova/app';
 
 export interface EditorSettings {
     fontFamily: string;
@@ -15,7 +15,7 @@ export const defaultEditorSettings: EditorSettings = {
     fontWeight: 400,
 };
 
-function toEditorSettings(settings: main.Settings): EditorSettings {
+function toEditorSettings(settings: models.Settings): EditorSettings {
     return {
         fontFamily: settings.editor.font_family,
         fontSize: settings.editor.font_size,

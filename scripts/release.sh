@@ -3,18 +3,16 @@
 #
 #   ./scripts/release.sh vX.Y.Z
 #
-# The tag must match info.productVersion in wails.json; GitHub Actions then
+# The tag must match info.version in build/config.yml; GitHub Actions then
 # publishes the artifacts built by scripts/bundle.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# shellcheck source=scripts/config.sh
+. scripts/config.sh
 
-read_info() {
-    plutil -extract "$1" raw -o - wails.json 2>/dev/null || true
-}
-
-version="$(read_info info.productVersion)"
+version="$(read_info version)"
 if [ -z "$version" ]; then
-    echo "error: wails.json has no info.productVersion" >&2
+    echo "error: build/config.yml has no info.version" >&2
     exit 1
 fi
 
@@ -29,7 +27,7 @@ fi
 
 expected="v$version"
 if [[ "$tag" != "$expected" ]]; then
-    echo "error: $tag does not match wails.json info.productVersion $version (expected $expected)" >&2
+    echo "error: $tag does not match build/config.yml info.version $version (expected $expected)" >&2
     exit 1
 fi
 

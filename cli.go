@@ -138,22 +138,6 @@ func cliVersionText(meta appMetadata) string {
 	return fmt.Sprintf("%s %s\n", commandName, meta.ProductVersion)
 }
 
-// wailsValueFlags are the flags the Wails runtime parses out of os.Args itself.
-// Their values are skipped too, so `wails dev` does not look like a request to
-// open the asset directory.
-var wailsValueFlags = map[string]bool{
-	"-assetdir":              true,
-	"--assetdir":             true,
-	"-devserver":             true,
-	"--devserver":            true,
-	"-frontenddevserverurl":  true,
-	"--frontenddevserverurl": true,
-	"-loglevel":              true,
-	"--loglevel":             true,
-	"-appargs":               true,
-	"--appargs":              true,
-}
-
 // parseLaunchRequest turns command line arguments into a LaunchRequest.
 // Relative paths resolve against the current directory, flags are ignored, and
 // `--` makes everything after it a path. A path that cannot be opened is
@@ -161,21 +145,14 @@ var wailsValueFlags = map[string]bool{
 func parseLaunchRequest(args []string) LaunchRequest {
 	request := emptyLaunchRequest()
 	pathsOnly := false
-	skipValue := false
 
 	for _, arg := range args {
-		if skipValue {
-			skipValue = false
-			continue
-		}
 		if !pathsOnly {
 			if arg == "--" {
 				pathsOnly = true
 				continue
 			}
 			if strings.HasPrefix(arg, "-") {
-				name, _, hasValue := strings.Cut(arg, "=")
-				skipValue = !hasValue && wailsValueFlags[name]
 				continue
 			}
 		}

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=Kova
+Comment=A simple text editor built with Wails and Monaco Editor.
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/kova %u
+Terminal=false
+Type=Application
+Icon=kova
+Categories=Utility;
+StartupWMClass=kova
+
+ 

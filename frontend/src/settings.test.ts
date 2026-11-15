@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const { getSettings } = vi.hoisted(() => ({ getSettings: vi.fn() }));
 
-vi.mock('../wailsjs/go/main/App', () => ({
+vi.mock('../bindings/kova/app', () => ({
     GetSettings: getSettings,
 }));
 

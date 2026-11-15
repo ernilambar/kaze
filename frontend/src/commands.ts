@@ -1,4 +1,4 @@
-import { EventsOn } from '../wailsjs/runtime/runtime';
+import { Events } from '@wailsio/runtime';
 import type { PaletteItem } from './palette';
 import { rankCandidates } from './quickOpen';
 
@@ -28,5 +28,5 @@ export function rankCommands(
 // listenForCommandPalette runs handler when the File menu asks for the palette.
 // Returns an unsubscribe function.
 export function listenForCommandPalette(handler: () => void): () => void {
-    return EventsOn('kova:command-palette', () => handler());
+    return Events.On('kova:command-palette', () => handler());
 }

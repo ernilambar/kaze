@@ -57,19 +57,21 @@ func TestParseLaunchRequestResolvesRelativePathsAgainstWorkingDir(t *testing.T) 
 	}
 }
 
-func TestParseLaunchRequestSkipsFlagsAndTheirValues(t *testing.T) {
+func TestParseLaunchRequestSkipsFlags(t *testing.T) {
 	dir := t.TempDir()
 	file := writeTempFile(t, dir, "notes.txt", "hello")
 
-	args := []string{"-assetdir", dir, "--loglevel=Debug", "-appargs", "-- -x", "--", file}
-	got := parseLaunchRequest(args)
+	// v3's dev tooling passes its settings through the environment, so the only
+	// argv flags Kova sees are ones a user typed. They are ignored, and their
+	// values are not mistaken for paths.
+	got := parseLaunchRequest([]string{"--loglevel=Debug", "-dev", "--", file})
 
 	want := []string{file}
 	if !reflect.DeepEqual(got.Files, want) {
 		t.Fatalf("Files = %q, want %q", got.Files, want)
 	}
 	if len(got.Folders) != 0 {
-		t.Fatalf("Folders = %q, want empty; a flag value is not a folder argument", got.Folders)
+		t.Fatalf("Folders = %q, want empty; a flag is not a folder argument", got.Folders)
 	}
 }
 

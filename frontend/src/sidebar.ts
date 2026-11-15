@@ -1,12 +1,12 @@
-import type { main } from '../wailsjs/go/models';
+import type * as models from '../bindings/kova/models';
 import {
     AddSidebarFolder,
     GetSettings,
     OpenFolderDialog,
     ReadFolder,
     RemoveSidebarFolder,
-} from '../wailsjs/go/main/App';
-import { EventsOn } from '../wailsjs/runtime/runtime';
+} from '../bindings/kova/app';
+import { Events } from '@wailsio/runtime';
 
 // FolderEntry mirrors FolderEntry in folder.go: one child of a folder. The
 // backend lists one level at a time, so the tree only reads what it expands.
@@ -16,7 +16,7 @@ export interface FolderEntry {
     isDir: boolean;
 }
 
-export function toFolderEntry(entry: main.FolderEntry): FolderEntry {
+export function toFolderEntry(entry: models.FolderEntry): FolderEntry {
     return { path: entry.path, name: entry.name, isDir: entry.is_dir };
 }
 
@@ -71,7 +71,7 @@ export function isWithin(folder: string, path: string): boolean {
 export async function loadSidebarFolders(): Promise<string[]> {
     try {
         const settings = await GetSettings();
-        return settings.sidebar?.folders ?? [];
+        return settings?.sidebar?.folders ?? [];
     } catch (error) {
         console.error('Failed to load sidebar folders.', error);
         return [];
@@ -81,18 +81,18 @@ export async function loadSidebarFolders(): Promise<string[]> {
 // readFolder lists one level of a folder. Failures are thrown so the row that
 // triggered the read can show the message in place.
 export async function readFolder(path: string): Promise<FolderEntry[]> {
-    return (await ReadFolder(path)).map(toFolderEntry);
+    return ((await ReadFolder(path)) ?? []).map(toFolderEntry);
 }
 
 // addSidebarFolder saves a root and returns the new list. The backend rejects
 // paths that are not folders and ignores folders already in the list.
 export async function addSidebarFolder(folder: string): Promise<string[]> {
-    return await AddSidebarFolder(folder);
+    return (await AddSidebarFolder(folder)) ?? [];
 }
 
 // removeSidebarFolder drops a root and returns the new list.
 export async function removeSidebarFolder(folder: string): Promise<string[]> {
-    return await RemoveSidebarFolder(folder);
+    return (await RemoveSidebarFolder(folder)) ?? [];
 }
 
 // openFolderDialog asks the user for a folder. An empty string means the dialog
@@ -105,5 +105,5 @@ export async function openFolderDialog(): Promise<string> {
 // so the menu and the sidebar button share one code path. Returns an unsubscribe
 // function.
 export function listenForAddFolder(handler: () => void): () => void {
-    return EventsOn('kova:add-folder', () => handler());
+    return Events.On('kova:add-folder', () => handler());
 }

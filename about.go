@@ -2,31 +2,71 @@ package main
 
 import (
 	_ "embed"
-	"encoding/json"
+	"strings"
 )
 
-//go:embed wails.json
-var wailsConfig []byte
+//go:embed build/config.yml
+var buildConfig []byte
 
-// appMetadata is the part of wails.json runtime code needs. Embedding the file
-// at compile time keeps the app menu labels and `kova --version` on the same
-// values as the bundle, without a second value to maintain.
+// appMetadata is the part of the build config runtime code needs. Embedding the
+// file at compile time keeps the app menu labels and `kova --version` on the
+// same values as the bundle, without a second value to maintain.
 type appMetadata struct {
-	ProductName    string `json:"productName"`
-	ProductVersion string `json:"productVersion"`
+	ProductName    string
+	ProductVersion string
 }
 
-// loadAppMetadata reads the embedded wails.json. A malformed file is caught by
-// the build's own tooling; this falls back rather than failing at startup.
+// loadAppMetadata reads productName and version from the embedded v3 build
+// config. The file is YAML and the two scalars we need sit in the top-level
+// `info:` block, so they are read directly instead of pulling in a YAML parser
+// for two strings. A malformed file falls back rather than failing at startup.
 func loadAppMetadata() appMetadata {
-	var config struct {
-		Info appMetadata `json:"info"`
+	meta := appMetadata{ProductName: "Kova", ProductVersion: "unknown"}
+
+	inInfo := false
+	for _, line := range strings.Split(string(buildConfig), "\n") {
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if !strings.HasPrefix(line, " ") {
+			inInfo = line == "info:"
+			continue
+		}
+		if !inInfo {
+			continue
+		}
+		key, value, ok := strings.Cut(strings.TrimSpace(line), ":")
+		if !ok {
+			continue
+		}
+		value = yamlScalar(value)
+		switch key {
+		case "productName":
+			if value != "" {
+				meta.ProductName = value
+			}
+		case "version":
+			if value != "" {
+				meta.ProductVersion = value
+			}
+		}
 	}
-	if err := json.Unmarshal(wailsConfig, &config); err != nil || config.Info.ProductName == "" {
-		return appMetadata{ProductName: "Kova", ProductVersion: "unknown"}
+	return meta
+}
+
+// yamlScalar reads one scalar from "value # comment" YAML, keeping a quoted
+// value intact when the comment follows it.
+func yamlScalar(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
 	}
-	if config.Info.ProductVersion == "" {
-		config.Info.ProductVersion = "unknown"
+	if quote := value[0]; quote == '"' || quote == '\'' {
+		if end := strings.IndexByte(value[1:], quote); end >= 0 {
+			return value[1 : end+1]
+		}
+		return ""
 	}
-	return config.Info
+	before, _, _ := strings.Cut(value, " #")
+	return strings.TrimSpace(before)
 }

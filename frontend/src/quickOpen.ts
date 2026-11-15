@@ -1,5 +1,5 @@
-import { ListFiles } from '../wailsjs/go/main/App';
-import { EventsOn } from '../wailsjs/runtime/runtime';
+import { ListFiles } from '../bindings/kova/app';
+import { Events } from '@wailsio/runtime';
 import { folderName, isWithin } from './sidebar';
 
 // QuickOpenFile is one row in the palette: the file's absolute path, its name
@@ -16,13 +16,13 @@ export const QUICK_OPEN_LIMIT = 50;
 
 // listFiles asks Go for every regular file under the sidebar roots.
 export async function listFiles(): Promise<string[]> {
-    return await ListFiles();
+    return (await ListFiles()) ?? [];
 }
 
 // listenForQuickOpen runs handler when the File menu asks for the palette.
 // Returns an unsubscribe function.
 export function listenForQuickOpen(handler: () => void): () => void {
-    return EventsOn('kova:quick-open', () => handler());
+    return Events.On('kova:quick-open', () => handler());
 }
 
 // toQuickOpenFiles turns absolute paths into palette rows. The detail keeps the
