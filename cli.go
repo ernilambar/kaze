@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,6 +65,77 @@ func uniquePaths(paths []string) []string {
 		unique = append(unique, path)
 	}
 	return unique
+}
+
+// cliAction is what a command line asked for before a window exists. Help and
+// version must be answered by this process: forwarding them to a running Kova
+// would open a window instead of printing anything.
+type cliAction int
+
+const (
+	cliLaunch cliAction = iota
+	cliActionHelp
+	cliActionVersion
+)
+
+// cliFlags maps every accepted spelling to its action. Go's flag convention
+// allows a single dash for long names, and Wails itself uses `-flag`.
+var cliFlags = map[string]cliAction{
+	"-h":        cliActionHelp,
+	"-help":     cliActionHelp,
+	"--help":    cliActionHelp,
+	"-v":        cliActionVersion,
+	"-V":        cliActionVersion,
+	"-version":  cliActionVersion,
+	"--version": cliActionVersion,
+}
+
+// parseCLIAction scans arguments for an informational flag. Help wins over
+// version when both are present. `--` ends flag parsing, so a path named
+// `--help` after it stays a path.
+func parseCLIAction(args []string) cliAction {
+	action := cliLaunch
+	for _, arg := range args {
+		if arg == "--" {
+			break
+		}
+		requested, ok := cliFlags[arg]
+		if !ok {
+			continue
+		}
+		if requested == cliActionHelp {
+			return cliActionHelp
+		}
+		action = cliActionVersion
+	}
+	return action
+}
+
+// cliUsageText is the help screen. It lists every spelling so the accepted flags
+// are discoverable from the terminal alone.
+func cliUsageText(meta appMetadata) string {
+	return fmt.Sprintf(`%s %s — a minimal text editor.
+
+Usage:
+  %s [path ...]
+
+Arguments:
+  path  A file to open, or a folder to add to the sidebar.
+
+Options:
+  -h, --help     Show this help and exit.
+  -v, --version  Show the version and exit.
+  --             Treat every following argument as a path.
+
+Files open in the editor. Folders become sidebar roots and are remembered for
+next time. Running %s with paths while Kova is already open hands them to that
+window instead of starting a second one.
+`, meta.ProductName, meta.ProductVersion, commandName, commandName)
+}
+
+// cliVersionText is the one-line answer to -v/--version.
+func cliVersionText(meta appMetadata) string {
+	return fmt.Sprintf("%s %s\n", commandName, meta.ProductVersion)
 }
 
 // wailsValueFlags are the flags the Wails runtime parses out of os.Args itself.

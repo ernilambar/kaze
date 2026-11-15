@@ -33,13 +33,23 @@ command cache; if `kova` reports `command not found`, run `hash -r`.
 | A folder | Added to the sidebar as a root, and saved for next time. |
 | Several arguments | Every folder becomes a root; the first readable file is opened. |
 | A missing path | Reported in the status bar, and the rest still open. |
-| Flags (`-x`, `--anything`) | Ignored, so they cannot be mistaken for files. |
+| `-h`, `-help`, `--help` | Print usage and exit without opening a window. |
+| `-v`, `-V`, `-version`, `--version` | Print the version and exit. |
+| Other flags (`-x`, `--anything`) | Ignored, so they cannot be mistaken for files. |
 | `--` | Everything after it is treated as a path, even if it starts with `-`. |
 
 Relative paths are resolved by the installed launcher against the directory you
 ran it from, so `kova notes.txt` works from any shell. If Kova is already
 running, the arguments are forwarded to that window and it comes to the front;
 a second window is never created.
+
+## Help and version
+
+`kova --help` prints the argument rules and `kova --version` prints the version
+taken from `info.productVersion` in `wails.json`. Both are answered by the
+invoked process, so they work even while Kova is running and never raise the
+window. Help wins when both flags are given. Nothing after `--` is read as a
+flag, so `kova -- --help` looks for a file named `--help`.
 
 ## Limitations
 

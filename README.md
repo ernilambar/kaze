@@ -24,6 +24,7 @@ Install the tool from **Kova → Install Command Line Tool…**, then:
 ```sh
 kova notes.txt  # open a file
 kova .          # add a folder to the sidebar
+kova --help     # usage without opening a window
 ```
 
 ## Settings

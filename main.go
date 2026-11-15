@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"fmt"
 	"os"
 
 	"github.com/wailsapp/wails/v2"
@@ -52,6 +53,17 @@ func main() {
 	app := NewApp()
 
 	meta := loadAppMetadata()
+
+	// Help and version print in this process, before the single-instance lock,
+	// so they never open or forward to a window.
+	switch parseCLIAction(os.Args[1:]) {
+	case cliActionHelp:
+		fmt.Print(cliUsageText(meta))
+		return
+	case cliActionVersion:
+		fmt.Print(cliVersionText(meta))
+		return
+	}
 
 	// Paths on the command line are opened by the UI once it is live.
 	app.queueLaunch(parseLaunchRequest(os.Args[1:]))
