@@ -11,6 +11,9 @@
         searchActive?: boolean;
         onSelect: (id: string) => void;
         onClose: (id: string) => void;
+        // onContextMenu opens the tab's row menu; the tab carries the document
+        // so the menu can act on the file under the pointer.
+        onContextMenu?: (event: MouseEvent, tab: OpenDocument) => void;
         // onReorder drops the dragged tab before or after the target tab.
         onReorder: (id: string, targetId: string, placeAfter: boolean) => void;
         onSelectSearch?: () => void;
@@ -27,6 +30,7 @@
         searchActive = false,
         onSelect,
         onClose,
+        onContextMenu,
         onReorder,
         onSelectSearch,
         onCloseSearch,
@@ -164,6 +168,7 @@
                 ondragover={(event) => dragOver(event, tab.id)}
                 ondrop={(event) => dropOn(event, tab.id)}
                 ondragend={endDrag}
+                oncontextmenu={(event) => onContextMenu?.(event, tab)}
             >
                 {#if showIcons}
                     <span

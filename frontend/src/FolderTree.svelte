@@ -15,6 +15,8 @@
         expanded?: boolean;
         removable?: boolean;
         onOpenFile: (path: string) => void;
+        // onContextMenu opens the row menu for a file or folder.
+        onContextMenu?: (event: MouseEvent, path: string) => void;
         onRemove?: (path: string) => void;
         onExpandedChange?: (path: string, open: boolean) => void;
         iconStyle?: 'colorful' | 'monochrome';
@@ -30,6 +32,7 @@
         expanded = false,
         removable = false,
         onOpenFile,
+        onContextMenu,
         onRemove,
         onExpandedChange,
         iconStyle = 'colorful',
@@ -118,7 +121,12 @@
 
 <li class="node">
     <div class="row" style:padding-left={`${8 + depth * 14}px`}>
-        <button class="row__main" onclick={toggle} title={path}>
+        <button
+            class="row__main"
+            onclick={toggle}
+            title={path}
+            oncontextmenu={(event) => onContextMenu?.(event, path)}
+        >
             <span class="row__chevron" class:row__chevron--open={open}>
                 <svg aria-hidden="true" height="10" viewBox="0 0 10 10" width="10">
                     <path d="M3 1 L7 5 L3 9" fill="none" stroke="currentColor" stroke-width="1.5" />
@@ -163,6 +171,7 @@
                             {refreshToken}
                             {statuses}
                             {onOpenFile}
+                            {onContextMenu}
                             {onExpandedChange}
                             {iconStyle}
                         />
@@ -175,7 +184,12 @@
                                 class:row--selected={selectedPath === entry.path}
                                 style:padding-left={`${8 + (depth + 1) * 14}px`}
                             >
-                                <button class="row__main" onclick={() => onOpenFile(entry.path)} title={entry.path}>
+                                <button
+                                    class="row__main"
+                                    onclick={() => onOpenFile(entry.path)}
+                                    title={entry.path}
+                                    oncontextmenu={(event) => onContextMenu?.(event, entry.path)}
+                                >
                                     <span class="row__spacer"></span>
                                     <span
                                         class="row__icon"

@@ -14,6 +14,8 @@
         onAddFolder: () => void;
         onRemoveFolder: (path: string) => void;
         onOpenFile: (path: string) => void;
+        // onContextMenu opens the row menu for a file or folder.
+        onContextMenu?: (event: MouseEvent, path: string) => void;
         // onExpandedChange reports which folders are open, so the app can watch
         // them for external changes.
         onExpandedChange?: (path: string, open: boolean) => void;
@@ -29,6 +31,7 @@
         onAddFolder,
         onRemoveFolder,
         onOpenFile,
+        onContextMenu,
         onExpandedChange,
         iconStyle = 'colorful',
     }: Props = $props();
@@ -66,6 +69,7 @@
                     expanded={true}
                     removable={true}
                     {onOpenFile}
+                    {onContextMenu}
                     {onExpandedChange}
                     {iconStyle}
                     onRemove={onRemoveFolder}

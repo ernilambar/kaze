@@ -35,6 +35,7 @@
     import type { SaveResult, SearchMatch, WorkspaceInfo } from '../bindings/kova/models';
     import { CASE_TRANSFORMS, type CaseTransform } from './case';
     import ChangesView from './ChangesView.svelte';
+    import ContextMenu from './ContextMenu.svelte';
     import EditorPane from './EditorPane.svelte';
     import ImageViewer from './ImageViewer.svelte';
     import Preview from './Preview.svelte';
@@ -278,6 +279,9 @@
 
     let unsavedPrompt = $state<UnsavedPrompt | null>(null);
     let conflictPrompt = $state<ConflictPrompt | null>(null);
+    // contextMenu is the right-click menu in the tab bar or the tree, anchored
+    // where the pointer was and acting on the path under it.
+    let contextMenu = $state<{ x: number; y: number; path: string } | null>(null);
 
     let line = $state(1);
     let column = $state(1);
@@ -1820,18 +1824,39 @@
         editorPane?.revealLine(tab.id, line, column);
     }
 
-    async function revealActiveFile(): Promise<void> {
-        const path = active?.path ?? '';
-        if (path === '') {
-            notice = 'Open a saved file to reveal it in Finder.';
-            return;
-        }
+    // revealPath shows one file in the platform's file manager.
+    async function revealPath(path: string): Promise<void> {
         try {
             await RevealFile(path);
             notice = '';
         } catch (error) {
             notice = errorMessage(error);
         }
+    }
+
+    async function revealActiveFile(): Promise<void> {
+        // A diff tab has no path of its own, but it names the file it was made
+        // from, which is the file worth revealing.
+        const path = active?.path || active?.sourcePath || '';
+        if (path === '') {
+            notice = 'Open a saved file to reveal it in Finder.';
+            return;
+        }
+        await revealPath(path);
+    }
+
+    // showContextMenu opens the right-click menu for path at the pointer. An
+    // untitled buffer has nothing on disk, so it gets no menu.
+    function showContextMenu(event: MouseEvent, path: string): void {
+        event.preventDefault();
+        if (path === '') {
+            return;
+        }
+        contextMenu = { x: event.clientX, y: event.clientY, path };
+    }
+
+    function closeContextMenu(): void {
+        contextMenu = null;
     }
 
     async function copyActivePath(kind: CopyPathKind): Promise<void> {
@@ -2118,6 +2143,7 @@
                     onAddFolder={() => void addFolderFromDialog()}
                     onRemoveFolder={(path) => void removeFolder(path)}
                     onOpenFile={(path) => void openFile(path)}
+                    onContextMenu={showContextMenu}
                     onExpandedChange={setExpanded}
                 />
             {/if}
@@ -2135,6 +2161,8 @@
                     searchActive = false;
                 }}
                 onClose={(id) => void closeTab(id)}
+                onContextMenu={(event, tab) =>
+                    showContextMenu(event, tab.path || tab.sourcePath || '')}
                 onReorder={reorderTab}
                 onSelectSearch={() => {
                     searchOpen = true;
@@ -2157,6 +2185,7 @@
                         {openIds}
                         settings={editorSettings}
                         readOnly={active?.kind === 'diff'}
+                        onRevealFile={() => void revealActiveFile()}
                         onDirtyChange={(id, dirty) => {
                             tabs = setDocumentDirty(tabs, id, dirty);
                         }}
@@ -2275,6 +2304,21 @@
             ]}
             onSelect={(id) => answerConflict(id === 'overwrite')}
             onCancel={() => answerConflict(false)}
+        />
+    {/if}
+    {#if contextMenu !== null}
+        <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            items={[{ id: 'reveal', label: 'Reveal in Finder' }]}
+            onSelect={() => {
+                const path = contextMenu?.path ?? '';
+                closeContextMenu();
+                if (path !== '') {
+                    void revealPath(path);
+                }
+            }}
+            onClose={closeContextMenu}
         />
     {/if}
     {#if settingsOverlay}

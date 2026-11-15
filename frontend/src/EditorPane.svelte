@@ -36,6 +36,9 @@
         // readOnly is set for diff tabs, whose text is a generated snapshot.
         readOnly?: boolean;
         onCursorMove?: (line: number, column: number) => void;
+        // onRevealFile asks the app to show the active file in the platform's
+        // file manager; it is wired to the editor's context menu.
+        onRevealFile?: () => void;
         // onDirtyChange reports when a buffer stops or starts matching the file
         // it came from, so its tab can be marked.
         onDirtyChange?: (id: string, dirty: boolean) => void;
@@ -49,6 +52,7 @@
         settings,
         readOnly = false,
         onCursorMove,
+        onRevealFile,
         onDirtyChange,
     }: Props = $props();
 
@@ -422,10 +426,18 @@
             reportDirty(activeKey);
             scheduleDecorations(activeKey);
         });
+        const revealAction = created.addAction({
+            id: 'reveal-in-finder',
+            label: 'Reveal in Finder',
+            contextMenuGroupId: 'navigation',
+            contextMenuOrder: 1,
+            run: () => onRevealFile?.(),
+        });
 
         return () => {
             cursorSubscription.dispose();
             contentSubscription.dispose();
+            revealAction.dispose();
             created.dispose();
             for (const model of models.values()) {
                 model.dispose();
