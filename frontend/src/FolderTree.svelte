@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount, untrack } from 'svelte';
     import Self from './FolderTree.svelte';
+    import { fileIcon } from './fileIcons';
     import { errorMessage, isWithin, readFolder, type FolderEntry } from './sidebar';
 
     interface Props {
@@ -94,6 +95,17 @@
                     <path d="M3 1 L7 5 L3 9" fill="none" stroke="currentColor" stroke-width="1.5" />
                 </svg>
             </span>
+            <span class="row__icon row__icon--folder" aria-hidden="true">
+                <svg height="15" viewBox="0 0 16 16" width="15">
+                    <path
+                        d="M2 4.25A1.25 1.25 0 0 1 3.25 3h3.1c.33 0 .65.13.88.37l1.06 1.06c.23.24.55.37.88.37h4.58A1.25 1.25 0 0 1 15 6.05v6.7A1.25 1.25 0 0 1 13.75 14H3.25A1.25 1.25 0 0 1 2 12.75z"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linejoin="round"
+                        stroke-width="1.2"
+                    />
+                </svg>
+            </span>
             <span class="row__name">{name}</span>
         </button>
         {#if removable && onRemove !== undefined}
@@ -116,6 +128,7 @@
                     {#if entry.isDir}
                         <Self depth={depth + 1} name={entry.name} path={entry.path} {selectedPath} {onOpenFile} />
                     {:else}
+                        {@const icon = fileIcon(entry.name)}
                         <li class="node">
                             <div
                                 class="row"
@@ -124,6 +137,15 @@
                             >
                                 <button class="row__main" onclick={() => onOpenFile(entry.path)} title={entry.path}>
                                     <span class="row__spacer"></span>
+                                    <span
+                                        class="row__icon"
+                                        aria-hidden="true"
+                                        style:color={icon.color}
+                                        style:font-family={icon.family}
+                                        style:font-size={`${icon.size}px`}
+                                        style:top={`${icon.top}px`}
+                                        style:left={`${icon.left}px`}
+                                    >{icon.glyph}</span>
                                     <span class="row__name">{entry.name}</span>
                                 </button>
                             </div>
@@ -188,6 +210,26 @@
     .row__spacer {
         flex: 0 0 auto;
         width: 10px;
+    }
+
+    .row__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        width: 16px;
+        height: 16px;
+        position: relative;
+        line-height: 1;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    .row__icon--folder {
+        color: var(--fg-muted);
+    }
+
+    .row:hover .row__icon--folder {
+        color: var(--fg);
     }
 
     .row__name {

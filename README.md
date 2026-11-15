@@ -8,8 +8,10 @@ Add folders with the `+` button in the sidebar header or
 **File → Add Folder to Sidebar…** (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>).
 Several folders can be open at once, each as its own root; children are read
 only when a folder is expanded. Click a file to open it in the editor, and use
-the `×` on a root to remove it. The list is saved in `settings.json`, so it
-comes back on the next launch.
+the `×` on a root to remove it. Files and folders carry
+[File Icons](https://github.com/file-icons/icons) glyphs matched by name, so
+`.ts`, `.rs`, `Dockerfile` and friends are recognisable at a glance. The list is
+saved in `settings.json`, so it comes back on the next launch.
 
 `kova .` adds the current directory to the sidebar in the same way. See
 [docs/cli.md](docs/cli.md) for the full argument rules and current

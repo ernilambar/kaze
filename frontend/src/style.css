@@ -1,3 +1,38 @@
+/* The four fonts the explorer's file icons are drawn from. `font-display:
+   block` keeps a row from flashing its fallback glyph while the font loads;
+   they are local assets, so the wait is negligible. */
+@font-face {
+    font-family: "file-icons";
+    font-weight: normal;
+    font-style: normal;
+    font-display: block;
+    src: url("./assets/file-icons.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Mfizz";
+    font-weight: normal;
+    font-style: normal;
+    font-display: block;
+    src: url("./assets/mfixx.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Devicons";
+    font-weight: normal;
+    font-style: normal;
+    font-display: block;
+    src: url("./assets/devopicons.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "FontAwesome";
+    font-weight: normal;
+    font-style: normal;
+    font-display: block;
+    src: url("./assets/fontawesome.woff2") format("woff2");
+}
+
 :root {
     color-scheme: dark;
     --bg: #1e1e1e;
