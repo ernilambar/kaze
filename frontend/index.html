@@ -4,6 +4,38 @@
     <meta charset="UTF-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>Kova</title>
+    <style>
+        /* The window is on screen before the bundled stylesheet and the saved
+           theme are applied, so the first frame must already be dark. The
+           fallback only applies until style.css defines --bg, and a light theme
+           then resolves it. */
+        html,
+        body {
+            margin: 0;
+            background: var(--bg, #1e1e1e);
+            color-scheme: dark;
+        }
+    </style>
+    <script>
+        // Paint the cached palette before the module graph (Monaco included)
+        // loads, so neither a light nor a dark theme flashes the default one.
+        // The key and shape mirror STARTUP_THEME_KEY in src/theme.ts, and the
+        // colour test mirrors isHexColor.
+        var HEX = /^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+        try {
+            var cached = JSON.parse(localStorage.getItem('kova.theme.startup') || 'null');
+            if (cached && HEX.test(cached.background)) {
+                var root = document.documentElement;
+                root.style.setProperty('--bg', cached.background);
+                root.style.colorScheme = cached.appearance === 'light' ? 'light' : 'dark';
+                if (cached.foreground && HEX.test(cached.foreground)) {
+                    root.style.setProperty('--fg', cached.foreground);
+                }
+            }
+        } catch (error) {
+            // A missing or unreadable cache only costs the first frame.
+        }
+    </script>
 </head>
 <body>
 <div id="app"></div>

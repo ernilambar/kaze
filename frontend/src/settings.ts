@@ -141,10 +141,11 @@ export interface UISettings {
 export const DEFAULT_UI_FONT =
     '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
-// Defaults mirror defaultSettings in settings.go: system appearance, the built-in
-// pair, the system UI font, 13px chrome, file icons on and the sidebar left.
+// Defaults mirror defaultSettings in settings.go: a fixed dark appearance, the
+// built-in pair, the system UI font, 13px chrome, file icons on and the sidebar
+// left.
 export const defaultThemeSettings: ThemeSettings = {
-    mode: 'system',
+    mode: 'dark',
     light: 'Kova Light',
     dark: 'Kova Dark',
 };

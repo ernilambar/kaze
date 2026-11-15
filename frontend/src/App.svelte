@@ -115,11 +115,13 @@
     import {
         applyThemeCSS,
         applyUISettings,
+        cacheStartupTheme,
         listThemes,
         listenForAppearance,
         listenForConfigChanges,
         listenForSettingsOverlay,
         loadTheme,
+        monacoThemeName,
         resolveThemeName,
         systemPrefersDark,
         themeData,
@@ -856,9 +858,9 @@
     // replace the data and re-select the same theme.
     function applyThemePalette(palette: ThemePalette): void {
         applyThemeCSS(palette);
-        const name = `theme-${palette.name.replace(/[^A-Za-z0-9_-]/g, '-')}`;
-        monaco.editor.defineTheme(name, themeData(palette));
-        monaco.editor.setTheme(name);
+        cacheStartupTheme(palette);
+        monaco.editor.defineTheme(monacoThemeName(palette.name), themeData(palette));
+        monaco.editor.setTheme(monacoThemeName(palette.name));
     }
 
     async function applyCurrentTheme(): Promise<void> {

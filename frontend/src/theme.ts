@@ -221,6 +221,107 @@ export function applyThemeCSS(palette: ThemePalette): void {
     root.style.colorScheme = palette.appearance;
 }
 
+// monacoThemeName gives a palette its Monaco theme id. It is stable per name, so
+// a live reload replaces the definition instead of piling up new ids.
+export function monacoThemeName(name: string): string {
+    return `theme-${name.replace(/[^A-Za-z0-9_-]/g, '-')}`;
+}
+
+// StartupTheme is the little a first frame needs: the surface colours that were
+// last on screen. Settings and theme files are read asynchronously after the
+// window is already visible, so without this the app showed its default light
+// surfaces and then switched to the saved theme.
+export interface StartupTheme {
+    appearance: ThemeAppearance;
+    background: string;
+    foreground: string;
+}
+
+// STARTUP_THEME_KEY is read by an inline script in index.html as well, which is
+// why the stored shape stays this small.
+export const STARTUP_THEME_KEY = 'kova.theme.startup';
+
+// STARTUP_THEME_ID is the Monaco theme the cache paints before anything is
+// loaded. The real palette replaces it once its file has been read.
+export const STARTUP_THEME_ID = 'kova-startup';
+
+export function cacheStartupTheme(palette: ThemePalette): void {
+    const background = palette.ui['bg'];
+    if (background === undefined) {
+        return;
+    }
+    const theme: StartupTheme = {
+        appearance: palette.appearance,
+        background,
+        foreground: palette.ui['fg'] ?? '',
+    };
+    try {
+        window.localStorage.setItem(STARTUP_THEME_KEY, JSON.stringify(theme));
+    } catch (error) {
+        console.error('Failed to cache the theme for startup.', error);
+    }
+}
+
+// readStartupTheme returns the cached palette, or null when there is none or it
+// cannot be trusted. A stale value only affects the first frame.
+export function readStartupTheme(): StartupTheme | null {
+    let raw: string | null;
+    try {
+        raw = window.localStorage.getItem(STARTUP_THEME_KEY);
+    } catch (error) {
+        return null;
+    }
+    if (raw === null) {
+        return null;
+    }
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(raw);
+    } catch (error) {
+        return null;
+    }
+    if (typeof parsed !== 'object' || parsed === null) {
+        return null;
+    }
+    const candidate = parsed as Partial<StartupTheme>;
+    if (candidate.appearance !== 'light' && candidate.appearance !== 'dark') {
+        return null;
+    }
+    if (typeof candidate.background !== 'string' || !isHexColor(candidate.background)) {
+        return null;
+    }
+    return {
+        appearance: candidate.appearance,
+        background: candidate.background,
+        foreground:
+            typeof candidate.foreground === 'string' && isHexColor(candidate.foreground)
+                ? candidate.foreground
+                : '',
+    };
+}
+
+// applyStartupTheme paints the cached colours on the document, before the app
+// mounts and before the saved theme has been read.
+export function applyStartupTheme(theme: StartupTheme): void {
+    const root = document.documentElement;
+    root.style.setProperty('--bg', theme.background);
+    if (theme.foreground !== '') {
+        root.style.setProperty('--fg', theme.foreground);
+    }
+    root.style.colorScheme = theme.appearance;
+}
+
+// startupThemeData is the Monaco theme for the cached palette. Monaco starts on
+// its light default otherwise, which is the white the editor flashed on launch.
+export function startupThemeData(theme: StartupTheme): monaco.editor.IStandaloneThemeData {
+    return {
+        base: theme.appearance === 'light' ? 'vs' : 'vs-dark',
+        inherit: true,
+        rules: [],
+        colors: { 'editor.background': theme.background },
+    };
+}
+
 export function applyUISettings(ui: UISettings): void {
     const root = document.documentElement;
     const family = ui.fontFamily.trim() === '' ? DEFAULT_UI_FONT : ui.fontFamily;

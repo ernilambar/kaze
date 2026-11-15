@@ -1,11 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, beforeEach } from 'vitest';
 import type * as models from '../bindings/kova/models';
 import { defaultThemeSettings } from './settings';
 import {
+    applyStartupTheme,
     applyThemeCSS,
     applyUISettings,
+    cacheStartupTheme,
     isHexColor,
+    monacoThemeName,
+    readStartupTheme,
     resolveThemeName,
+    STARTUP_THEME_KEY,
+    startupThemeData,
     syntaxRules,
     themeData,
     toMonacoColor,
@@ -155,5 +161,80 @@ describe('CSS application', () => {
         });
         expect(root.style.getPropertyValue('--ui-font-family')).toBe('Fira Sans');
         expect(root.style.getPropertyValue('--ui-font-size')).toBe('12px');
+    });
+});
+
+describe('monacoThemeName', () => {
+    it('makes a stable id from the variant name', () => {
+        expect(monacoThemeName('Kova Dark')).toBe('theme-Kova-Dark');
+        expect(monacoThemeName('a/b:c')).toBe('theme-a-b-c');
+        expect(monacoThemeName('Kova Dark')).toBe(monacoThemeName('Kova Dark'));
+    });
+});
+
+describe('startup theme cache', () => {
+    beforeEach(() => {
+        localStorage.clear();
+        document.documentElement.style.cssText = '';
+    });
+
+    it('round-trips the surface colours the first frame needs', () => {
+        cacheStartupTheme(toThemePalette(palette()));
+        expect(JSON.parse(localStorage.getItem(STARTUP_THEME_KEY) ?? 'null')).toEqual({
+            appearance: 'dark',
+            background: '#101010',
+            foreground: '#eeeeee',
+        });
+        expect(readStartupTheme()).toEqual({
+            appearance: 'dark',
+            background: '#101010',
+            foreground: '#eeeeee',
+        });
+    });
+
+    it('ignores a cached value it cannot trust', () => {
+        expect(readStartupTheme()).toBeNull();
+        localStorage.setItem(STARTUP_THEME_KEY, 'not json');
+        expect(readStartupTheme()).toBeNull();
+        localStorage.setItem(
+            STARTUP_THEME_KEY,
+            JSON.stringify({ appearance: 'dark', background: 'white' }),
+        );
+        expect(readStartupTheme()).toBeNull();
+        localStorage.setItem(
+            STARTUP_THEME_KEY,
+            JSON.stringify({ appearance: 'dark', background: '#123456' }),
+        );
+        expect(readStartupTheme()).toEqual({
+            appearance: 'dark',
+            background: '#123456',
+            foreground: '',
+        });
+    });
+
+    it('skips a palette with no background instead of caching a half theme', () => {
+        cacheStartupTheme(toThemePalette(palette({ ui: {} })));
+        expect(localStorage.getItem(STARTUP_THEME_KEY)).toBeNull();
+    });
+
+    it('paints the cached colours and the appearance', () => {
+        applyStartupTheme({ appearance: 'light', background: '#fafafa', foreground: '#111111' });
+        const root = document.documentElement;
+        expect(root.style.getPropertyValue('--bg')).toBe('#fafafa');
+        expect(root.style.getPropertyValue('--fg')).toBe('#111111');
+        expect(root.style.colorScheme).toBe('light');
+    });
+
+    it('gives Monaco a background for the first frame', () => {
+        const dark = startupThemeData({
+            appearance: 'dark',
+            background: '#101010',
+            foreground: '#eeeeee',
+        });
+        expect(dark.base).toBe('vs-dark');
+        expect(dark.colors['editor.background']).toBe('#101010');
+        expect(
+            startupThemeData({ appearance: 'light', background: '#ffffff', foreground: '' }).base,
+        ).toBe('vs');
     });
 });

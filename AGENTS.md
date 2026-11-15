@@ -166,9 +166,9 @@ introduce one unprompted.
   fallback when the backend call fails). `EditorSettings` also carries
   indentation, cursor and **View toggle** options; since some default to
   `true`, `loadSettings` decodes over `defaultSettings()` so an absent key
-  keeps its default. `ThemeSettings` chooses `system`/`light`/`dark` and one
-  variant name per appearance; `UISettings` holds the UI font family and size,
-  tab icons, icon style and sidebar side. `App.UpdateEditorSettings`,
+  keeps its default. `ThemeSettings` chooses `system`/`light`/`dark` (default
+  `dark`) and one variant name per appearance; `UISettings` holds the UI font
+  family and size, tab icons, icon style and sidebar side. `App.UpdateEditorSettings`,
   `UpdateThemeSettings`, `UpdateUISettings`, `UpdateFilesSettings` and
   `UpdateSearchSettings` are the write paths; the recent files and session are
   written by `workspace.go` (`AddRecentFile`, `ClearRecentFiles`, `SetSession`,
@@ -187,6 +187,16 @@ introduce one unprompted.
   with the same name shadows the built-in one. `configwatch.go` polls the
   folder and keybindings file and emits `app:config-changed`, so edits apply
   without a restart; `OpenThemesFolder` reveals the directory.
+- **The first frame is painted from a cached palette.** Settings and theme files
+  are read asynchronously after the window is already visible, and WKWebView
+  paints white before any CSS arrives, so `applyThemePalette` caches the surface
+  colours in `localStorage` (`kova.theme.startup`, written by
+  `cacheStartupTheme`). An inline script in `frontend/index.html` and
+  `main.ts` paint that cache before the module graph loads, and `main.ts` also
+  selects a throwaway Monaco theme from it — otherwise Monaco's light `vs`
+  default flashes. Keep the inline copy's key, shape and hex test in sync with
+  `theme.ts`; a missing or malformed entry just falls back to the built-in dark
+  palette, matching the window's `BackgroundColour`.
 - **Custom keybindings are VS Code-shaped.** `keybindings.json` sits beside
   `settings.json`; `keybindings.go` accepts JSONC comments, validates keys
   (a modifier or a non-printing key), drops bad entries with a warning, and

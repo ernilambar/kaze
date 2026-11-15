@@ -17,7 +17,7 @@ const (
 	defaultTabSize     = 4
 	defaultCursorWidth = 1
 
-	defaultThemeMode    = "system"
+	defaultThemeMode    = "dark"
 	defaultThemeLight   = "Kova Light"
 	defaultThemeDark    = "Kova Dark"
 	defaultUIFontSize   = 13.0
@@ -253,7 +253,7 @@ func (s *Settings) normalize() {
 }
 
 // normalizeThemeMode keeps the three supported modes and treats a typo as the
-// system default instead of leaving an unusable value in the file.
+// default instead of leaving an unusable value in the file.
 func normalizeThemeMode(mode string) string {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
 	case "light", "dark":
