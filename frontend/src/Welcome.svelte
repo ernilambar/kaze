@@ -1,7 +1,4 @@
 <script lang="ts">
-    import logo from './assets/kova.png';
-    import type { PaletteItem } from './palette';
-
     interface Entry {
         command: string;
         label: string;
@@ -9,92 +6,33 @@
     }
 
     interface Props {
-        // recent holds the Open Recent entries, newest first. At most a few are
-        // shown so the welcome screen stays one screenful.
-        recent?: PaletteItem[];
         onCommand: (id: string) => void;
-        onOpenRecent: (path: string) => void;
     }
 
-    let { recent = [], onCommand, onOpenRecent }: Props = $props();
+    let { onCommand }: Props = $props();
 
     // The key labels mirror the default accelerators in menu.go; a custom
-    // keybinding.json entry may override one.
-    const START: readonly Entry[] = [
+    // keybindings.json entry may override one.
+    const ACTIONS: readonly Entry[] = [
         { command: 'new-file', label: 'New File', keys: '⌘N' },
         { command: 'open-file', label: 'Open File…', keys: '⌘O' },
-        { command: 'add-folder', label: 'Add Folder to Sidebar…', keys: '⌘⇧O' },
-        { command: 'open-recent', label: 'Open Recent…', keys: '⌃R' },
-    ];
-
-    const NAVIGATE: readonly Entry[] = [
-        { command: 'quick-open', label: 'Quick Open…', keys: '⌘P' },
-        { command: 'command-palette', label: 'Command Palette…', keys: '⌘⇧P' },
-        { command: 'find-in-files', label: 'Find in Files…', keys: '⌘⇧F' },
-        { command: 'toggle-sidebar', label: 'Toggle Sidebar', keys: '⌘B' },
-        { command: 'settings', label: 'Settings…', keys: '⌘,' },
-        { command: 'open-keybindings', label: 'Open Keybindings…', keys: '' },
+        { command: 'add-folder', label: 'Add Folder…', keys: '⌘⇧O' },
     ];
 </script>
 
 <div class="welcome">
     <div class="welcome__content">
-        <header class="welcome__brand">
-            <img alt="" class="welcome__logo" src={logo} />
-            <div>
-                <h1 class="welcome__title">Kova</h1>
-                <p class="welcome__tagline">A minimal text editor for macOS</p>
-            </div>
-        </header>
-        <div class="welcome__grid">
-            <section>
-                <h2 class="welcome__heading">Start</h2>
-                <ul class="welcome__list">
-                    {#each START as entry (entry.command)}
-                        <li>
-                            <button class="welcome__item" onclick={() => onCommand(entry.command)}>
-                                <span class="welcome__label">{entry.label}</span>
-                                <kbd class="welcome__keys">{entry.keys}</kbd>
-                            </button>
-                        </li>
-                    {/each}
-                </ul>
-            </section>
-            <section>
-                <h2 class="welcome__heading">Navigate</h2>
-                <ul class="welcome__list">
-                    {#each NAVIGATE as entry (entry.command)}
-                        <li>
-                            <button class="welcome__item" onclick={() => onCommand(entry.command)}>
-                                <span class="welcome__label">{entry.label}</span>
-                                {#if entry.keys !== ''}
-                                    <kbd class="welcome__keys">{entry.keys}</kbd>
-                                {/if}
-                            </button>
-                        </li>
-                    {/each}
-                </ul>
-            </section>
-            {#if recent.length > 0}
-                <section class="welcome__recent">
-                    <h2 class="welcome__heading">Recent</h2>
-                    <ul class="welcome__list">
-                        {#each recent as entry (entry.id)}
-                            <li>
-                                <button
-                                    class="welcome__item"
-                                    onclick={() => onOpenRecent(entry.id)}
-                                    title={entry.detail}
-                                >
-                                    <span class="welcome__label">{entry.name}</span>
-                                    <span class="welcome__detail">{entry.detail}</span>
-                                </button>
-                            </li>
-                        {/each}
-                    </ul>
-                </section>
-            {/if}
-        </div>
+        <div class="welcome__logo" aria-hidden="true"></div>
+        <ul class="welcome__list">
+            {#each ACTIONS as entry (entry.command)}
+                <li>
+                    <button class="welcome__item" onclick={() => onCommand(entry.command)}>
+                        <span class="welcome__label">{entry.label}</span>
+                        <kbd class="welcome__keys">{entry.keys}</kbd>
+                    </button>
+                </li>
+            {/each}
+        </ul>
     </div>
 </div>
 
@@ -102,6 +40,7 @@
     .welcome {
         position: absolute;
         inset: 0;
+        display: flex;
         overflow-y: auto;
         background: var(--bg);
         color: var(--fg);
@@ -109,63 +48,37 @@
     }
 
     .welcome__content {
-        width: min(760px, 100%);
-        margin: 0 auto;
-        padding: 64px 32px 48px;
-    }
-
-    .welcome__brand {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 16px;
-        margin-bottom: 40px;
+        gap: 64px;
+        margin: auto;
+        padding: 40px 24px;
     }
 
     .welcome__logo {
-        width: 64px;
-        height: 64px;
+        position: relative;
+        width: 160px;
+        height: 160px;
+        border-radius: 23%;
+        background: var(--bg-raised);
     }
 
-    .welcome__title {
-        margin: 0;
-        font-size: 24px;
-        font-weight: 500;
-        line-height: 1.2;
-    }
-
-    .welcome__tagline {
-        margin: 4px 0 0;
-        color: var(--fg-muted);
-    }
-
-    .welcome__grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 32px;
-    }
-
-    .welcome__recent {
-        grid-column: 1 / -1;
-    }
-
-    @media (max-width: 680px) {
-        .welcome__grid {
-            grid-template-columns: 1fr;
-        }
-
-        .welcome__content {
-            padding: 40px 24px 32px;
-        }
-    }
-
-    .welcome__heading {
-        margin: 0 0 8px;
-        font-size: var(--ui-font-size);
-        font-weight: 600;
-        color: var(--fg-muted);
+    .welcome__logo::after {
+        position: absolute;
+        inset: 0;
+        background: var(--fg-muted);
+        content: '';
+        -webkit-mask: url('./assets/kova-glyph.png') center / 100% 100% no-repeat;
+        mask: url('./assets/kova-glyph.png') center / 100% 100% no-repeat;
     }
 
     .welcome__list {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        width: 320px;
+        max-width: 100%;
         margin: 0;
         padding: 0;
         list-style: none;
@@ -173,15 +86,17 @@
 
     .welcome__item {
         display: flex;
-        align-items: baseline;
-        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
         width: 100%;
-        padding: 5px 8px;
+        padding: 8px 10px;
         border: none;
-        border-radius: 4px;
+        border-radius: 6px;
         background: transparent;
         color: var(--fg);
         font: inherit;
+        font-size: calc(var(--ui-font-size) + 3px);
         text-align: left;
         cursor: pointer;
     }
@@ -203,24 +118,12 @@
     }
 
     .welcome__keys {
-        margin-left: auto;
         flex: 0 0 auto;
-        padding: 1px 5px;
-        border: 1px solid var(--border);
-        border-radius: 4px;
+        padding: 2px 6px;
+        border-radius: 5px;
         background: var(--bg-raised);
         color: var(--fg-muted);
         font-family: inherit;
         font-size: var(--ui-font-small);
-    }
-
-    .welcome__detail {
-        margin-left: auto;
-        flex: 0 1 auto;
-        overflow: hidden;
-        color: var(--fg-muted);
-        font-size: var(--ui-font-small);
-        text-overflow: ellipsis;
-        white-space: nowrap;
     }
 </style>

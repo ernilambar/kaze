@@ -2131,11 +2131,7 @@
                         name={active?.name ?? ''}
                     />
                 {:else if welcomeActive}
-                    <Welcome
-                        recent={recentItems.slice(0, 6)}
-                        onCommand={selectCommand}
-                        onOpenRecent={(path) => void openFile(path)}
-                    />
+                    <Welcome onCommand={selectCommand} />
                 {/if}
             </div>
         </div>
