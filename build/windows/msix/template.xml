@@ -18,7 +18,7 @@
         PublisherName="CN=Nilambar Sharma"
         PublisherDisplayName="Nilambar Sharma"
         Version="0.1.0.0"
-        PackageDescription="Kova is a simple text editor built with Wails and Monaco Editor.">
+        PackageDescription="A simple text editor.">
         <Capabilities>
             <Capability Name="runFullTrust" />
             
@@ -26,7 +26,7 @@
         <Applications>
             <Application
                 Id="net.nilambar.kova"
-                Description="Kova is a simple text editor built with Wails and Monaco Editor."
+                Description="A simple text editor."
                 DisplayName="Kova"
                 ExecutableName="kova"
                 EntryPoint="Windows.FullTrustApplication">
@@ -43,7 +43,7 @@
             <Framework>false</Framework>
             <DisplayName>Kova</DisplayName>
             <PublisherDisplayName>Nilambar Sharma</PublisherDisplayName>
-            <Description>Kova is a simple text editor built with Wails and Monaco Editor.</Description>
+            <Description>A simple text editor.</Description>
             <Logo>Assets\AppIcon.png</Logo>
         </Properties>
     </PackageInformation>

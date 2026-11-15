@@ -8,9 +8,9 @@ info:
   companyName: "Nilambar Sharma" # The name of the company
   productName: "Kova" # The name of the application
   productIdentifier: "net.nilambar.kova" # The unique product identifier
-  description: "A simple text editor built with Wails and Monaco Editor." # The application description
+  description: "A simple text editor." # The application description
   copyright: "Copyright © 2026 Nilambar Sharma" # Copyright text
-  comments: "Kova is a simple text editor built with Wails and Monaco Editor." # Comments
+  comments: "A simple text editor." # Comments
   version: "0.1.0" # The application version
   # cfBundleIconName: "appicon" # The macOS icon name in Assets.car icon bundles (optional)
   #                               # Should match the name of your .icon file without the extension

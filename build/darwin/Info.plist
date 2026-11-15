@@ -5,7 +5,7 @@
 		<key>CFBundleExecutable</key>
 		<string>kova</string>
 		<key>CFBundleGetInfoString</key>
-		<string>Kova is a simple text editor built with Wails and Monaco Editor.</string>
+		<string>A simple text editor.</string>
 		<key>CFBundleIconFile</key>
 		<string>icons</string>
 		<key>CFBundleIconName</key>

@@ -49,7 +49,7 @@ func main() {
 
 	wailsApp := application.New(application.Options{
 		Name:        meta.ProductName,
-		Description: "A simple text editor built with Wails and Monaco Editor.",
+		Description: "A simple text editor.",
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 		},
