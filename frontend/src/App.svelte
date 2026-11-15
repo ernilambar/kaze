@@ -3,6 +3,7 @@
     import EditorPane from './EditorPane.svelte';
     import Sidebar from './Sidebar.svelte';
     import StatusBar from './StatusBar.svelte';
+    import TabBar from './TabBar.svelte';
     import TitleBar from './TitleBar.svelte';
     import {
         listenForLaunch,
@@ -11,6 +12,7 @@
         type LaunchRequest,
         type OpenDocument,
     } from './document';
+    import { WELCOME_KEY, WELCOME_TEXT } from './editor';
     import {
         addSidebarFolder,
         errorMessage,
@@ -21,11 +23,13 @@
         sidebarLabel,
     } from './sidebar';
     import { noticeFor } from './status';
+    import { closeDocumentTab, listenForCloseTab, openDocumentTab } from './tabs';
 
     const APP_NAME = 'Kova';
     const LANGUAGE = 'Plain Text';
 
-    let current = $state<OpenDocument>();
+    let tabs = $state<OpenDocument[]>([]);
+    let activePath = $state('');
     let folders = $state<string[]>([]);
     let notice = $state('');
     let busy = $state(false);
@@ -33,7 +37,16 @@
     let line = $state(1);
     let column = $state(1);
 
+    let active = $derived(tabs.find((tab) => tab.path === activePath));
+    let openPaths = $derived(tabs.map((tab) => tab.path));
     let folderLabel = $derived(sidebarLabel(folders));
+
+    // showDocument adds a tab for the document unless its path is already open,
+    // then makes it active.
+    function showDocument(document: OpenDocument): void {
+        tabs = openDocumentTab(tabs, document);
+        activePath = document.path;
+    }
 
     // addFolders saves each root from a launch request and adopts the result.
     // The backend deduplicates, so relaunching with the same folder is a no-op.
@@ -59,26 +72,46 @@
         if (request.folders.length > 0) {
             failure = await addFolders(request.folders);
         }
-        notice = failure !== '' ? failure : noticeFor(request);
 
-        const path = request.files[0];
-        if (path === undefined) {
-            return;
+        for (const path of request.files) {
+            if (tabs.some((tab) => tab.path === path)) {
+                activePath = path;
+                continue;
+            }
+            const opened = await readDocument(path);
+            if (opened === undefined) {
+                if (failure === '') {
+                    failure = `Cannot open ${path}`;
+                }
+                continue;
+            }
+            showDocument(opened);
         }
-        const opened = await readDocument(path);
-        if (opened !== undefined) {
-            current = opened;
-        }
+
+        notice = failure !== '' ? failure : noticeFor(request);
     }
 
     async function openFile(path: string): Promise<void> {
+        // Clicking a file that is already open focuses its tab instead of
+        // rereading the file, which would discard edits made in the buffer.
+        if (tabs.some((tab) => tab.path === path)) {
+            activePath = path;
+            notice = '';
+            return;
+        }
         const opened = await readDocument(path);
         if (opened === undefined) {
             notice = `Cannot open ${path}`;
             return;
         }
-        current = opened;
+        showDocument(opened);
         notice = '';
+    }
+
+    function closeTab(path: string): void {
+        const result = closeDocumentTab(tabs, path, activePath);
+        tabs = result.tabs;
+        activePath = result.activePath;
     }
 
     async function addFolderFromDialog(): Promise<void> {
@@ -101,8 +134,8 @@
         }
     }
 
-    // Removing a root only drops it from the sidebar: an open file stays open,
-    // because the editor holds its content and there is no tab to close.
+    // Removing a root only drops it from the sidebar: tabs stay open, because
+    // they hold their own buffers and are closed from the tab bar.
     async function removeFolder(path: string): Promise<void> {
         try {
             folders = await removeSidebarFolder(path);
@@ -115,6 +148,7 @@
     onMount(() => {
         let unsubscribe: (() => void) | undefined;
         let unsubscribeMenu: (() => void) | undefined;
+        let unsubscribeClose: (() => void) | undefined;
         let disposed = false;
 
         void (async () => {
@@ -126,34 +160,52 @@
             }
             unsubscribe = off;
             unsubscribeMenu = listenForAddFolder(() => void addFolderFromDialog());
+            unsubscribeClose = listenForCloseTab(() => {
+                if (activePath !== '') {
+                    closeTab(activePath);
+                }
+            });
         })();
 
         return () => {
             disposed = true;
             unsubscribe?.();
             unsubscribeMenu?.();
+            unsubscribeClose?.();
         };
     });
 </script>
 
 <div class="app">
-    <TitleBar appName={APP_NAME} fileName={shownName(current)} folderLabel={folderLabel} />
+    <TitleBar appName={APP_NAME} fileName={shownName(active)} folderLabel={folderLabel} />
     <div class="app__body">
         <Sidebar
             {folders}
-            selectedPath={current?.path ?? ''}
+            selectedPath={active?.path ?? ''}
             {busy}
             onAddFolder={() => void addFolderFromDialog()}
             onRemoveFolder={(path) => void removeFolder(path)}
             onOpenFile={(path) => void openFile(path)}
         />
-        <EditorPane
-            content={current?.content}
-            onCursorMove={(nextLine, nextColumn) => {
-                line = nextLine;
-                column = nextColumn;
-            }}
-        />
+        <div class="app__editor">
+            <TabBar
+                {tabs}
+                activePath={activePath}
+                onSelect={(path) => {
+                    activePath = path;
+                }}
+                onClose={closeTab}
+            />
+            <EditorPane
+                modelKey={active?.path ?? WELCOME_KEY}
+                content={active?.content ?? WELCOME_TEXT}
+                {openPaths}
+                onCursorMove={(nextLine, nextColumn) => {
+                    line = nextLine;
+                    column = nextColumn;
+                }}
+            />
+        </div>
     </div>
     <StatusBar {line} {column} language={LANGUAGE} {notice} {folderLabel} />
 </div>
@@ -168,6 +220,14 @@
     .app__body {
         display: flex;
         flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    .app__editor {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-width: 0;
         min-height: 0;
     }
 </style>

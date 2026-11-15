@@ -17,6 +17,13 @@ saved in `settings.json`, so it comes back on the next launch.
 [docs/cli.md](docs/cli.md) for the full argument rules and current
 limitations, and [docs/settings.md](docs/settings.md) for the saved format.
 
+## Tabs
+
+Every opened file gets a tab above the editor. Click a tab to switch to it, or
+close it with its `×` or **File → Close Tab** (<kbd>Cmd</kbd>+<kbd>W</kbd>).
+Each tab keeps its own buffer and undo history, so switching away and back does
+not lose edits. Closing the last tab returns to the welcome buffer.
+
 ## Command line
 
 Install the tool from **Kova → Install Command Line Tool…**, then:

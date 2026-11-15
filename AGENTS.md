@@ -60,6 +60,12 @@ introduce one unprompted.
   **File → Add Folder to Sidebar…**, and `kova <folder>` all funnel through
   `addFolderFromDialog`/`applyLaunch` in `App.svelte`, so they share one busy
   flag and one error notice.
+- **Open files are tabs held in frontend state.** `App.svelte` keeps the tab
+  list and the active path; `tabs.ts` has the pure open/close rules (one tab per
+  path, activate the right neighbour when the active tab closes). `EditorPane`
+  owns one Monaco model per open path, so each tab keeps its edits, undo stack
+  and scroll position; models are disposed when their tab closes. **File →
+  Close Tab** (<kbd>Cmd</kbd>+<kbd>W</kbd>) emits `kova:close-tab`.
 - **`kova` is a shell launcher, not a second binary.** `install.go` writes a
   script to `/usr/local/bin/kova` that execs the bundle's executable, escalating
   through `osascript … with administrator privileges` when the directory is not

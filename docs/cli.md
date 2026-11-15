@@ -5,7 +5,7 @@ Kova can open files and folders straight from a terminal.
 ```sh
 kova notes.txt           # open one file
 kova .                   # add a folder to the sidebar
-kova one.txt two.txt     # two verbs, one window (see Limitations)
+kova one.txt two.txt     # open both files, each in a tab
 ```
 
 ## Installing
@@ -29,9 +29,9 @@ command cache; if `kova` reports `command not found`, run `hash -r`.
 
 | Argument | Result |
 | --- | --- |
-| A file | Opened in the editor, replacing the welcome buffer. |
+| A file | Opened in a new tab, or focused if it is already open. |
 | A folder | Added to the sidebar as a root, and saved for next time. |
-| Several arguments | Every folder becomes a root; the first readable file is opened. |
+| Several arguments | Every folder becomes a root; every readable file opens in its own tab. |
 | A missing path | Reported in the status bar, and the rest still open. |
 | `-h`, `-help`, `--help` | Print usage and exit without opening a window. |
 | `-v`, `-V`, `-version`, `--version` | Print the version and exit. |
@@ -53,8 +53,8 @@ flag, so `kova -- --help` looks for a file named `--help`.
 
 ## Limitations
 
-- **One file at a time.** Opening two files keeps the first; multiple tabs
-  arrive in a later phase.
+- **Edits are not saved to disk.** Tabs keep their buffers for the session;
+  closing a tab or quitting the app discards changes made in it.
 - **One root per folder.** Naming a folder that is already in the sidebar does
   not add a second copy of it.
 - **Text files only.** Anything over 10 MB, or content that is not valid UTF-8,

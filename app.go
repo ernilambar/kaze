@@ -157,6 +157,17 @@ func (a *App) emitAddFolder() {
 	}
 }
 
+// closeTabEvent asks the frontend to close the active tab. The tab list lives in
+// the frontend, so the menu only sends the command.
+const closeTabEvent = "kova:close-tab"
+
+// emitCloseTab tells the frontend to close the active tab.
+func (a *App) emitCloseTab() {
+	if a.ctx != nil {
+		runtime.EventsEmit(a.ctx, closeTabEvent)
+	}
+}
+
 // GetLaunchRequest hands the frontend the paths Kova was started with. The
 // frontend calls it once after attaching its listener, so anything passed in
 // before the UI was ready is still opened.

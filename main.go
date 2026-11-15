@@ -38,12 +38,16 @@ func appMenu(name string, app *App) *menu.Menu {
 	return appMenu
 }
 
-// fileMenu holds the sidebar commands. Adding a folder is a window action, so it
-// lives here rather than in the app menu.
+// fileMenu holds the window commands. Adding a folder and closing a tab are
+// window actions, so they live here rather than in the app menu.
 func fileMenu(app *App) *menu.Menu {
 	fileMenu := menu.NewMenu()
 	fileMenu.AddText("Add Folder to Sidebar…", keys.Combo("o", keys.CmdOrCtrlKey, keys.ShiftKey), func(*menu.CallbackData) {
 		app.emitAddFolder()
+	})
+	fileMenu.AddSeparator()
+	fileMenu.AddText("Close Tab", keys.CmdOrCtrl("w"), func(*menu.CallbackData) {
+		app.emitCloseTab()
 	})
 	return fileMenu
 }
