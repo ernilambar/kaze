@@ -42,6 +42,10 @@ func appMenu(name string, app *App) *menu.Menu {
 // window actions, so they live here rather than in the app menu.
 func fileMenu(app *App) *menu.Menu {
 	fileMenu := menu.NewMenu()
+	fileMenu.AddText("Quick Open…", keys.CmdOrCtrl("p"), func(*menu.CallbackData) {
+		app.emitQuickOpen()
+	})
+	fileMenu.AddSeparator()
 	fileMenu.AddText("Add Folder to Sidebar…", keys.Combo("o", keys.CmdOrCtrlKey, keys.ShiftKey), func(*menu.CallbackData) {
 		app.emitAddFolder()
 	})

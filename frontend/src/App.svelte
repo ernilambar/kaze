@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import EditorPane from './EditorPane.svelte';
+    import QuickOpen from './QuickOpen.svelte';
     import Sidebar from './Sidebar.svelte';
     import StatusBar from './StatusBar.svelte';
     import TabBar from './TabBar.svelte';
@@ -13,6 +14,12 @@
         type OpenDocument,
     } from './document';
     import { WELCOME_KEY, WELCOME_TEXT } from './editor';
+    import {
+        listFiles,
+        listenForQuickOpen,
+        toQuickOpenFiles,
+        type QuickOpenFile,
+    } from './quickOpen';
     import {
         addSidebarFolder,
         errorMessage,
@@ -33,6 +40,10 @@
     let folders = $state<string[]>([]);
     let notice = $state('');
     let busy = $state(false);
+
+    let quickOpen = $state(false);
+    let quickOpenFiles = $state<QuickOpenFile[]>([]);
+    let quickOpenLoading = $state(false);
 
     let line = $state(1);
     let column = $state(1);
@@ -114,6 +125,33 @@
         activePath = result.activePath;
     }
 
+    // showQuickOpen opens the palette first and fills it as soon as Go has
+    // walked the sidebar roots, so the input is usable while a large tree is
+    // still being read.
+    async function showQuickOpen(): Promise<void> {
+        quickOpen = true;
+        quickOpenLoading = true;
+        try {
+            quickOpenFiles = toQuickOpenFiles(await listFiles(), folders);
+        } catch (error) {
+            quickOpenFiles = [];
+            notice = errorMessage(error);
+        } finally {
+            quickOpenLoading = false;
+        }
+    }
+
+    function closeQuickOpen(): void {
+        quickOpen = false;
+    }
+
+    // Picking a file from the palette uses the same path as a sidebar click, so
+    // an already-open tab is focused instead of reread.
+    async function openFromQuickOpen(path: string): Promise<void> {
+        quickOpen = false;
+        await openFile(path);
+    }
+
     async function addFolderFromDialog(): Promise<void> {
         if (busy) {
             return;
@@ -149,6 +187,7 @@
         let unsubscribe: (() => void) | undefined;
         let unsubscribeMenu: (() => void) | undefined;
         let unsubscribeClose: (() => void) | undefined;
+        let unsubscribeQuickOpen: (() => void) | undefined;
         let disposed = false;
 
         void (async () => {
@@ -165,6 +204,7 @@
                     closeTab(activePath);
                 }
             });
+            unsubscribeQuickOpen = listenForQuickOpen(() => void showQuickOpen());
         })();
 
         return () => {
@@ -172,6 +212,7 @@
             unsubscribe?.();
             unsubscribeMenu?.();
             unsubscribeClose?.();
+            unsubscribeQuickOpen?.();
         };
     });
 </script>
@@ -208,6 +249,14 @@
         </div>
     </div>
     <StatusBar {line} {column} language={LANGUAGE} {notice} {folderLabel} />
+    {#if quickOpen}
+        <QuickOpen
+            files={quickOpenFiles}
+            loading={quickOpenLoading}
+            onOpen={(path) => void openFromQuickOpen(path)}
+            onClose={closeQuickOpen}
+        />
+    {/if}
 </div>
 
 <style>

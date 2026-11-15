@@ -168,6 +168,18 @@ func (a *App) emitCloseTab() {
 	}
 }
 
+// quickOpenEvent asks the frontend to show the Quick Open palette. The file
+// list lives behind the sidebar roots, so the frontend owns the dialog and the
+// menu only sends the command.
+const quickOpenEvent = "kova:quick-open"
+
+// emitQuickOpen tells the frontend to show Quick Open.
+func (a *App) emitQuickOpen() {
+	if a.ctx != nil {
+		runtime.EventsEmit(a.ctx, quickOpenEvent)
+	}
+}
+
 // GetLaunchRequest hands the frontend the paths Kova was started with. The
 // frontend calls it once after attaching its listener, so anything passed in
 // before the UI was ready is still opened.

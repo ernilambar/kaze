@@ -24,6 +24,14 @@ close it with its `×` or **File → Close Tab** (<kbd>Cmd</kbd>+<kbd>W</kbd>).
 Each tab keeps its own buffer and undo history, so switching away and back does
 not lose edits. Closing the last tab returns to the welcome buffer.
 
+## Quick Open
+
+Press **File → Quick Open…** (<kbd>Cmd</kbd>+<kbd>P</kbd>) to fuzzy-find a file
+by name or path across the sidebar folders. Type to narrow the list, move with
+the arrow keys, and press <kbd>Enter</kbd> to open the selected file;
+<kbd>Esc</kbd> dismisses the palette. Version-control metadata and
+`node_modules` are skipped so generated trees do not bury your files.
+
 ## Command line
 
 Install the tool from **Kova → Install Command Line Tool…**, then:

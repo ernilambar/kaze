@@ -14,6 +14,10 @@ export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
 }
 
+export function ListFiles() {
+  return window['go']['main']['App']['ListFiles']();
+}
+
 export function LoadDocument(arg1) {
   return window['go']['main']['App']['LoadDocument'](arg1);
 }

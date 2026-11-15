@@ -8,6 +8,8 @@ export function GetLaunchRequest():Promise<main.LaunchRequest>;
 
 export function GetSettings():Promise<main.Settings>;
 
+export function ListFiles():Promise<Array<string>>;
+
 export function LoadDocument(arg1:string):Promise<main.Document>;
 
 export function OpenFolderDialog():Promise<string>;
