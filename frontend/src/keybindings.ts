@@ -247,7 +247,7 @@ function tokenize(expression: string): Token[] {
     return tokens;
 }
 
-// matchesWhen evaluates a VS Code-style `when` expression over Kova's context
+// matchesWhen evaluates a VS Code-style `when` expression over the editor's context
 // keys. An empty expression always matches.
 export function matchesWhen(expression: string | undefined, context: KeyContext): boolean {
     if (expression === undefined || expression.trim() === '') {

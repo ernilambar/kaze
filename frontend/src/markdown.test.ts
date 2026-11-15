@@ -23,8 +23,8 @@ describe('renderMarkdown', () => {
     });
 
     it('links safe URLs and drops script schemes', () => {
-        expect(renderMarkdown('[Kova](https://example.com)')).toBe(
-            '<p><a href="https://example.com">Kova</a></p>',
+        expect(renderMarkdown('[Docs](https://example.com)')).toBe(
+            '<p><a href="https://example.com">Docs</a></p>',
         );
         expect(renderMarkdown('[bad](javascript:prompt)')).toBe('<p>bad</p>');
     });

@@ -16,6 +16,9 @@ func TestLoadAppMetadataReadsBuildConfig(t *testing.T) {
 	if meta.ProductName == "" || strings.ContainsAny(meta.ProductName, "#\"'") {
 		t.Fatalf("ProductName = %q, want a clean scalar", meta.ProductName)
 	}
+	if meta.ProductIdentifier == "" || strings.ContainsAny(meta.ProductIdentifier, "#\"' ") {
+		t.Fatalf("ProductIdentifier = %q, want a clean scalar", meta.ProductIdentifier)
+	}
 	if !versionPattern.MatchString(meta.ProductVersion) {
 		t.Fatalf("ProductVersion = %q, want a value like 0.1.0", meta.ProductVersion)
 	}
@@ -24,7 +27,7 @@ func TestLoadAppMetadataReadsBuildConfig(t *testing.T) {
 func TestYAMLScalarStripsQuotesAndComments(t *testing.T) {
 	tests := map[string]string{
 		`"0.1.0" # The application version`: "0.1.0",
-		`'Kova'`:                            "Kova",
+		`'Name'`:                            "Name",
 		`bare # comment`:                    "bare",
 		`bare`:                              "bare",
 		``:                                  "",

@@ -76,16 +76,16 @@ body {
 /* Changed-line bars in Monaco's gutter. The decoration class lands on a
    full-width element, so the width and offset make it a narrow bar instead of
    a stripe across the margin. */
-.monaco-editor .kova-gutter-added,
-.monaco-editor .kova-gutter-modified {
+.monaco-editor .git-gutter-added,
+.monaco-editor .git-gutter-modified {
     width: 3px !important;
     margin-left: 3px;
 }
 
-.monaco-editor .kova-gutter-added {
+.monaco-editor .git-gutter-added {
     background: var(--git-added);
 }
 
-.monaco-editor .kova-gutter-modified {
+.monaco-editor .git-gutter-modified {
     background: var(--git-modified);
 }

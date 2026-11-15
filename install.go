@@ -11,12 +11,12 @@ import (
 
 const (
 	commandName = "kova"
-	// installDir is on the default macOS PATH, so installing here makes `kova`
-	// work in a fresh shell without touching the user's profile.
+	// installDir is on the default macOS PATH, so installing here makes the
+	// command work in a fresh shell without touching the user's profile.
 	installDir = "/usr/local/bin"
 	// bundleExecutable is the Mach-O inside the .app bundle. Running it
 	// directly keeps the caller's working directory, which is what makes
-	// relative arguments like `kova notes.txt` resolve.
+	// relative arguments like `<command> notes.txt` resolve.
 	bundleExecutable = "Contents/MacOS/" + commandName
 )
 
@@ -25,15 +25,15 @@ func commandInstallPath() string {
 	return filepath.Join(installDir, commandName)
 }
 
-// launcherScript returns the shell script installed as `kova`. Arguments are
-// made absolute before Kova sees them: when an instance is already running the
+// launcherScript returns the shell script installed as commandName. Arguments
+// are made absolute before the app sees them: when an instance is already running the
 // launch is forwarded to it, and that instance resolves relative paths against
 // its own working directory rather than the shell's.
 func launcherScript(binaryPath string) string {
 	var b strings.Builder
 	b.WriteString("#!/bin/sh\n")
-	b.WriteString("# Installed by Kova's \"Install Command Line Tool…\" menu item. Re-run\n")
-	b.WriteString("# that item after moving Kova.app; the path below is baked in.\n")
+	b.WriteString("# Installed by " + appMeta.ProductName + "'s \"Install Command Line Tool…\" menu item. Re-run\n")
+	b.WriteString("# that item after moving " + appMeta.ProductName + ".app; the path below is baked in.\n")
 	b.WriteString("app=" + shellQuote(binaryPath) + "\n")
 	b.WriteString("count=$#\n")
 	b.WriteString("while [ \"$count\" -gt 0 ]; do\n")
@@ -56,8 +56,8 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
-// installTarget returns the executable the launcher should run. Kova must be a
-// bundled app: a bare `go run` binary has no stable path to point at.
+// installTarget returns the executable the launcher should run. The app must be
+// bundled: a bare `go run` binary has no stable path to point at.
 func installTarget() (string, error) {
 	exe, err := os.Executable()
 	if err != nil {
@@ -68,12 +68,12 @@ func installTarget() (string, error) {
 		return "", fmt.Errorf("resolve running executable: %w", err)
 	}
 	if !strings.Contains(exe, ".app/"+bundleExecutable) {
-		return "", errors.New("the command line tool can only be installed from the Kova.app bundle")
+		return "", fmt.Errorf("the command line tool can only be installed from the %s.app bundle", appMeta.ProductName)
 	}
 	return exe, nil
 }
 
-// installCommandLineTool writes the `kova` launcher. A writable install
+// installCommandLineTool writes the launcher. A writable install
 // directory is used directly; otherwise macOS asks for an administrator
 // password, which is the normal case for /usr/local/bin on a fresh machine.
 func installCommandLineTool() error {
@@ -128,7 +128,7 @@ func writeFileAtomic(path string, data []byte) error {
 // writeFileWithPrivileges installs through `do shell script … with
 // administrator privileges`, which is macOS' own password prompt.
 func writeFileWithPrivileges(path string, data []byte) error {
-	tmp, err := os.CreateTemp("", "kova-command-")
+	tmp, err := os.CreateTemp("", commandName+"-command-")
 	if err != nil {
 		return fmt.Errorf("create temporary file: %w", err)
 	}

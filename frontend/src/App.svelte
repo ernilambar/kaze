@@ -6,6 +6,7 @@
         CloseWindow,
         CopyText,
         GetKeybindings,
+        GetProductName,
         InstallCommandLineTool,
         MinimiseWindow,
         MoveTabToNewWindow,
@@ -195,7 +196,8 @@
         content: string;
     }
 
-    const APP_NAME = 'Kova';
+    // appName comes from the build config; it is empty only until mount.
+    let appName = $state('');
 
     let tabs = $state<OpenDocument[]>([]);
     let activeId = $state('');
@@ -455,7 +457,7 @@
     }
 
     // refreshGitStatus rereads the repositories behind the sidebar roots. It
-    // runs when the workspace changes and after Kova writes a file; a folder
+    // runs when the workspace changes and after the app writes a file; a folder
     // outside git simply contributes nothing. A newer request wins, so adding
     // a root while an older read is still running cannot roll the result back.
     let gitRequest = 0;
@@ -664,7 +666,7 @@
     // written: a cancelled dialog, a conflict the user declined, or an error.
     async function saveDocument(id: string, saveAs = false): Promise<boolean> {
         const tab = findTab(id);
-        // Pictures are read-only in Kova, and a diff is a generated view, so
+        // Pictures are read-only here, and a diff is a generated view, so
         // there is nothing to write back for either.
         if (tab === undefined || tab.kind !== 'text') {
             return true;
@@ -791,7 +793,7 @@
         }
 
         const answer = await askUnsaved({
-            title: reason === 'close' ? 'Close Window' : 'Quit Kova',
+            title: reason === 'close' ? 'Close Window' : `Quit ${appName}`,
             message:
                 reason === 'close'
                     ? dirty.length === 1
@@ -839,7 +841,7 @@
     // replace the data and re-select the same theme.
     function applyThemePalette(palette: ThemePalette): void {
         applyThemeCSS(palette);
-        const name = `kova-${palette.name.replace(/[^A-Za-z0-9_-]/g, '-')}`;
+        const name = `theme-${palette.name.replace(/[^A-Za-z0-9_-]/g, '-')}`;
         monaco.editor.defineTheme(name, themeData(palette));
         monaco.editor.setTheme(name);
     }
@@ -853,7 +855,7 @@
         } catch (error) {
             console.error('Failed to apply the selected theme.', error);
         }
-        const fallback = prefersDark ? 'Kova Dark' : 'Kova Light';
+        const fallback = prefersDark ? defaultThemeSettings.dark : defaultThemeSettings.light;
         try {
             applyThemePalette(await loadTheme(fallback));
             notice = `Theme "${name}" is unavailable.`;
@@ -864,7 +866,7 @@
 
     // refreshThemes lists installed themes and repairs a name that no longer
     // exists. The first theme for an appearance is the fallback, so deleting a
-    // theme file does not leave Kova stuck on the old palette.
+    // theme file does not leave the editor stuck on the old palette.
     async function refreshThemes(): Promise<void> {
         try {
             const catalog = await listThemes();
@@ -1889,6 +1891,7 @@
             }
             windowName = name;
             setWindowName(name);
+            appName = await GetProductName();
 
             // The request this window was created with decides two things: the
             // paths or buffers to open, and whether this is the window that
@@ -2028,7 +2031,7 @@
 </script>
 
 <div class="app">
-    <TitleBar appName={APP_NAME} fileName={shownName(active)} folderLabel={folderLabel} />
+    <TitleBar {appName} fileName={shownName(active)} folderLabel={folderLabel} />
     <div class="app__body" class:app__body--sidebar-right={uiSettings.sidebarPosition === 'right'}>
         <div class="app__sidebar" class:app__sidebar--hidden={!sidebarVisible}>
             {#if sidebarView === 'changes'}

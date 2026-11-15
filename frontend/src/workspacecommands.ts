@@ -25,17 +25,17 @@ export function listenForWorkspaceCommands(
     handlers: Partial<WorkspaceCommandHandlers>,
 ): () => void {
     const offs = [
-        onWindowEvent('kova:open-recent', () => handlers.openRecent?.()),
-        onWindowEvent('kova:clear-recent', () => handlers.clearRecent?.()),
-        onWindowEvent('kova:open-workspace', () => handlers.openWorkspace?.()),
-        onWindowEvent('kova:save-workspace-as', () => handlers.saveWorkspaceAs?.()),
-        onWindowEvent('kova:close-workspace', () => handlers.closeWorkspace?.()),
-        onWindowEvent('kova:refresh', () => handlers.refresh?.()),
-        onWindowEvent('kova:find-in-files', () => handlers.findInFiles?.()),
-        onWindowEvent('kova:toggle-sidebar', () => handlers.toggleSidebar?.()),
-        onWindowEvent('kova:close-all-folders', () => handlers.closeAllFolders?.()),
-        onWindowEvent('kova:reveal-file', () => handlers.revealFile?.()),
-        onWindowEvent('kova:copy-path', (data) => {
+        onWindowEvent('app:open-recent', () => handlers.openRecent?.()),
+        onWindowEvent('app:clear-recent', () => handlers.clearRecent?.()),
+        onWindowEvent('app:open-workspace', () => handlers.openWorkspace?.()),
+        onWindowEvent('app:save-workspace-as', () => handlers.saveWorkspaceAs?.()),
+        onWindowEvent('app:close-workspace', () => handlers.closeWorkspace?.()),
+        onWindowEvent('app:refresh', () => handlers.refresh?.()),
+        onWindowEvent('app:find-in-files', () => handlers.findInFiles?.()),
+        onWindowEvent('app:toggle-sidebar', () => handlers.toggleSidebar?.()),
+        onWindowEvent('app:close-all-folders', () => handlers.closeAllFolders?.()),
+        onWindowEvent('app:reveal-file', () => handlers.revealFile?.()),
+        onWindowEvent('app:copy-path', (data) => {
             const kind = data as CopyPathKind | undefined;
             if (kind !== undefined) {
                 handlers.copyPath?.(kind);

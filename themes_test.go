@@ -12,18 +12,18 @@ func TestBuiltinThemeFamilyParses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("builtinThemes() error = %v", err)
 	}
-	if family.Name != "Kova" {
-		t.Fatalf("family name = %q, want Kova", family.Name)
+	if family.Name != appMeta.ProductName {
+		t.Fatalf("family name = %q, want %q", family.Name, appMeta.ProductName)
 	}
 	names := map[string]string{}
 	for _, variant := range family.Themes {
 		names[variant.Name] = variant.Appearance
 	}
-	if names["Kova Dark"] != "dark" {
-		t.Errorf("Kova Dark appearance = %q, want dark", names["Kova Dark"])
+	if names[defaultThemeDark] != "dark" {
+		t.Errorf("%s appearance = %q, want dark", defaultThemeDark, names[defaultThemeDark])
 	}
-	if names["Kova Light"] != "light" {
-		t.Errorf("Kova Light appearance = %q, want light", names["Kova Light"])
+	if names[defaultThemeLight] != "light" {
+		t.Errorf("%s appearance = %q, want light", defaultThemeLight, names[defaultThemeLight])
 	}
 }
 
@@ -85,7 +85,7 @@ func TestPartialThemeFallsBackToBuiltin(t *testing.T) {
 	if palette.UI["fg"] != "#101010" {
 		t.Errorf("fg = %q, want #101010", palette.UI["fg"])
 	}
-	// Missing keys come from Kova Light, not from an empty string.
+	// Missing keys come from the built-in light theme, not from an empty string.
 	if palette.UI["bg-raised"] != "#f3f3f3" {
 		t.Errorf("bg-raised = %q, want built-in light fallback", palette.UI["bg-raised"])
 	}
@@ -100,7 +100,7 @@ func TestUserThemeOverridesBuiltinName(t *testing.T) {
 		"name": "Mine",
 		"author": "me",
 		"themes": [{
-			"name": "Kova Dark",
+			"name": "` + defaultThemeDark + `",
 			"appearance": "dark",
 			"style": {"background": "#000001"}
 		}]
@@ -110,9 +110,9 @@ func TestUserThemeOverridesBuiltinName(t *testing.T) {
 	}
 
 	entries, _ := loadThemeEntries(dir)
-	entry, ok := findVariant(entries, "Kova Dark")
+	entry, ok := findVariant(entries, defaultThemeDark)
 	if !ok {
-		t.Fatal("Kova Dark was not loaded")
+		t.Fatalf("%s was not loaded", defaultThemeDark)
 	}
 	if entry.Variant.Style.Background != "#000001" {
 		t.Fatalf("background = %q, want the user override", entry.Variant.Style.Background)
@@ -133,7 +133,7 @@ func TestBrokenThemeFileIsReportedNotFatal(t *testing.T) {
 	if len(problems) != 1 || !strings.Contains(problems[0], "broken.json") {
 		t.Fatalf("problems = %q, want a broken.json error", problems)
 	}
-	if _, ok := findVariant(entries, "Kova Dark"); !ok {
+	if _, ok := findVariant(entries, defaultThemeDark); !ok {
 		t.Fatal("built-in themes disappeared after one broken file")
 	}
 }
@@ -160,14 +160,14 @@ func TestLoadThemeAgreesWithCatalog(t *testing.T) {
 		t.Fatalf("ListThemes() errors = %q", catalog.Errors)
 	}
 	if len(catalog.Themes) < 2 {
-		t.Fatalf("ListThemes() returned %d themes, want at least the Kova pair", len(catalog.Themes))
+		t.Fatalf("ListThemes() returned %d themes, want at least the built-in pair", len(catalog.Themes))
 	}
-	palette, err := (&App{}).LoadTheme("Kova Dark")
+	palette, err := (&App{}).LoadTheme(defaultThemeDark)
 	if err != nil {
 		t.Fatalf("LoadTheme() error = %v", err)
 	}
 	if palette.Appearance != "dark" || palette.UI["bg"] != "#1e1e1e" {
-		t.Fatalf("LoadTheme() = %+v, want Kova Dark", palette)
+		t.Fatalf("LoadTheme() = %+v, want %s", palette, defaultThemeDark)
 	}
 	if _, err := (&App{}).LoadTheme("Missing Theme"); err == nil {
 		t.Fatal("LoadTheme() accepted a missing theme")

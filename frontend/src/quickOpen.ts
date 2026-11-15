@@ -22,7 +22,7 @@ export async function listFiles(): Promise<string[]> {
 // listenForQuickOpen runs handler when the File menu asks for the palette.
 // Returns an unsubscribe function.
 export function listenForQuickOpen(handler: () => void): () => void {
-    return onWindowEvent('kova:quick-open', () => handler());
+    return onWindowEvent('app:quick-open', () => handler());
 }
 
 // toQuickOpenFiles turns absolute paths into palette rows. The detail keeps the

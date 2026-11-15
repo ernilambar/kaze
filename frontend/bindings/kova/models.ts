@@ -128,7 +128,7 @@ export interface GitSnapshot {
 
 /**
  * Keybinding is one entry in keybindings.json, using VS Code's shape. Command
- * is a Kova command id; a leading "-" removes that command's default shortcut.
+ * is a command id; a leading "-" removes that command's default shortcut.
  */
 export interface Keybinding {
     "key": string;
@@ -175,7 +175,7 @@ export interface LaunchBuffer {
 }
 
 /**
- * LaunchRequest is what a `kova` command line asked the app to open. It travels
+ * LaunchRequest is what a command line invocation asked the app to open. It travels
  * from the invocation that saw the arguments to the running UI, so paths are
  * absolute by then and every rejected argument is reported back to the user.
  */

@@ -53,7 +53,7 @@ const TAB_COMMANDS: readonly Command[] = [
 ];
 
 // COMMANDS is the full palette, in the order shown before the user types. The
-// detail names the menu the command comes from, so typing "file" or "kova"
+// detail names the menu the command comes from, so typing "file" or "application"
 // narrows the list by category as well as by name.
 export const COMMANDS: readonly Command[] = [
     { id: 'new-window', name: 'New Window', detail: 'File' },
@@ -89,12 +89,12 @@ export const COMMANDS: readonly Command[] = [
     { id: 'close-window', name: 'Close Window', detail: 'Window' },
     { id: 'move-tab-new-window', name: 'Move Tab to New Window', detail: 'Window' },
     { id: 'bring-all-to-front', name: 'Bring All to Front', detail: 'Window' },
-    { id: 'settings', name: 'Settings…', detail: 'Kova' },
-    { id: 'open-settings-json', name: 'Open Settings JSON', detail: 'Kova' },
-    { id: 'open-default-settings', name: 'Open Default Settings', detail: 'Kova' },
-    { id: 'open-themes-folder', name: 'Open Themes Folder', detail: 'Kova' },
-    { id: 'open-keybindings', name: 'Open Keybindings…', detail: 'Kova' },
-    { id: 'install-command-line-tool', name: 'Install Command Line Tool…', detail: 'Kova' },
+    { id: 'settings', name: 'Settings…', detail: 'Application' },
+    { id: 'open-settings-json', name: 'Open Settings JSON', detail: 'Application' },
+    { id: 'open-default-settings', name: 'Open Default Settings', detail: 'Application' },
+    { id: 'open-themes-folder', name: 'Open Themes Folder', detail: 'Application' },
+    { id: 'open-keybindings', name: 'Open Keybindings…', detail: 'Application' },
+    { id: 'install-command-line-tool', name: 'Install Command Line Tool…', detail: 'Application' },
 ];
 
 // rankCommands orders commands exactly like Quick Open orders files. The
@@ -110,5 +110,5 @@ export function rankCommands(
 // listenForCommandPalette runs handler when the File menu asks for the palette.
 // Returns an unsubscribe function.
 export function listenForCommandPalette(handler: () => void): () => void {
-    return onWindowEvent('kova:command-palette', () => handler());
+    return onWindowEvent('app:command-palette', () => handler());
 }

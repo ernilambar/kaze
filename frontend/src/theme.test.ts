@@ -14,7 +14,7 @@ import {
 
 function palette(overrides: Partial<models.ThemePalette> = {}): models.ThemePalette {
     return {
-        family: 'Kova',
+        family: 'Family',
         name: 'Test',
         appearance: 'dark',
         ui: { bg: '#101010', fg: '#eeeeee', border: 'not-a-color' },

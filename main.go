@@ -31,7 +31,7 @@ func main() {
 	// Create an instance of the app structure
 	app := NewApp()
 
-	meta := loadAppMetadata()
+	meta := appMeta
 
 	// Help and version print in this process, before the single-instance lock,
 	// so they never open or forward to a window.
@@ -66,10 +66,10 @@ func main() {
 			// closes that window.
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
-		// One process, several windows: a second `kova <file>` from the
+		// One process, several windows: a second launch with a file from the
 		// terminal or Finder hands its paths to the window already in front.
 		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID: "net.nilambar.kova",
+			UniqueID: meta.ProductIdentifier,
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
 				// v3 forwards the full os.Args, whose first entry is the
 				// executable itself, not a path to open.
@@ -87,7 +87,7 @@ func main() {
 		app.queueLaunchPaths([]string{event.Context().Filename()})
 	})
 
-	// The app menu is what puts "About Kova" in the macOS menu bar. It is built
+	// The app menu is what puts "About <name>" in the macOS menu bar. It is built
 	// from settings and keybindings so a custom binding does not leave a stale
 	// native accelerator behind.
 	app.meta = meta

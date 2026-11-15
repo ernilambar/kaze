@@ -12,7 +12,7 @@ import (
 // openInEditor launches the user's editor on path. $VISUAL is preferred over
 // $EDITOR, following the usual Unix convention; with neither set the platform's
 // default file handler opens the file. The editor is not waited for, so it
-// outlives Kova.
+// outlives the app.
 func openInEditor(path string) error {
 	argv, err := editorArgs(path, os.Getenv("VISUAL"), os.Getenv("EDITOR"), runtime.GOOS)
 	if err != nil {

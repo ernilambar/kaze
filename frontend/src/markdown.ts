@@ -1,4 +1,4 @@
-// Kova previews Markdown without adding a dependency, so this renderer covers
+// The app previews Markdown without adding a dependency, so this renderer covers
 // the block and inline forms documents use. All text comes from the user's
 // buffer, so it is HTML-escaped and links are limited to safe schemes before
 // the result reaches {@html}.

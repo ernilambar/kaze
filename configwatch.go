@@ -9,7 +9,7 @@ import (
 
 // configChangedEvent tells the frontend that the themes folder or
 // keybindings.json changed on disk. Both are user-editable while the app runs.
-const configChangedEvent = "kova:config-changed"
+const configChangedEvent = "app:config-changed"
 
 // configChange says which of the two live-reload inputs changed.
 type configChange struct {

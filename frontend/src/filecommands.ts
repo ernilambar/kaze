@@ -18,7 +18,7 @@ const FILE_COMMANDS: readonly FileCommand[] = [
 // and returns one function that unsubscribes from all of them.
 export function listenForFileCommands(handlers: Partial<Record<FileCommand, () => void>>): () => void {
     const offs = FILE_COMMANDS.map((command) =>
-        onWindowEvent(`kova:${command}`, () => handlers[command]?.()),
+        onWindowEvent(`app:${command}`, () => handlers[command]?.()),
     );
     return () => {
         for (const off of offs) {
@@ -35,7 +35,7 @@ export type CloseReason = 'quit' | 'close';
 // unsaved buffers. The frontend answers with ResolveClose, because only it can
 // save them.
 export function listenForCloseRequest(handler: (reason: CloseReason) => void): () => void {
-    return onWindowEvent('kova:confirm-close', (data) => {
+    return onWindowEvent('app:confirm-close', (data) => {
         const prompt = data as { reason?: string } | undefined;
         handler(prompt?.reason === 'close' ? 'close' : 'quit');
     });

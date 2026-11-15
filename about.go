@@ -9,19 +9,24 @@ import (
 var buildConfig []byte
 
 // appMetadata is the part of the build config runtime code needs. Embedding the
-// file at compile time keeps the app menu labels and `kova --version` on the
-// same values as the bundle, without a second value to maintain.
+// file at compile time keeps the app menu labels, the config directory and
+// `--version` on the same values as the bundle, without a second value to
+// maintain.
 type appMetadata struct {
-	ProductName    string
-	ProductVersion string
+	ProductName       string
+	ProductIdentifier string
+	ProductVersion    string
 }
 
-// loadAppMetadata reads productName and version from the embedded v3 build
+// appMeta is read once; the build config cannot change while the app runs.
+var appMeta = loadAppMetadata()
+
+// loadAppMetadata reads productName, productIdentifier and version from the embedded v3 build
 // config. The file is YAML and the two scalars we need sit in the top-level
 // `info:` block, so they are read directly instead of pulling in a YAML parser
-// for two strings. A malformed file falls back rather than failing at startup.
+// for three strings. A malformed file falls back rather than failing at startup.
 func loadAppMetadata() appMetadata {
-	meta := appMetadata{ProductName: "Kova", ProductVersion: "unknown"}
+	meta := appMetadata{ProductVersion: "unknown"}
 
 	inInfo := false
 	for _, line := range strings.Split(string(buildConfig), "\n") {
@@ -42,9 +47,9 @@ func loadAppMetadata() appMetadata {
 		value = yamlScalar(value)
 		switch key {
 		case "productName":
-			if value != "" {
-				meta.ProductName = value
-			}
+			meta.ProductName = value
+		case "productIdentifier":
+			meta.ProductIdentifier = value
 		case "version":
 			if value != "" {
 				meta.ProductVersion = value

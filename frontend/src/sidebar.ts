@@ -107,7 +107,7 @@ export async function openFolderDialog(): Promise<string> {
 // so the menu and the sidebar button share one code path. Returns an unsubscribe
 // function.
 export function listenForAddFolder(handler: () => void): () => void {
-    return onWindowEvent('kova:add-folder', () => handler());
+    return onWindowEvent('app:add-folder', () => handler());
 }
 
 // relativePath is path with its innermost sidebar root removed. A path outside

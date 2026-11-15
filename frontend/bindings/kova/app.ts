@@ -27,7 +27,7 @@ export function AddRecentFile(path: string): $CancellablePromise<string[] | null
 /**
  * AddSidebarFolder adds one folder to the sidebar's saved list and returns the
  * new list. Opening a folder the user already added is a no-op, so launching
- * `kova .` twice does not duplicate the root. The path is checked here rather
+ * `<command> .` twice does not duplicate the root. The path is checked here rather
  * than trusted from the caller, because a sidebar root is only useful while it
  * is a real folder.
  */
@@ -113,6 +113,14 @@ export function GetLaunchRequest(window: string): $CancellablePromise<$models.La
 }
 
 /**
+ * GetProductName is the app name from build/config.yml, so the UI does not
+ * carry its own copy.
+ */
+export function GetProductName(): $CancellablePromise<string> {
+    return $Call.ByID(587441565);
+}
+
+/**
  * GetSettings loads the user's settings.json, creating it with defaults on
  * first run. The frontend calls this once at startup and applies the values to
  * the editor.
@@ -122,7 +130,7 @@ export function GetSettings(): $CancellablePromise<$models.Settings> {
 }
 
 /**
- * InstallCommandLineTool installs the `kova` command in /usr/local/bin, asking
+ * InstallCommandLineTool installs the command line launcher in /usr/local/bin, asking
  * for an administrator password when the directory is not writable. It reports
  * the outcome with dialogs, because the app menu and the command palette have no
  * caller to return to.
@@ -193,7 +201,7 @@ export function NewWindow(): $CancellablePromise<void> {
 }
 
 /**
- * OpenDefaultSettings writes the defaults Kova would use on a fresh install to
+ * OpenDefaultSettings writes the defaults the app would use on a fresh install to
  * default-settings.json and opens it. It never touches the user's settings.json.
  */
 export function OpenDefaultSettings(): $CancellablePromise<void> {

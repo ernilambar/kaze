@@ -69,8 +69,8 @@
         inset: 0;
         background: var(--fg-muted);
         content: '';
-        -webkit-mask: url('./assets/kova-glyph.png') center / 100% 100% no-repeat;
-        mask: url('./assets/kova-glyph.png') center / 100% 100% no-repeat;
+        -webkit-mask: url('./assets/glyph.png') center / 100% 100% no-repeat;
+        mask: url('./assets/glyph.png') center / 100% 100% no-repeat;
     }
 
     .welcome__list {

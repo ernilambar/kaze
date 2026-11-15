@@ -12,7 +12,7 @@ import (
 	"sync"
 )
 
-// builtinThemeJSON is the pair of palettes Kova ships with. It is written to
+// builtinThemeJSON is the pair of palettes the app ships with. It is written to
 // the user's themes folder on first use so there is a file to copy and edit.
 //
 //go:embed themes/kova.json
@@ -34,7 +34,7 @@ type themeVariant struct {
 	Style      themeStyle `json:"style"`
 }
 
-// themeStyle is the subset of Zed's style keys Kova consumes. Unknown keys are
+// themeStyle is the subset of Zed's style keys the app consumes. Unknown keys are
 // ignored by encoding/json, so a full Zed theme parses without complaint.
 type themeStyle struct {
 	Background           string                    `json:"background"`
@@ -128,7 +128,7 @@ func themesDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve user config directory: %w", err)
 	}
-	return filepath.Join(configDir, "Kova", "themes"), nil
+	return filepath.Join(configDir, appMeta.ProductName, "themes"), nil
 }
 
 // ensureThemesDir creates the themes folder and seeds it with the built-in
@@ -272,9 +272,9 @@ func findVariant(entries []themeEntry, name string) (themeEntry, bool) {
 	return found, ok
 }
 
-// builtinStyleFor returns the palette Kova falls back to for an appearance.
-// A user theme only needs to state the colors it changes; the rest keep Kova's
-// contrast instead of turning into transparent or empty CSS values.
+// builtinStyleFor returns the palette the app falls back to for an appearance.
+// A user theme only needs to state the colors it changes; the rest keep the
+// built-in contrast instead of turning into transparent or empty CSS values.
 func builtinStyleFor(appearance string) themeStyle {
 	family, err := builtinThemes()
 	if err != nil {

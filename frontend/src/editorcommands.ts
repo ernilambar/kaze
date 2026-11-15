@@ -26,7 +26,7 @@ export const VIEW_OPTIONS: readonly { id: ViewOption; label: string }[] = [
 
 export type ZoomCommand = 'in' | 'out' | 'reset';
 
-// ViewToggle is the kova:toggle-view payload: the option and the state the menu
+// ViewToggle is the app:toggle-view payload: the option and the state the menu
 // checkbox now shows.
 export interface ViewToggle {
     option: ViewOption;
@@ -47,13 +47,13 @@ export function listenForEditorCommands(
     handlers: Partial<EditorCommandHandlers>,
 ): () => void {
     const offs = [
-        onWindowEvent('kova:transform-case', (data) =>
+        onWindowEvent('app:transform-case', (data) =>
             handlers.transformSelection?.(data as CaseTransform),
         ),
-        onWindowEvent('kova:trim-whitespace', () => handlers.trimWhitespace?.()),
-        onWindowEvent('kova:zoom', (data) => handlers.zoom?.(data as ZoomCommand)),
-        onWindowEvent('kova:toggle-preview', () => handlers.togglePreview?.()),
-        onWindowEvent('kova:toggle-view', (data) => {
+        onWindowEvent('app:trim-whitespace', () => handlers.trimWhitespace?.()),
+        onWindowEvent('app:zoom', (data) => handlers.zoom?.(data as ZoomCommand)),
+        onWindowEvent('app:toggle-preview', () => handlers.togglePreview?.()),
+        onWindowEvent('app:toggle-view', (data) => {
             const toggle = data as ViewToggle | undefined;
             if (toggle !== undefined) {
                 handlers.setViewOption?.(toggle.option, toggle.checked);

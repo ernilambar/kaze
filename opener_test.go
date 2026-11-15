@@ -85,9 +85,9 @@ func TestOpenSettingsFileCreatesAndLaunches(t *testing.T) {
 		t.Fatalf("openSettingsFile() error = %v", err)
 	}
 
-	path := filepath.Join(home, "Library", "Application Support", "Kova", "settings.json")
+	path := filepath.Join(home, "Library", "Application Support", appMeta.ProductName, "settings.json")
 	if runtime.GOOS != "darwin" {
-		path = filepath.Join(home, ".config", "Kova", "settings.json")
+		path = filepath.Join(home, ".config", appMeta.ProductName, "settings.json")
 	}
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("settings file was not created: %v", err)
