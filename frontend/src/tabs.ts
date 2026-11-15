@@ -40,6 +40,36 @@ export function closeDocumentTab(
     return { tabs: remaining, activeId: next?.id ?? '' };
 }
 
+// moveDocumentTab drags id next to targetId, before it or after it. The array
+// comes back unchanged (same identity) when the drop would not move anything,
+// so callers can skip the session write a no-op reorder would cause.
+export function moveDocumentTab(
+    tabs: readonly OpenDocument[],
+    id: string,
+    targetId: string,
+    placeAfter: boolean,
+): OpenDocument[] {
+    if (id === targetId) {
+        return tabs as OpenDocument[];
+    }
+    const from = tabs.findIndex((tab) => tab.id === id);
+    if (from === -1) {
+        return tabs as OpenDocument[];
+    }
+    const next = tabs.slice();
+    const [moved] = next.splice(from, 1);
+    const target = next.findIndex((tab) => tab.id === targetId);
+    if (target === -1) {
+        return tabs as OpenDocument[];
+    }
+    const to = target + (placeAfter ? 1 : 0);
+    if (to === from) {
+        return tabs as OpenDocument[];
+    }
+    next.splice(to, 0, moved);
+    return next;
+}
+
 // updateDocument applies patch to one tab. The returned array is new only when
 // a tab exists to change, so callers can rely on identity to skip work.
 export function updateDocument(

@@ -92,6 +92,8 @@ introduce one unprompted.
   its new path without the editor losing its Monaco model. `EditorPane` owns one
   model per open id and reports `onDirtyChange` by comparing the buffer's text
   with the text last loaded or saved; models are disposed when their tab closes.
+  Dragging a tab onto another reorders the list through `moveDocumentTab`, whose
+  result is also the order the session saves.
   **File → Close Tab** (<kbd>Cmd</kbd>+<kbd>W</kbd>) emits `app:close-tab`.
 - **Tab navigation and the session are frontend state.** `tabs.ts` steps and
   jumps between tabs, and `App.svelte` keeps the Reopen Closed Tab stack.

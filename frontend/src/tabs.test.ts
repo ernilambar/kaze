@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     closeDocumentTab,
+    moveDocumentTab,
     openDocumentTab,
     setDocumentDirty,
     stepTabId,
@@ -105,6 +106,45 @@ describe('closeDocumentTab', () => {
 
         expect(result.tabs).toEqual([notes]);
         expect(result.activeId).toBe(notes.id);
+    });
+});
+
+describe('moveDocumentTab', () => {
+    const tabs = [notes, readme, todo];
+
+    it('drops a tab after the target tab', () => {
+        const result = moveDocumentTab(tabs, notes.id, readme.id, true);
+
+        expect(result).toEqual([readme, notes, todo]);
+    });
+
+    it('drops a tab before the target tab', () => {
+        const result = moveDocumentTab(tabs, todo.id, notes.id, false);
+
+        expect(result).toEqual([todo, notes, readme]);
+    });
+
+    it('moves a tab to the far end', () => {
+        const result = moveDocumentTab(tabs, notes.id, todo.id, true);
+
+        expect(result).toEqual([readme, todo, notes]);
+    });
+
+    it('keeps the list when the drop would not move the tab', () => {
+        expect(moveDocumentTab(tabs, notes.id, readme.id, false)).toBe(tabs);
+        expect(moveDocumentTab(tabs, readme.id, notes.id, true)).toBe(tabs);
+    });
+
+    it('ignores a tab or target that is not open', () => {
+        expect(moveDocumentTab(tabs, todo.id, todo.id, true)).toBe(tabs);
+        expect(moveDocumentTab(tabs, document('/tmp/gone.txt').id, notes.id, true)).toBe(tabs);
+        expect(moveDocumentTab(tabs, notes.id, document('/tmp/gone.txt').id, true)).toBe(tabs);
+    });
+
+    it('leaves the source order alone', () => {
+        moveDocumentTab(tabs, notes.id, todo.id, true);
+
+        expect(tabs).toEqual([notes, readme, todo]);
     });
 });
 

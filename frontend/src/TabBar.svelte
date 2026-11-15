@@ -11,6 +11,8 @@
         searchActive?: boolean;
         onSelect: (id: string) => void;
         onClose: (id: string) => void;
+        // onReorder drops the dragged tab before or after the target tab.
+        onReorder: (id: string, targetId: string, placeAfter: boolean) => void;
         onSelectSearch?: () => void;
         onCloseSearch?: () => void;
         // showIcons draws the file-type glyph next to each label.
@@ -25,6 +27,7 @@
         searchActive = false,
         onSelect,
         onClose,
+        onReorder,
         onSelectSearch,
         onCloseSearch,
         showIcons = true,
@@ -37,13 +40,130 @@
         }
         return tab.path !== '' ? tab.path : `${tab.name} (unsaved)`;
     }
+
+    // draggedId is the tab being dragged; dropTarget is the tab whose left or
+    // right edge shows the insertion line. Both clear on dragend, so an aborted
+    // drag cannot leave a stale indicator behind.
+    let draggedId = $state<string | null>(null);
+    let dropTarget = $state<{ id: string; after: boolean } | null>(null);
+
+    // dropAfter reads which half of the tab the pointer is over, so a drop lands
+    // on the side the insertion line promised.
+    function dropAfter(event: DragEvent): boolean {
+        const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+        return event.clientX > rect.left + rect.width / 2;
+    }
+
+    function startDrag(event: DragEvent, id: string): void {
+        draggedId = id;
+        if (event.dataTransfer !== null) {
+            event.dataTransfer.effectAllowed = 'move';
+            // WebKit refuses to start a drag without payload data.
+            event.dataTransfer.setData('text/plain', id);
+        }
+    }
+
+    function dragOver(event: DragEvent, id: string): void {
+        if (draggedId === null) {
+            return;
+        }
+        event.preventDefault();
+        if (event.dataTransfer !== null) {
+            event.dataTransfer.dropEffect = 'move';
+        }
+        dropTarget = draggedId === id ? null : { id, after: dropAfter(event) };
+    }
+
+    function dropOn(event: DragEvent, id: string): void {
+        event.preventDefault();
+        event.stopPropagation();
+        const dragged = draggedId;
+        draggedId = null;
+        dropTarget = null;
+        if (dragged !== null && dragged !== id) {
+            onReorder(dragged, id, dropAfter(event));
+        }
+    }
+
+    // The strip's empty space and the Search Results tab both mean "after the
+    // last document tab", so a tab can be dragged to the far end.
+    function dragOverEnd(event: DragEvent): void {
+        const last = tabs[tabs.length - 1];
+        if (draggedId === null || last === undefined || draggedId === last.id) {
+            return;
+        }
+        event.preventDefault();
+        if (event.dataTransfer !== null) {
+            event.dataTransfer.dropEffect = 'move';
+        }
+        dropTarget = { id: last.id, after: true };
+    }
+
+    // The strip's empty space only accepts the drop; the indicator stays on the
+    // last tab, where dragOverEnd put it. Events from a tab bubble here too, so
+    // only a hit on the strip itself moves the indicator.
+    function dragOverStrip(event: DragEvent): void {
+        if (draggedId === null) {
+            return;
+        }
+        event.preventDefault();
+        if (event.target === event.currentTarget) {
+            dragOverEnd(event);
+        }
+    }
+
+    function dropAtEnd(event: DragEvent): void {
+        const last = tabs[tabs.length - 1];
+        const dragged = draggedId;
+        draggedId = null;
+        dropTarget = null;
+        if (dragged === null || last === undefined || dragged === last.id) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        onReorder(dragged, last.id, true);
+    }
+
+    function endDrag(): void {
+        draggedId = null;
+        dropTarget = null;
+    }
+
+    // dragleave fires when the pointer crosses into a child too; only an exit
+    // from the whole strip drops the indicator.
+    function leaveStrip(event: DragEvent): void {
+        const next = event.relatedTarget as Node | null;
+        if (next === null || !(event.currentTarget as HTMLElement).contains(next)) {
+            dropTarget = null;
+        }
+    }
 </script>
 
 {#if tabs.length > 0 || searchOpen}
-    <div class="tabs" role="tablist" aria-label="Open files">
+    <div
+        class="tabs"
+        role="tablist"
+        aria-label="Open files"
+        ondragleave={leaveStrip}
+        ondragover={dragOverStrip}
+        ondrop={dropAtEnd}
+    >
         {#each tabs as tab (tab.id)}
             {@const icon = fileIcon(tab.path || tab.name)}
-            <div class="tab" class:tab--active={tab.id === activeId}>
+            <div
+                class="tab"
+                role="presentation"
+                class:tab--active={tab.id === activeId}
+                class:tab--dragging={draggedId === tab.id}
+                class:tab--drop-before={dropTarget?.id === tab.id && !dropTarget.after}
+                class:tab--drop-after={dropTarget?.id === tab.id && dropTarget.after}
+                draggable="true"
+                ondragstart={(event) => startDrag(event, tab.id)}
+                ondragover={(event) => dragOver(event, tab.id)}
+                ondrop={(event) => dropOn(event, tab.id)}
+                ondragend={endDrag}
+            >
                 {#if showIcons}
                     <span
                         class="tab__icon"
@@ -78,7 +198,13 @@
             </div>
         {/each}
         {#if searchOpen}
-            <div class="tab" class:tab--active={searchActive}>
+            <div
+                class="tab"
+                role="presentation"
+                class:tab--active={searchActive}
+                ondragover={dragOverEnd}
+                ondrop={dropAtEnd}
+            >
                 <button
                     class="tab__label"
                     role="tab"
@@ -141,6 +267,20 @@
 
     .tab--active:hover {
         background: var(--bg);
+    }
+
+    .tab--dragging {
+        opacity: 0.5;
+    }
+
+    /* The insertion line sits on the edge the tab will be dropped against, so
+       active tabs lose their top line only while a drag hovers them. */
+    .tab--drop-before {
+        box-shadow: inset 2px 0 0 var(--fg);
+    }
+
+    .tab--drop-after {
+        box-shadow: inset -2px 0 0 var(--fg);
     }
 
     .tab__icon {

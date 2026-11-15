@@ -142,6 +142,7 @@
         closeDocumentTab,
         listenForCloseTab,
         listenForTabCommands,
+        moveDocumentTab,
         openDocumentTab,
         setDocumentDirty,
         stepTabId,
@@ -1565,6 +1566,12 @@
         activeId = id;
     }
 
+    // reorderTab keeps the dragged tab on the same side of the target the
+    // insertion line showed. The tab list order is the saved session order.
+    function reorderTab(id: string, targetId: string, placeAfter: boolean): void {
+        tabs = moveDocumentTab(tabs, id, targetId, placeAfter);
+    }
+
     // recordRecent puts an opened file at the top of Open Recent.
     async function recordRecent(path: string): Promise<void> {
         try {
@@ -2128,6 +2135,7 @@
                     searchActive = false;
                 }}
                 onClose={(id) => void closeTab(id)}
+                onReorder={reorderTab}
                 onSelectSearch={() => {
                     searchOpen = true;
                     searchActive = true;
