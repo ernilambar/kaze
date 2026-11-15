@@ -223,6 +223,15 @@ func (a *App) openWindow(request LaunchRequest) error {
 		BackgroundColour:   application.NewRGB(30, 30, 30),
 		URL:                "/",
 		UseApplicationMenu: true,
+		// The frontend draws the window's only title bar. The native macOS bar
+		// turns transparent with its title hidden and the web content extends
+		// under it, so the traffic lights float over TitleBar.svelte instead of
+		// stacking a second bar above it. The plain preset keeps the lights at
+		// the standard height; the inset presets add a toolbar that pushes them
+		// below the bar's midline.
+		Mac: application.MacWindow{
+			TitleBar: application.MacTitleBarHidden,
+		},
 	})
 
 	session.mu.Lock()

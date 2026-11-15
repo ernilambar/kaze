@@ -113,6 +113,13 @@ introduce one unprompted.
   Window menus and the command palette. Closing a window asks that window's
   dirty buffers first; closing the last one quits the app, while Cmd+Q asks
   every dirty window one at a time.
+- **The title bar is the frontend's.** `openWindow` in `windows.go` passes
+  `MacTitleBarHidden`, so macOS hides its native title bar and extends the
+  content under the traffic lights; `TitleBar.svelte` is then the window's only
+  title bar, 30px tall on macOS (the strip's midline is the lights' centre
+  line), padded on macOS to leave room for the buttons and marked
+  `--wails-draggable: drag` so the strip moves and double-click-zooms the
+  window. Other platforms keep their native title bar above the same strip.
 - **Saving writes what the frontend holds.** `SaveDocument` in `save.go` writes
   the buffer text the frontend hands it, and returns `Conflict: true` without
   writing when the file's mtime moved since `LoadDocument` reported it;

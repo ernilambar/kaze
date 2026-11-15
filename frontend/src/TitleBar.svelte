@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { System } from '@wailsio/runtime';
+
     interface Props {
         appName: string;
         fileName: string;
@@ -6,9 +8,14 @@
     }
 
     let { appName, fileName, folderLabel = '' }: Props = $props();
+
+    // macOS hides its native title bar and floats the traffic lights over the
+    // content, so this bar leaves room for them. Elsewhere the native bar stays
+    // and no inset is needed.
+    const mac = System.IsMac();
 </script>
 
-<header class="titlebar">
+<header class="titlebar" class:titlebar--mac={mac}>
     <span class="titlebar__app">{appName}</span>
     <span class="titlebar__file">{fileName}</span>
     {#if folderLabel !== ''}
@@ -27,6 +34,15 @@
         background: var(--bg-raised);
         border-bottom: 1px solid var(--border);
         user-select: none;
+        /* No native title bar covers this strip, so dragging it moves the
+           window and a double click zooms it. */
+        --wails-draggable: drag;
+    }
+
+    .titlebar--mac {
+        /* 30px puts the strip's midline on the traffic lights' centre line. */
+        height: 30px;
+        padding-left: 80px;
     }
 
     .titlebar__app {
