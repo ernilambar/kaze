@@ -7,8 +7,8 @@ package main
 #cgo LDFLAGS: -framework Cocoa
 #include <stdlib.h>
 
-void kovaPrintText(const char *text, const char *fontName, double fontSize);
-int kovaPrintImage(const char *path);
+void nativePrintText(const char *text, const char *fontName, double fontSize);
+int nativePrintImage(const char *path);
 */
 import "C"
 
@@ -29,7 +29,7 @@ func printText(text, fontFamily string) error {
 	defer C.free(unsafe.Pointer(cFont))
 
 	application.InvokeSync(func() {
-		C.kovaPrintText(cText, cFont, C.double(defaultFontSize))
+		C.nativePrintText(cText, cFont, C.double(defaultFontSize))
 	})
 	return nil
 }
@@ -41,7 +41,7 @@ func printImage(path string) error {
 
 	var printed C.int
 	application.InvokeSync(func() {
-		printed = C.kovaPrintImage(cPath)
+		printed = C.nativePrintImage(cPath)
 	})
 	if printed == 0 {
 		return errors.New("cannot read the image to print")

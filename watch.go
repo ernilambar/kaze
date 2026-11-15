@@ -8,7 +8,7 @@ import (
 
 // watchedChangedEvent tells one window that paths it asked about changed on
 // disk. The payload is a []string of absolute paths.
-const watchedChangedEvent = "kova:watched-changed"
+const watchedChangedEvent = "app:watched-changed"
 
 // watchInterval is how often the watcher compares timestamps. One second is
 // invisible to a person editing in another program, and a handful of stat

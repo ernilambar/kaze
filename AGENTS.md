@@ -92,7 +92,7 @@ introduce one unprompted.
   its new path without the editor losing its Monaco model. `EditorPane` owns one
   model per open id and reports `onDirtyChange` by comparing the buffer's text
   with the text last loaded or saved; models are disposed when their tab closes.
-  **File → Close Tab** (<kbd>Cmd</kbd>+<kbd>W</kbd>) emits `kova:close-tab`.
+  **File → Close Tab** (<kbd>Cmd</kbd>+<kbd>W</kbd>) emits `app:close-tab`.
 - **Tab navigation and the session are frontend state.** `tabs.ts` steps and
   jumps between tabs, and `App.svelte` keeps the Reopen Closed Tab stack.
   `workspace.ts` persists `session.open_files`/`session.active` whenever the
@@ -126,11 +126,11 @@ introduce one unprompted.
   `SaveFileDialog` and `OpenFileDialog` wrap the native panels. Each frontend
   pushes its own window's `SetUnsavedChanges`, so `ShouldQuit` and the
   `WindowClosing` hook can cancel a quit or window close and emit
-  `kova:confirm-close` with a `close` or `quit` reason. The Save/Don't Save
+  `app:confirm-close` with a `close` or `quit` reason. The Save/Don't Save
   prompt answers with `ResolveClose(window, quit)`; a quit asks every dirty
   window in turn.
 - **File watching polls rather than subscribing.** `watch.go` stats open
-  buffers and expanded folders once a second and emits `kova:watched-changed`
+  buffers and expanded folders once a second and emits `app:watched-changed`
   with the changed paths. The watcher records which windows asked for each path,
   so a change reaches only those windows and closing one drops its
   registrations. `App.svelte` reloads clean buffers, keeps dirty ones
@@ -181,7 +181,7 @@ introduce one unprompted.
   `frontend/src/theme.ts`. Missing keys fall back to the matching built-in
   palette; a malformed file is reported without hiding the rest. A user variant
   with the same name shadows the built-in one. `configwatch.go` polls the
-  folder and keybindings file and emits `kova:config-changed`, so edits apply
+  folder and keybindings file and emits `app:config-changed`, so edits apply
   without a restart; `OpenThemesFolder` reveals the directory.
 - **Custom keybindings are VS Code-shaped.** `keybindings.json` sits beside
   `settings.json`; `keybindings.go` accepts JSONC comments, validates keys
@@ -196,9 +196,9 @@ introduce one unprompted.
 - **The settings overlay is frontend state.** `SettingsOverlay.svelte` edits
   the appearance and interface sections and links to Settings JSON, Default
   Settings, Themes Folder and Keybindings. The native Settings… item emits
-  `kova:settings-overlay`; `App.OpenDefaultSettings` writes
+  `app:settings-overlay`; `App.OpenDefaultSettings` writes
   `default-settings.json` beside the real file. The View menu's Appearance
-  radio emits `kova:appearance`, and `SetAppearanceMode` moves the checkmark
+  radio emits `app:appearance`, and `SetAppearanceMode` moves the checkmark
   when the mode came from the overlay or a keybinding.
 - **Window commands are native.** `window.go` exposes `MinimiseWindow`,
   `ZoomWindow` and `ToggleFullScreen` for one window, which the Window menu calls
@@ -207,9 +207,9 @@ introduce one unprompted.
   `OpenFolderInNewWindow` and `BringAllToFront`.
 - **Editor commands forward from Go to the frontend.** `main.go` builds the
   Edit menu (case transforms, trim trailing whitespace) and the View menu
-  (zoom, preview, appearance, checkable toggles) and emits `kova:transform-case`,
-  `kova:trim-whitespace`, `kova:zoom`, `kova:toggle-preview` and
-  `kova:toggle-view`; `editorcommands.ts` listens. A menu checkbox flips
+  (zoom, preview, appearance, checkable toggles) and emits `app:transform-case`,
+  `app:trim-whitespace`, `app:zoom`, `app:toggle-preview` and
+  `app:toggle-view`; `editorcommands.ts` listens. A menu checkbox flips
   natively, so `App.SetViewOption` moves the same checkmark when the toggle
   came from the command palette. Monaco options are built in `editor.ts`
   (indentation lives on the model, so every buffer is updated too).

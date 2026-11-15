@@ -85,7 +85,7 @@ export async function watchPaths(windowName: string, paths: readonly string[]): 
 // listenForWatchedChanges runs handler with the paths that changed on disk for
 // this window. Returns an unsubscribe function.
 export function listenForWatchedChanges(handler: (paths: string[]) => void): () => void {
-    return onWindowEvent('kova:watched-changed', (data) => {
+    return onWindowEvent('app:watched-changed', (data) => {
         const paths = data as string[] | undefined;
         if (paths !== undefined) {
             handler(paths);

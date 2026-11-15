@@ -114,7 +114,7 @@ func TestEnsureKeybindingsFileWritesTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), "Kova keybindings") {
+	if !strings.Contains(string(data), "Keybindings use") {
 		t.Fatalf("template = %q, want the explanatory comment", data)
 	}
 	// The template is JSONC and must parse to an empty list.

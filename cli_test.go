@@ -63,7 +63,7 @@ func TestParseLaunchRequestSkipsFlags(t *testing.T) {
 	file := writeTempFile(t, dir, "notes.txt", "hello")
 
 	// v3's dev tooling passes its settings through the environment, so the only
-	// argv flags Kova sees are ones a user typed. They are ignored, and their
+	// argv flags the app sees are ones a user typed. They are ignored, and their
 	// values are not mistaken for paths.
 	got := parseLaunchRequest([]string{"--loglevel=Debug", "-dev", "--", file})
 

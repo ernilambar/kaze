@@ -229,7 +229,7 @@ export async function listenForLaunch(
     windowName: string,
     handler: (request: LaunchRequest) => void,
 ): Promise<() => void> {
-    const off = onWindowEvent('kova:launch', (data) => {
+    const off = onWindowEvent('app:launch', (data) => {
         const request = data as LaunchRequest | undefined;
         if (request !== undefined) {
             handler(request);

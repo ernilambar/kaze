@@ -74,13 +74,13 @@ describe('errorMessage', () => {
 
 describe('relativePath', () => {
     it('removes the innermost root', () => {
-        expect(relativePath('/projects/kova/src/app.ts', ['/projects', '/projects/kova'])).toBe(
+        expect(relativePath('/projects/app/src/app.ts', ['/projects', '/projects/app'])).toBe(
             'src/app.ts',
         );
     });
 
     it('normalizes Windows separators', () => {
-        expect(relativePath('C:\\projects\\kova\\src\\app.ts', ['C:\\projects\\kova'])).toBe(
+        expect(relativePath('C:\\projects\\app\\src\\app.ts', ['C:\\projects\\app'])).toBe(
             'src/app.ts',
         );
     });

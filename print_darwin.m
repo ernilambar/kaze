@@ -3,9 +3,9 @@
 // The print panel is AppKit's; these functions only build the view it prints.
 // They are called on the main thread from print_darwin.go.
 
-// kovaPageRect is the area one page can hold: the chosen paper minus the
+// pageRect is the area one page can hold: the chosen paper minus the
 // imageable margins, so text never runs into the unprintable edge.
-static NSRect kovaPageRect(NSPrintInfo *info) {
+static NSRect pageRect(NSPrintInfo *info) {
     NSRect area = [info imageablePageBounds];
     if (area.size.width < 1 || area.size.height < 1) {
         // No usable print info yet: fall back to US Letter inside one-inch
@@ -15,9 +15,9 @@ static NSRect kovaPageRect(NSPrintInfo *info) {
     return area;
 }
 
-// kovaRunPrint shows the panel and starts printing. Running as a sheet keeps
+// runPrint shows the panel and starts printing. Running as a sheet keeps
 // the webview responsive while the user picks a printer.
-static void kovaRunPrint(NSView *view, NSPrintInfo *info) {
+static void runPrint(NSView *view, NSPrintInfo *info) {
     NSPrintOperation *operation = [NSPrintOperation printOperationWithView:view printInfo:info];
     [operation setShowsPrintPanel:YES];
     [operation setShowsProgressPanel:YES];
@@ -30,15 +30,15 @@ static void kovaRunPrint(NSView *view, NSPrintInfo *info) {
     }
 }
 
-// kovaPrintText prints plain text. NSTextView paginates the text itself: a long
+// nativePrintText prints plain text. NSTextView paginates the text itself: a long
 // document becomes several pages, a short one stays on a single sheet.
-void kovaPrintText(const char *text, const char *fontName, double fontSize) {
+void nativePrintText(const char *text, const char *fontName, double fontSize) {
     @autoreleasepool {
         NSPrintInfo *info = [[NSPrintInfo sharedPrintInfo] copy];
         [info setHorizontalPagination:NSPrintingPaginationModeFit];
         [info setVerticalPagination:NSPrintingPaginationModeAutomatic];
 
-        NSRect area = kovaPageRect(info);
+        NSRect area = pageRect(info);
         NSTextView *view = [[NSTextView alloc] initWithFrame:NSMakeRect(0, 0, area.size.width, area.size.height)];
         [view setEditable:NO];
         [view setRichText:NO];
@@ -57,13 +57,13 @@ void kovaPrintText(const char *text, const char *fontName, double fontSize) {
         [view setFont:font];
         [view setString:(text != NULL ? [NSString stringWithUTF8String:text] : @"")];
 
-        kovaRunPrint(view, info);
+        runPrint(view, info);
     }
 }
 
-// kovaPrintImage prints a picture on one page, scaled to fit and centered.
+// nativePrintImage prints a picture on one page, scaled to fit and centered.
 // Returns 0 when the file cannot be decoded, so Go can report why.
-int kovaPrintImage(const char *path) {
+int nativePrintImage(const char *path) {
     @autoreleasepool {
         NSImage *image = path != NULL ? [[NSImage alloc] initWithContentsOfFile:[NSString stringWithUTF8String:path]] : nil;
         if (image == nil) {
@@ -74,12 +74,12 @@ int kovaPrintImage(const char *path) {
         [info setHorizontalPagination:NSPrintingPaginationModeFit];
         [info setVerticalPagination:NSPrintingPaginationModeFit];
 
-        NSImageView *view = [[NSImageView alloc] initWithFrame:kovaPageRect(info)];
+        NSImageView *view = [[NSImageView alloc] initWithFrame:pageRect(info)];
         [view setImage:image];
         [view setImageScaling:NSImageScaleProportionallyUpOrDown];
         [view setImageAlignment:NSImageAlignCenter];
 
-        kovaRunPrint(view, info);
+        runPrint(view, info);
         return 1;
     }
 }

@@ -10,9 +10,9 @@ import (
 )
 
 func TestLauncherScriptQuotesTheBundlePath(t *testing.T) {
-	script := launcherScript("/Applications/Kova.app/Contents/MacOS/kova")
+	script := launcherScript("/Applications/Editor.app/Contents/MacOS/editor")
 
-	if !strings.Contains(script, "app='/Applications/Kova.app/Contents/MacOS/kova'") {
+	if !strings.Contains(script, "app='/Applications/Editor.app/Contents/MacOS/editor'") {
 		t.Fatalf("launcherScript() does not point at the bundle executable:\n%s", script)
 	}
 	if !strings.HasPrefix(script, "#!/bin/sh\n") {
@@ -25,8 +25,8 @@ func TestLauncherScriptQuotesTheBundlePath(t *testing.T) {
 
 func TestLauncherScriptMakesArgumentsAbsolute(t *testing.T) {
 	// Relative paths have to be resolved in the caller's shell: a forwarded
-	// launch runs in the Kova instance's working directory, not the user's.
-	script := launcherScript("/Applications/Kova.app/Contents/MacOS/kova")
+	// launch runs in the running instance's working directory, not the user's.
+	script := launcherScript("/Applications/Editor.app/Contents/MacOS/editor")
 
 	if !strings.Contains(script, `*) arg="$PWD/$arg" ;;`) {
 		t.Fatalf("launcherScript() does not resolve relative arguments:\n%s", script)
@@ -66,7 +66,7 @@ func TestInstallTargetRejectsUnbundledBinary(t *testing.T) {
 }
 
 func TestWriteFileAtomicReplacesContentAndKeepsMode(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "bin", "kova")
+	path := filepath.Join(t.TempDir(), "bin", "editor")
 
 	if err := writeFileAtomic(path, []byte("first\n")); err != nil {
 		t.Fatalf("writeFileAtomic() error = %v", err)
@@ -97,8 +97,8 @@ func TestInstallLauncherWritesRunnableScript(t *testing.T) {
 		t.Skip("the launcher is a POSIX shell script")
 	}
 
-	path := filepath.Join(t.TempDir(), "bin", "kova")
-	target := "/Applications/Kova.app/Contents/MacOS/kova"
+	path := filepath.Join(t.TempDir(), "bin", "editor")
+	target := "/Applications/Editor.app/Contents/MacOS/editor"
 
 	if err := installLauncher(path, target); err != nil {
 		t.Fatalf("installLauncher() error = %v", err)
@@ -133,7 +133,7 @@ func TestInstalledLauncherRunsTargetWithAbsolutePaths(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	target := filepath.Join(dir, "Kova.app", "Contents", "MacOS", "kova")
+	target := filepath.Join(dir, "Editor.app", "Contents", "MacOS", "editor")
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 		t.Fatalf("create bundle: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestInstalledLauncherRunsTargetWithAbsolutePaths(t *testing.T) {
 		t.Fatalf("write fake app: %v", err)
 	}
 
-	launcher := filepath.Join(dir, "bin", "kova")
+	launcher := filepath.Join(dir, "bin", "editor")
 	if err := installLauncher(launcher, target); err != nil {
 		t.Fatalf("installLauncher() error = %v", err)
 	}
@@ -176,9 +176,9 @@ func TestCommandInstallPathUsesInstallDir(t *testing.T) {
 }
 
 func TestPrivilegedInstallCommandInstallsBothIntermediates(t *testing.T) {
-	got := privilegedInstallCommand("/usr/local/bin/kova", "/tmp/kova-command-1")
+	got := privilegedInstallCommand("/usr/local/bin/editor", "/tmp/editor-command-1")
 
-	want := "/usr/bin/install -d -m 755 '/usr/local/bin' && /usr/bin/install -m 755 '/tmp/kova-command-1' '/usr/local/bin/kova'"
+	want := "/usr/bin/install -d -m 755 '/usr/local/bin' && /usr/bin/install -m 755 '/tmp/editor-command-1' '/usr/local/bin/editor'"
 	if got != want {
 		t.Fatalf("privilegedInstallCommand() = %q, want %q", got, want)
 	}

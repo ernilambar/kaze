@@ -40,7 +40,7 @@ func (a *App) OpenWorkspaceDialog() (WorkspaceInfo, error) {
 	}
 	path, err := a.wails.Dialog.OpenFile().
 		SetTitle("Open Workspace").
-		AddFilter("Kova Workspace", "*"+workspaceExtension).
+		AddFilter(appMeta.ProductName+" Workspace", "*"+workspaceExtension).
 		PromptForSingleSelection()
 	if err != nil || path == "" {
 		return WorkspaceInfo{}, err
@@ -61,7 +61,7 @@ func (a *App) SaveWorkspaceAs(folders []string) (WorkspaceInfo, error) {
 
 	dialog := a.wails.Dialog.SaveFile()
 	dialog.SetOptions(&application.SaveFileDialogOptions{Title: "Save Workspace As"})
-	dialog.AddFilter("Kova Workspace", "*"+workspaceExtension)
+	dialog.AddFilter(appMeta.ProductName+" Workspace", "*"+workspaceExtension)
 	dialog.SetFilename(workspaceSuggestedName(folders))
 	path, err := dialog.PromptForSingleSelection()
 	if err != nil || path == "" {

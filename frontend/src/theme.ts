@@ -243,7 +243,7 @@ export async function loadTheme(name: string): Promise<ThemePalette> {
 // listenForConfigChanges runs handler when the themes folder or keybindings
 // file changes. Returns an unsubscribe function.
 export function listenForConfigChanges(handler: (change: ConfigChange) => void): () => void {
-    return onWindowEvent('kova:config-changed', (data) => {
+    return onWindowEvent('app:config-changed', (data) => {
         const change = data as ConfigChange | undefined;
         if (change !== undefined) {
             handler(change);
@@ -252,7 +252,7 @@ export function listenForConfigChanges(handler: (change: ConfigChange) => void):
 }
 
 export function listenForAppearance(handler: (mode: ThemeMode) => void): () => void {
-    return onWindowEvent('kova:appearance', (data) => {
+    return onWindowEvent('app:appearance', (data) => {
         const mode = data as string | undefined;
         if (mode === 'system' || mode === 'light' || mode === 'dark') {
             handler(mode);
@@ -261,5 +261,5 @@ export function listenForAppearance(handler: (mode: ThemeMode) => void): () => v
 }
 
 export function listenForSettingsOverlay(handler: () => void): () => void {
-    return onWindowEvent('kova:settings-overlay', () => handler());
+    return onWindowEvent('app:settings-overlay', () => handler());
 }

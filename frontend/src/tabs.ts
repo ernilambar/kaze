@@ -72,7 +72,7 @@ export function setDocumentDirty(tabs: OpenDocument[], id: string, dirty: boolea
 // listenForCloseTab runs handler when the File menu asks to close the active
 // tab. Returns an unsubscribe function.
 export function listenForCloseTab(handler: () => void): () => void {
-    return onWindowEvent('kova:close-tab', () => handler());
+    return onWindowEvent('app:close-tab', () => handler());
 }
 
 // stepTabId returns the tab a next/previous command activates, wrapping at
@@ -114,11 +114,11 @@ export function listenForTabCommands(handlers: {
     moveToNewWindow: () => void;
 }): () => void {
     const offs = [
-        onWindowEvent('kova:next-tab', () => handlers.next()),
-        onWindowEvent('kova:previous-tab', () => handlers.previous()),
-        onWindowEvent('kova:reopen-closed-tab', () => handlers.reopen()),
-        onWindowEvent('kova:move-tab-to-new-window', () => handlers.moveToNewWindow()),
-        onWindowEvent('kova:go-to-tab', (data) => {
+        onWindowEvent('app:next-tab', () => handlers.next()),
+        onWindowEvent('app:previous-tab', () => handlers.previous()),
+        onWindowEvent('app:reopen-closed-tab', () => handlers.reopen()),
+        onWindowEvent('app:move-tab-to-new-window', () => handlers.moveToNewWindow()),
+        onWindowEvent('app:go-to-tab', (data) => {
             if (typeof data === 'number') {
                 handlers.goToTab(data);
             }

@@ -12,7 +12,7 @@ describe('rankCommands', () => {
 
     it('matches a command by name', () => {
         const commands = [
-            command('settings', 'Settings', 'Kova'),
+            command('settings', 'Settings', 'Application'),
             command('quick-open', 'Quick Open', 'File'),
         ];
 
@@ -20,7 +20,7 @@ describe('rankCommands', () => {
     });
 
     it('matches a command by category', () => {
-        const matches = rankCommands('kova');
+        const matches = rankCommands('application');
 
         expect(matches.map((entry) => entry.id)).toEqual([
             'settings',
@@ -35,7 +35,7 @@ describe('rankCommands', () => {
     it('prefers a name match over a category match', () => {
         const commands = [
             command('category', 'Settings', 'Open'),
-            command('name', 'Open File', 'Kova'),
+            command('name', 'Open File', 'Application'),
         ];
 
         expect(rankCommands('open', commands)[0]?.id).toBe('name');

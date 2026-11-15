@@ -1,4 +1,4 @@
-// CaseTransform names an Edit menu transform. The kova:transform-case event
+// CaseTransform names an Edit menu transform. The app:transform-case event
 // carries this id.
 export type CaseTransform =
     | 'upper'

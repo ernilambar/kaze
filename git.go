@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-// Git is read-only: Kova inspects a repository's state so the sidebar, the
+// Git is read-only: the app inspects a repository's state so the sidebar, the
 // gutter and the status bar can describe it, but every command it runs either
 // prints status or a diff. --no-optional-locks keeps git from refreshing the
 // index behind the user's back, which is the one write `git status` would

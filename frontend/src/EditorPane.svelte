@@ -131,7 +131,7 @@
             },
             options: {
                 isWholeLine: true,
-                linesDecorationsClassName: `kova-gutter-${entry.kind}`,
+                linesDecorationsClassName: `git-gutter-${entry.kind}`,
                 overviewRuler: {
                     color: entry.kind === 'added' ? addedColor : modifiedColor,
                     position: monaco.editor.OverviewRulerLane.Left,
@@ -238,7 +238,7 @@
             return;
         }
         current.pushUndoStop();
-        current.executeEdits('kova-transform-case', [
+        current.executeEdits('transform-case', [
             { range, text: converted, forceMoveMarkers: true },
         ]);
         current.pushUndoStop();
@@ -268,7 +268,7 @@
             return;
         }
         current.pushUndoStop();
-        current.executeEdits('kova-trim-trailing-whitespace', edits);
+        current.executeEdits('trim-trailing-whitespace', edits);
         current.pushUndoStop();
         current.focus();
     }

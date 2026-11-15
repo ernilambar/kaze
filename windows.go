@@ -9,7 +9,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
-// ClosePrompt is the payload of kova:confirm-close. The frontend titles the
+// ClosePrompt is the payload of app:confirm-close. The frontend titles the
 // prompt from Reason ("close" or "quit") and answers through ResolveClose.
 type ClosePrompt struct {
 	Reason string `json:"reason"`

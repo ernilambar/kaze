@@ -46,7 +46,7 @@
 
     // Children are read when the folder is first shown, so adding a large
     // folder costs one directory read rather than a walk over the whole tree.
-    // Re-expanding forces a refresh, because files outside Kova come and go.
+    // Re-expanding forces a refresh, because files outside the app come and go.
     async function ensureLoaded(force = false): Promise<void> {
         if (loading || (loaded && !force)) {
             return;

@@ -8,8 +8,8 @@ import (
 )
 
 // launchEvent is the Wails event the frontend listens on to pick up paths
-// passed to a Kova that is already running.
-const launchEvent = "kova:launch"
+// passed to an instance that is already running.
+const launchEvent = "app:launch"
 
 // LaunchBuffer is one tab handed to another window. A text buffer carries its
 // text, so unsaved edits move with the tab; an image or diff travels by path
@@ -27,7 +27,7 @@ type LaunchBuffer struct {
 	SourcePath   string `json:"source_path"`
 }
 
-// LaunchRequest is what a `kova` command line asked the app to open. It travels
+// LaunchRequest is what a command line invocation asked the app to open. It travels
 // from the invocation that saw the arguments to the running UI, so paths are
 // absolute by then and every rejected argument is reported back to the user.
 type LaunchRequest struct {
@@ -103,7 +103,7 @@ func uniquePaths(paths []string) []string {
 }
 
 // cliAction is what a command line asked for before a window exists. Help and
-// version must be answered by this process: forwarding them to a running Kova
+// version must be answered by this process: forwarding them to a running app
 // would open a window instead of printing anything.
 type cliAction int
 
@@ -163,9 +163,9 @@ Options:
   --             Treat every following argument as a path.
 
 Files open in the editor. Folders become sidebar roots and are remembered for
-next time. Running %s with paths while Kova is already open hands them to that
+next time. Running %s with paths while %s is already open hands them to that
 window instead of starting a second one.
-`, meta.ProductName, meta.ProductVersion, commandName, commandName)
+`, meta.ProductName, meta.ProductVersion, commandName, commandName, meta.ProductName)
 }
 
 // cliVersionText is the one-line answer to -v/--version.

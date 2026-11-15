@@ -198,7 +198,7 @@ func (a *App) SetViewOption(option string, checked bool) {
 
 // AddSidebarFolder adds one folder to the sidebar's saved list and returns the
 // new list. Opening a folder the user already added is a no-op, so launching
-// `kova .` twice does not duplicate the root. The path is checked here rather
+// `<command> .` twice does not duplicate the root. The path is checked here rather
 // than trusted from the caller, because a sidebar root is only useful while it
 // is a real folder.
 func (a *App) AddSidebarFolder(folder string) ([]string, error) {
@@ -295,7 +295,7 @@ func (a *App) OpenSettings() error {
 	return a.openSettingsFile()
 }
 
-// OpenDefaultSettings writes the defaults Kova would use on a fresh install to
+// OpenDefaultSettings writes the defaults the app would use on a fresh install to
 // default-settings.json and opens it. It never touches the user's settings.json.
 func (a *App) OpenDefaultSettings() error {
 	path, err := settingsFilePath()
@@ -320,7 +320,7 @@ func (a *App) openSettingsFromMenu() {
 // addFolderEvent asks the sidebar to open the folder picker. A menu click has no
 // caller to return to, so the frontend runs the same code path as its own
 // button: one busy state, one place errors are reported.
-const addFolderEvent = "kova:add-folder"
+const addFolderEvent = "app:add-folder"
 
 // emitAddFolder tells the frontend to open the folder picker.
 func (a *App) emitAddFolder() {
@@ -356,11 +356,11 @@ func (a *App) emitAll(name string, data ...any) {
 
 // closeTabEvent asks the frontend to close the active tab. The tab list lives in
 // the frontend, so the menu only sends the command.
-const closeTabEvent = "kova:close-tab"
+const closeTabEvent = "app:close-tab"
 
 // moveTabToNewWindowEvent asks the frontend to hand its active tab to a new
 // window. Only the frontend can read the buffer that moves.
-const moveTabToNewWindowEvent = "kova:move-tab-to-new-window"
+const moveTabToNewWindowEvent = "app:move-tab-to-new-window"
 
 // emitMoveTabToNewWindow tells the focused window to move its active tab.
 func (a *App) emitMoveTabToNewWindow() { a.emitEvent(moveTabToNewWindowEvent) }
@@ -368,21 +368,21 @@ func (a *App) emitMoveTabToNewWindow() { a.emitEvent(moveTabToNewWindowEvent) }
 // The navigation commands work on the frontend's tab list. nextTabEvent and
 // previousTabEvent step through it; goToTabEvent carries the 1-based position.
 const (
-	nextTabEvent        = "kova:next-tab"
-	previousTabEvent    = "kova:previous-tab"
-	reopenTabEvent      = "kova:reopen-closed-tab"
-	goToTabEvent        = "kova:go-to-tab"
-	openRecentEvent     = "kova:open-recent"
-	clearRecentEvent    = "kova:clear-recent"
-	openWorkspaceEvent  = "kova:open-workspace"
-	saveWorkspaceEvent  = "kova:save-workspace-as"
-	closeWorkspaceEvent = "kova:close-workspace"
-	refreshEvent        = "kova:refresh"
-	findInFilesEvent    = "kova:find-in-files"
-	toggleSidebarEvent  = "kova:toggle-sidebar"
-	closeFoldersEvent   = "kova:close-all-folders"
-	revealFileEvent     = "kova:reveal-file"
-	copyPathEvent       = "kova:copy-path"
+	nextTabEvent        = "app:next-tab"
+	previousTabEvent    = "app:previous-tab"
+	reopenTabEvent      = "app:reopen-closed-tab"
+	goToTabEvent        = "app:go-to-tab"
+	openRecentEvent     = "app:open-recent"
+	clearRecentEvent    = "app:clear-recent"
+	openWorkspaceEvent  = "app:open-workspace"
+	saveWorkspaceEvent  = "app:save-workspace-as"
+	closeWorkspaceEvent = "app:close-workspace"
+	refreshEvent        = "app:refresh"
+	findInFilesEvent    = "app:find-in-files"
+	toggleSidebarEvent  = "app:toggle-sidebar"
+	closeFoldersEvent   = "app:close-all-folders"
+	revealFileEvent     = "app:reveal-file"
+	copyPathEvent       = "app:copy-path"
 )
 
 // emitNextTab tells the frontend to activate the next tab.
@@ -441,7 +441,7 @@ func (a *App) emitCloseTab() {
 // quickOpenEvent asks the frontend to show the Quick Open palette. The file
 // list lives behind the sidebar roots, so the frontend owns the dialog and the
 // menu only sends the command.
-const quickOpenEvent = "kova:quick-open"
+const quickOpenEvent = "app:quick-open"
 
 // emitQuickOpen tells the frontend to show Quick Open.
 func (a *App) emitQuickOpen() {
@@ -450,7 +450,7 @@ func (a *App) emitQuickOpen() {
 
 // commandPaletteEvent asks the frontend to show the command palette. Commands
 // are frontend state, so the menu only sends the command.
-const commandPaletteEvent = "kova:command-palette"
+const commandPaletteEvent = "app:command-palette"
 
 // emitCommandPalette tells the frontend to show the command palette.
 func (a *App) emitCommandPalette() {
@@ -461,12 +461,12 @@ func (a *App) emitCommandPalette() {
 // their paths all live in the UI, so Go only forwards each click. One name per
 // command keeps the menu and the App listener honest about what exists.
 const (
-	newFileEvent  = "kova:new-file"
-	openFileEvent = "kova:open-file"
-	saveEvent     = "kova:save"
-	saveAsEvent   = "kova:save-as"
-	saveAllEvent  = "kova:save-all"
-	printEvent    = "kova:print"
+	newFileEvent  = "app:new-file"
+	openFileEvent = "app:open-file"
+	saveEvent     = "app:save"
+	saveAsEvent   = "app:save-as"
+	saveAllEvent  = "app:save-all"
+	printEvent    = "app:print"
 )
 
 // emitNewFile tells the frontend to open a new untitled buffer.
@@ -489,16 +489,16 @@ func (a *App) emitPrint() { a.emitEvent(printEvent) }
 
 // closeRequestEvent asks the frontend to deal with unsaved buffers before the
 // window closes. The prompt is the frontend's, because only it can save them.
-const closeRequestEvent = "kova:confirm-close"
+const closeRequestEvent = "app:confirm-close"
 
 // The Edit and View menus are frontend state too: the transform, whitespace,
 // preview and zoom commands all act on Monaco buffers, so Go forwards each one.
 const (
-	transformCaseEvent  = "kova:transform-case"
-	trimWhitespaceEvent = "kova:trim-whitespace"
-	zoomEvent           = "kova:zoom"
-	togglePreviewEvent  = "kova:toggle-preview"
-	toggleViewEvent     = "kova:toggle-view"
+	transformCaseEvent  = "app:transform-case"
+	trimWhitespaceEvent = "app:trim-whitespace"
+	zoomEvent           = "app:zoom"
+	togglePreviewEvent  = "app:toggle-preview"
+	toggleViewEvent     = "app:toggle-view"
 )
 
 // emitTransformCase tells the frontend to convert the selection to id's case.
@@ -529,13 +529,13 @@ func (a *App) emitToggleView(option string, checked bool) {
 }
 
 // settingsOverlayEvent asks the frontend to open the settings overlay.
-const settingsOverlayEvent = "kova:settings-overlay"
+const settingsOverlayEvent = "app:settings-overlay"
 
 // emitSettingsOverlay tells the frontend to show the settings overlay.
 func (a *App) emitSettingsOverlay() { a.emitEvent(settingsOverlayEvent) }
 
 // appearanceEvent carries the mode the Appearance submenu selected.
-const appearanceEvent = "kova:appearance"
+const appearanceEvent = "app:appearance"
 
 // emitAppearance tells every window that the menu selected a new mode, because
 // the palette is shared by all of them.
@@ -554,6 +554,12 @@ func (a *App) ShouldRestoreSession(window string) bool {
 	session.mu.Lock()
 	defer session.mu.Unlock()
 	return session.pending.RestoreSession
+}
+
+// GetProductName is the app name from build/config.yml, so the UI does not
+// carry its own copy.
+func (a *App) GetProductName() string {
+	return a.meta.ProductName
 }
 
 // GetLaunchRequest hands one window the paths it was started with. The
@@ -602,7 +608,7 @@ func (a *App) queueLaunchPaths(paths []string) {
 	a.queueLaunch(parseLaunchRequest(paths))
 }
 
-// InstallCommandLineTool installs the `kova` command in /usr/local/bin, asking
+// InstallCommandLineTool installs the command line launcher in /usr/local/bin, asking
 // for an administrator password when the directory is not writable. It reports
 // the outcome with dialogs, because the app menu and the command palette have no
 // caller to return to.
@@ -625,6 +631,6 @@ func (a *App) InstallCommandLineTool() {
 	}
 	a.wails.Dialog.Info().
 		SetTitle("Install Command Line Tool").
-		SetMessage("Installed " + path + ".\n\nOpen a new terminal and run:\n\n  kova notes.txt\n  kova .").
+		SetMessage("Installed " + path + ".\n\nOpen a new terminal and run:\n\n  " + commandName + " notes.txt\n  " + commandName + " .").
 		Show()
 }

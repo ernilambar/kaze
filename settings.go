@@ -313,14 +313,14 @@ func normalizeFolderList(folders []string) []string {
 }
 
 // settingsFilePath returns the per-user settings location, following the
-// platform config directory: ~/Library/Application Support/Kova/settings.json
-// on macOS.
+// platform config directory: ~/Library/Application Support/<product
+// name>/settings.json on macOS.
 func settingsFilePath() (string, error) {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("resolve user config directory: %w", err)
 	}
-	return filepath.Join(dir, "Kova", "settings.json"), nil
+	return filepath.Join(dir, appMeta.ProductName, "settings.json"), nil
 }
 
 // loadSettings reads path and normalizes the result. When the file does not

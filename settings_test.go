@@ -10,7 +10,7 @@ import (
 )
 
 func TestLoadSettingsCreatesDefaultFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "Kova", "settings.json")
+	path := filepath.Join(t.TempDir(), "app", "settings.json")
 
 	settings, err := loadSettings(path)
 	if err != nil {
@@ -160,8 +160,8 @@ func TestSettingsFilePathUsesConfigDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("settingsFilePath() error = %v", err)
 	}
-	if !strings.HasSuffix(path, filepath.Join("Kova", "settings.json")) {
-		t.Fatalf("settingsFilePath() = %q, want path under Kova", path)
+	if !strings.HasSuffix(path, filepath.Join(appMeta.ProductName, "settings.json")) {
+		t.Fatalf("settingsFilePath() = %q, want path under %s", path, appMeta.ProductName)
 	}
 }
 

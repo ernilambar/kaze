@@ -24,7 +24,7 @@ func (a *App) ListFiles() ([]string, error) {
 
 // listFilesExcluding walks each root and skips excluded trees, unreadable
 // directories and symlinks. A stale root is ignored instead of failing the
-// whole list, so one folder moved outside Kova cannot empty the palette.
+// whole list, so one folder moved outside the app cannot empty the palette.
 func listFilesExcluding(roots []string, excludes excludeMatcher) []string {
 	files := make([]string, 0)
 	seen := make(map[string]bool)

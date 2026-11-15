@@ -12,7 +12,7 @@ import (
 )
 
 // Keybinding is one entry in keybindings.json, using VS Code's shape. Command
-// is a Kova command id; a leading "-" removes that command's default shortcut.
+// is a command id; a leading "-" removes that command's default shortcut.
 type Keybinding struct {
 	Key     string `json:"key"`
 	Command string `json:"command"`
@@ -34,7 +34,7 @@ type KeybindingsState struct {
 // defaultKeybindingsJSON is the file created on first use. The examples stay
 // commented out so the native menu keeps its defaults until the user opts in.
 const defaultKeybindingsJSON = `[
-    // Kova keybindings use VS Code's shape: { "key": "...", "command": "..." }.
+    // Keybindings use VS Code's shape: { "key": "...", "command": "..." }.
     // Commands are the ids the command palette runs.
     // "when" supports editorFocus, sidebarVisible, hasActiveTab, hasDirtyTab
     // and the !, && and || operators.
