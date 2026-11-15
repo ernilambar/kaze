@@ -2,17 +2,17 @@
     interface Props {
         appName: string;
         fileName: string;
-        folder?: string;
+        folderLabel?: string;
     }
 
-    let { appName, fileName, folder = '' }: Props = $props();
+    let { appName, fileName, folderLabel = '' }: Props = $props();
 </script>
 
 <header class="titlebar">
     <span class="titlebar__app">{appName}</span>
     <span class="titlebar__file">{fileName}</span>
-    {#if folder !== ''}
-        <span class="titlebar__folder">{folder}</span>
+    {#if folderLabel !== ''}
+        <span class="titlebar__folder">{folderLabel}</span>
     {/if}
 </header>
 

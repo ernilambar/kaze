@@ -46,9 +46,20 @@ introduce one unprompted.
 - **Go owns native behavior.** File I/O, dialogs, and OS integration belong in
   Go; the Svelte/TypeScript layer handles UI only.
 - **Filesystem access is a binding, not a web API.** Documents are read by
-  `App.LoadDocument` in `document.go` and the CLI paths by `App.GetLaunchRequest`
-  in `app.go`; the frontend never imports Node APIs. `cli.go` parses argv into a
-  `LaunchRequest` that survives the frontend not being ready yet.
+  `App.LoadDocument` in `document.go`, folder levels by `App.ReadFolder` in
+  `folder.go`, and the CLI paths by `App.GetLaunchRequest` in `app.go`; the
+  frontend never imports Node APIs. `cli.go` parses argv into a `LaunchRequest`
+  that survives the frontend not being ready yet.
+- **The sidebar is a folder tree with several roots.** `App.ReadFolder` lists
+  one level at a time and the recursive `FolderTree.svelte` reads children on
+  first expansion, so adding a large folder costs one directory read. Roots are
+  saved through `App.AddSidebarFolder`/`App.RemoveSidebarFolder` into
+  `settings.json`; `sidebar.folders` is the persistence layer that a future
+  workspace feature will replace with named projects.
+- **Every folder entry point shares one code path.** The `+` button,
+  **File → Add Folder to Sidebar…**, and `kova <folder>` all funnel through
+  `addFolderFromDialog`/`applyLaunch` in `App.svelte`, so they share one busy
+  flag and one error notice.
 - **`kova` is a shell launcher, not a second binary.** `install.go` writes a
   script to `/usr/local/bin/kova` that execs the bundle's executable, escalating
   through `osascript … with administrator privileges` when the directory is not
@@ -57,7 +68,8 @@ introduce one unprompted.
 - **User settings live in `settings.json`.** `settings.go` loads and validates
   it from the platform config directory (`Kova/settings.json`), creating
   defaults on first run; `App.GetSettings` exposes it to the frontend, which
-  applies the editor font values at startup. Keep `frontend/src/settings.ts`
+  applies the editor font values at startup and reads `sidebar.folders` for the
+  tree roots. Keep `frontend/src/settings.ts`
   defaults in sync with `defaultSettings()` in Go (the TS copy is only the
   fallback when the backend call fails).
 - **Monaco stays excluded from Vite pre-bundling.** `optimizeDeps.exclude:
@@ -70,11 +82,13 @@ introduce one unprompted.
   `noUnusedParameters`, `noImplicitReturns`) and uses 4-space indentation,
   single quotes, and named exports (`export function createEditor`).
 - **Svelte 5 with runes.** Components live in `frontend/src/*.svelte`
-  (`App.svelte` plus `TitleBar`, `EditorPane`, `StatusBar`), mounted from
-  `main.ts` with `mount()`; `svelte.config.js` pins `runes: true`. Use `$state`,
-  `$props`, and `$derived`/`$effect` rather than legacy `export let`/`$:` syntax,
-  and keep component styles scoped in the component's `<style>` block while
-  shared design tokens stay in `style.css`.
+  (`App.svelte` plus `TitleBar`, `EditorPane`, `StatusBar`, `Sidebar`, and the
+  recursive `FolderTree`), mounted from `main.ts` with `mount()`;
+  `svelte.config.js` pins `runes: true`. Use `$state`, `$props`, and
+  `$derived`/`$effect` rather than legacy `export let`/`$:` syntax, and keep
+  component styles scoped in the component's `<style>` block while shared
+  design tokens stay in `style.css`. `FolderTree` imports itself for recursion;
+  `<svelte:self>` is deprecated.
 - **Use pnpm for the frontend.** `frontend/pnpm-lock.yaml` is the lockfile;
   never add `package-lock.json`. `frontend/pnpm-workspace.yaml` allows the
   `esbuild` install script because pnpm blocks dependency build scripts by

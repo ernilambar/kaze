@@ -24,11 +24,23 @@ func TestParseLaunchRequestClassifiesPaths(t *testing.T) {
 
 	want := LaunchRequest{
 		Files:   []string{file},
-		Folder:  dir,
+		Folders: []string{dir},
 		Missing: []string{"missing.txt"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("parseLaunchRequest() = %+v, want %+v", got, want)
+	}
+}
+
+func TestParseLaunchRequestKeepsEveryFolder(t *testing.T) {
+	first := t.TempDir()
+	second := t.TempDir()
+
+	got := parseLaunchRequest([]string{first, second})
+
+	want := []string{first, second}
+	if !reflect.DeepEqual(got.Folders, want) {
+		t.Fatalf("Folders = %q, want %q", got.Folders, want)
 	}
 }
 
@@ -56,8 +68,8 @@ func TestParseLaunchRequestSkipsFlagsAndTheirValues(t *testing.T) {
 	if !reflect.DeepEqual(got.Files, want) {
 		t.Fatalf("Files = %q, want %q", got.Files, want)
 	}
-	if got.Folder != "" {
-		t.Fatalf("Folder = %q, want empty; a flag value is not a folder argument", got.Folder)
+	if len(got.Folders) != 0 {
+		t.Fatalf("Folders = %q, want empty; a flag value is not a folder argument", got.Folders)
 	}
 }
 
@@ -73,25 +85,14 @@ func TestParseLaunchRequestTreatsPathsAfterDoubleDashAsPaths(t *testing.T) {
 	}
 }
 
-func TestParseLaunchRequestLastFolderWins(t *testing.T) {
-	first := t.TempDir()
-	second := t.TempDir()
-
-	got := parseLaunchRequest([]string{first, second})
-
-	if got.Folder != second {
-		t.Fatalf("Folder = %q, want %q", got.Folder, second)
-	}
-}
-
-func TestLaunchRequestMergeKeepsOrderAndLatestFolder(t *testing.T) {
+func TestLaunchRequestMergeKeepsOrderAndFolders(t *testing.T) {
 	request := LaunchRequest{Files: []string{"/a.txt"}}
-	request.Merge(LaunchRequest{Files: []string{"/b.txt"}, Folder: "/one", Missing: []string{"x"}})
-	request.Merge(LaunchRequest{Folder: "/two"})
+	request.Merge(LaunchRequest{Files: []string{"/b.txt"}, Folders: []string{"/one"}, Missing: []string{"x"}})
+	request.Merge(LaunchRequest{Folders: []string{"/two"}})
 
 	want := LaunchRequest{
 		Files:   []string{"/a.txt", "/b.txt"},
-		Folder:  "/two",
+		Folders: []string{"/one", "/two"},
 		Missing: []string{"x"},
 	}
 	if !reflect.DeepEqual(request, want) {
@@ -102,11 +103,20 @@ func TestLaunchRequestMergeKeepsOrderAndLatestFolder(t *testing.T) {
 func TestEmptyLaunchRequestEncodesSlicesNotEmpty(t *testing.T) {
 	request := emptyLaunchRequest()
 
-	if request.Files == nil || request.Missing == nil {
+	if request.Files == nil || request.Folders == nil || request.Missing == nil {
 		t.Fatal("emptyLaunchRequest() must use non-nil slices so the UI receives arrays")
 	}
 	if !request.Empty() {
 		t.Fatal("emptyLaunchRequest() must report Empty")
+	}
+}
+
+func TestNormalizedDropsRepeatedFolders(t *testing.T) {
+	request := LaunchRequest{Folders: []string{"/a", "/b", "/a"}}.normalized()
+
+	want := []string{"/a", "/b"}
+	if !reflect.DeepEqual(request.Folders, want) {
+		t.Fatalf("Folders = %q, want %q", request.Folders, want)
 	}
 }
 
@@ -115,7 +125,7 @@ func TestQueueLaunchBeforeListeningKeepsRequest(t *testing.T) {
 	app.queueLaunch(parseLaunchRequest([]string{t.TempDir()}))
 
 	got := app.GetLaunchRequest()
-	if got.Folder == "" {
+	if len(got.Folders) == 0 {
 		t.Fatal("GetLaunchRequest() lost a request queued before the UI was listening")
 	}
 	if !app.GetLaunchRequest().Empty() {

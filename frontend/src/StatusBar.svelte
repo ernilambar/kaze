@@ -5,11 +5,11 @@
         line: number;
         column: number;
         language: string;
-        folder?: string;
+        folderLabel?: string;
         notice?: string;
     }
 
-    let { line, column, language, folder = '', notice = '' }: Props = $props();
+    let { line, column, language, folderLabel = '', notice = '' }: Props = $props();
 </script>
 
 <footer class="statusbar">
@@ -17,8 +17,8 @@
     {#if notice !== ''}
         <span class="statusbar__notice">{notice}</span>
     {/if}
-    {#if folder !== ''}
-        <span class="statusbar__folder">{folder}</span>
+    {#if folderLabel !== ''}
+        <span class="statusbar__folder">{folderLabel}</span>
     {/if}
     <span class="statusbar__language">{language}</span>
 </footer>

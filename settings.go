@@ -18,7 +18,8 @@ const (
 
 // Settings is the contents of the user's settings.json file.
 type Settings struct {
-	Editor EditorSettings `json:"editor"`
+	Editor  EditorSettings  `json:"editor"`
+	Sidebar SidebarSettings `json:"sidebar"`
 }
 
 // EditorSettings tunes the Monaco editor instance.
@@ -28,6 +29,12 @@ type EditorSettings struct {
 	FontWeight float64 `json:"font_weight"`
 }
 
+// SidebarSettings is the folder tree's saved state. A future workspace feature
+// will replace it with a named project list.
+type SidebarSettings struct {
+	Folders []string `json:"folders"`
+}
+
 func defaultSettings() Settings {
 	return Settings{
 		Editor: EditorSettings{
@@ -35,6 +42,7 @@ func defaultSettings() Settings {
 			FontSize:   defaultFontSize,
 			FontWeight: defaultFontWeight,
 		},
+		Sidebar: SidebarSettings{Folders: []string{}},
 	}
 }
 
@@ -52,6 +60,23 @@ func (s *Settings) normalize() {
 	if s.Editor.FontWeight <= 0 {
 		s.Editor.FontWeight = defaultFontWeight
 	}
+
+	s.Sidebar.Folders = normalizeFolderList(s.Sidebar.Folders)
+}
+
+// normalizeFolderList trims paths, drops blanks and removes repeats while
+// keeping the user's order. The settings file may be edited by hand, so the
+// list is repaired rather than rejected.
+func normalizeFolderList(folders []string) []string {
+	normalized := make([]string, 0, len(folders))
+	for _, folder := range folders {
+		folder = strings.TrimSpace(folder)
+		if folder == "" {
+			continue
+		}
+		normalized = append(normalized, folder)
+	}
+	return uniquePaths(normalized)
 }
 
 // settingsFilePath returns the per-user settings location, following the
@@ -104,7 +129,8 @@ func ensureSettingsFile(path string) error {
 }
 
 func writeSettings(path string, settings Settings) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("create settings directory: %w", err)
 	}
 
@@ -114,7 +140,26 @@ func writeSettings(path string, settings Settings) error {
 	}
 	data = append(data, '\n')
 
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	// Write through a temporary file and rename, so a concurrent read never sees
+	// a half-written settings file.
+	tmp, err := os.CreateTemp(dir, "settings-*.json")
+	if err != nil {
+		return fmt.Errorf("write settings file: %w", err)
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return fmt.Errorf("write settings file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("write settings file: %w", err)
+	}
+	if err := os.Chmod(tmpName, 0o644); err != nil {
+		return fmt.Errorf("write settings file: %w", err)
+	}
+	if err := os.Rename(tmpName, path); err != nil {
 		return fmt.Errorf("write settings file: %w", err)
 	}
 	return nil

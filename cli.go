@@ -15,33 +15,32 @@ const launchEvent = "kova:launch"
 // absolute by then and every rejected argument is reported back to the user.
 type LaunchRequest struct {
 	Files   []string `json:"files"`
-	Folder  string   `json:"folder"`
+	Folders []string `json:"folders"`
 	Missing []string `json:"missing"`
 }
 
 // emptyLaunchRequest is the zero request, with the slices the frontend expects
 // as arrays rather than null.
 func emptyLaunchRequest() LaunchRequest {
-	return LaunchRequest{Files: []string{}, Missing: []string{}}
+	return LaunchRequest{Files: []string{}, Folders: []string{}, Missing: []string{}}
 }
 
 // Empty reports whether nothing at all was requested.
 func (r LaunchRequest) Empty() bool {
-	return len(r.Files) == 0 && r.Folder == "" && len(r.Missing) == 0
+	return len(r.Files) == 0 && len(r.Folders) == 0 && len(r.Missing) == 0
 }
 
-// Merge appends another request, keeping command line order. A later folder
-// wins, because the last directory named is the one the user meant.
+// Merge appends another request, keeping command line order. Every folder is
+// kept, because each one becomes a root in the sidebar.
 func (r *LaunchRequest) Merge(other LaunchRequest) {
 	r.Files = append(r.Files, other.Files...)
+	r.Folders = append(r.Folders, other.Folders...)
 	r.Missing = append(r.Missing, other.Missing...)
-	if other.Folder != "" {
-		r.Folder = other.Folder
-	}
 }
 
-// normalized replaces nil slices with empty ones. Wails encodes nil slices as
-// null, and the UI reads these fields as arrays.
+// normalized replaces nil slices with empty ones and drops repeated folders.
+// Wails encodes nil slices as null and the UI reads these fields as arrays; a
+// folder named twice is one sidebar root, not two.
 func (r LaunchRequest) normalized() LaunchRequest {
 	if r.Files == nil {
 		r.Files = []string{}
@@ -49,7 +48,22 @@ func (r LaunchRequest) normalized() LaunchRequest {
 	if r.Missing == nil {
 		r.Missing = []string{}
 	}
+	r.Folders = uniquePaths(r.Folders)
 	return r
+}
+
+// uniquePaths keeps the first occurrence of each path, preserving order.
+func uniquePaths(paths []string) []string {
+	unique := make([]string, 0, len(paths))
+	seen := make(map[string]bool, len(paths))
+	for _, path := range paths {
+		if seen[path] {
+			continue
+		}
+		seen[path] = true
+		unique = append(unique, path)
+	}
+	return unique
 }
 
 // wailsValueFlags are the flags the Wails runtime parses out of os.Args itself.
@@ -113,7 +127,7 @@ func (r *LaunchRequest) addPath(arg string) {
 	case err != nil:
 		r.Missing = append(r.Missing, arg)
 	case info.IsDir():
-		r.Folder = path
+		r.Folders = append(r.Folders, path)
 	default:
 		r.Files = append(r.Files, path)
 	}

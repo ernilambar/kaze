@@ -13,26 +13,14 @@ describe('formatCursorPosition', () => {
 
 describe('noticeFor', () => {
     it('says nothing when everything opened', () => {
-        expect(noticeFor({ folder: '', missing: [] })).toBe('');
+        expect(noticeFor({ missing: [] })).toBe('');
     });
 
     it('names a single missing path', () => {
-        expect(noticeFor({ folder: '', missing: ['notes.txt'] })).toBe('Cannot open notes.txt');
+        expect(noticeFor({ missing: ['notes.txt'] })).toBe('Cannot open notes.txt');
     });
 
     it('counts several missing paths', () => {
-        expect(noticeFor({ folder: '', missing: ['a.txt', 'b.txt'] })).toBe('Cannot open 2 items');
-    });
-
-    it('explains that a folder is remembered but not browsable yet', () => {
-        expect(noticeFor({ folder: '/tmp/project', missing: [] })).toBe(
-            'Folder browsing is not available yet',
-        );
-    });
-
-    it('combines both messages', () => {
-        expect(noticeFor({ folder: '/tmp/project', missing: ['gone.txt'] })).toBe(
-            'Cannot open gone.txt — Folder browsing is not available yet',
-        );
+        expect(noticeFor({ missing: ['a.txt', 'b.txt'] })).toBe('Cannot open 2 items');
     });
 });

@@ -37,6 +37,16 @@ func appMenu(name string, app *App) *menu.Menu {
 	return appMenu
 }
 
+// fileMenu holds the sidebar commands. Adding a folder is a window action, so it
+// lives here rather than in the app menu.
+func fileMenu(app *App) *menu.Menu {
+	fileMenu := menu.NewMenu()
+	fileMenu.AddText("Add Folder to Sidebar…", keys.Combo("o", keys.CmdOrCtrlKey, keys.ShiftKey), func(*menu.CallbackData) {
+		app.emitAddFolder()
+	})
+	return fileMenu
+}
+
 func main() {
 	// Create an instance of the app structure
 	app := NewApp()
@@ -76,6 +86,7 @@ func main() {
 		// The app menu is what puts "About Kova" in the macOS menu bar.
 		Menu: menu.NewMenuFromItems(
 			menu.SubMenu(meta.ProductName, appMenu(meta.ProductName, app)),
+			menu.SubMenu("File", fileMenu(app)),
 		),
 	})
 

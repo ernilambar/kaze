@@ -3,9 +3,9 @@
 Kova can open files and folders straight from a terminal.
 
 ```sh
-kova notes.txt      # open one file
-kova .              # open a folder
-kova one.txt two.txt  # two verbs, one window (see Limitations)
+kova notes.txt           # open one file
+kova .                   # add a folder to the sidebar
+kova one.txt two.txt     # two verbs, one window (see Limitations)
 ```
 
 ## Installing
@@ -30,8 +30,8 @@ command cache; if `kova` reports `command not found`, run `hash -r`.
 | Argument | Result |
 | --- | --- |
 | A file | Opened in the editor, replacing the welcome buffer. |
-| A folder | Remembered as the working folder, shown in the title bar. |
-| Several arguments | The first readable file is opened. |
+| A folder | Added to the sidebar as a root, and saved for next time. |
+| Several arguments | Every folder becomes a root; the first readable file is opened. |
 | A missing path | Reported in the status bar, and the rest still open. |
 | Flags (`-x`, `--anything`) | Ignored, so they cannot be mistaken for files. |
 | `--` | Everything after it is treated as a path, even if it starts with `-`. |
@@ -45,9 +45,8 @@ a second window is never created.
 
 - **One file at a time.** Opening two files keeps the first; multiple tabs
   arrive in a later phase.
-- **Folders are remembered, not browsed.** There is no file tree yet, so `kova .`
-  records the folder and shows it in the title bar. The status bar says so
-  explicitly rather than implying the folder was opened.
+- **One root per folder.** Naming a folder that is already in the sidebar does
+  not add a second copy of it.
 - **Text files only.** Anything over 10 MB, or content that is not valid UTF-8,
   is refused with a message instead of being rendered as garbage.
 

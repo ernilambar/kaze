@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -17,7 +18,7 @@ func TestLoadSettingsCreatesDefaultFile(t *testing.T) {
 	}
 
 	want := defaultSettings()
-	if settings != want {
+	if !reflect.DeepEqual(settings, want) {
 		t.Fatalf("loadSettings() = %+v, want %+v", settings, want)
 	}
 
@@ -60,12 +61,15 @@ func TestLoadSettingsReadsUserValues(t *testing.T) {
 		t.Fatalf("loadSettings() error = %v", err)
 	}
 
-	want := Settings{Editor: EditorSettings{
-		FontFamily: "JetBrains Mono",
-		FontSize:   16.5,
-		FontWeight: 300,
-	}}
-	if settings != want {
+	want := Settings{
+		Editor: EditorSettings{
+			FontFamily: "JetBrains Mono",
+			FontSize:   16.5,
+			FontWeight: 300,
+		},
+		Sidebar: SidebarSettings{Folders: []string{}},
+	}
+	if !reflect.DeepEqual(settings, want) {
 		t.Fatalf("loadSettings() = %+v, want %+v", settings, want)
 	}
 }
@@ -104,7 +108,7 @@ func TestLoadSettingsRejectsInvalidValues(t *testing.T) {
 		t.Fatalf("loadSettings() error = %v", err)
 	}
 
-	if settings != defaultSettings() {
+	if !reflect.DeepEqual(settings, defaultSettings()) {
 		t.Fatalf("loadSettings() = %+v, want defaults %+v", settings, defaultSettings())
 	}
 }
@@ -120,7 +124,7 @@ func TestLoadSettingsMalformedFileKeepsContent(t *testing.T) {
 	if err == nil {
 		t.Fatal("loadSettings() error = nil, want parse error")
 	}
-	if settings != defaultSettings() {
+	if !reflect.DeepEqual(settings, defaultSettings()) {
 		t.Fatalf("loadSettings() = %+v, want defaults %+v", settings, defaultSettings())
 	}
 
@@ -162,5 +166,57 @@ func TestSettingsFilePathUsesConfigDirectory(t *testing.T) {
 	}
 	if !strings.HasSuffix(path, filepath.Join("Kova", "settings.json")) {
 		t.Fatalf("settingsFilePath() = %q, want path under Kova", path)
+	}
+}
+
+func TestLoadSettingsDefaultsToNoSidebarFolders(t *testing.T) {
+	settings, err := loadSettings(filepath.Join(t.TempDir(), "settings.json"))
+	if err != nil {
+		t.Fatalf("loadSettings() error = %v", err)
+	}
+
+	if settings.Sidebar.Folders == nil {
+		t.Fatal("Sidebar.Folders = nil, want an empty slice so the UI receives an array")
+	}
+	if len(settings.Sidebar.Folders) != 0 {
+		t.Fatalf("Sidebar.Folders = %q, want no folders", settings.Sidebar.Folders)
+	}
+}
+
+func TestLoadSettingsReadsSidebarFolders(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	content := `{"sidebar":{"folders":["/one","/two"]}}`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	settings, err := loadSettings(path)
+	if err != nil {
+		t.Fatalf("loadSettings() error = %v", err)
+	}
+
+	want := []string{"/one", "/two"}
+	if !reflect.DeepEqual(settings.Sidebar.Folders, want) {
+		t.Fatalf("Sidebar.Folders = %q, want %q", settings.Sidebar.Folders, want)
+	}
+}
+
+func TestNormalizeFolderListRepairsUserContent(t *testing.T) {
+	got := normalizeFolderList([]string{" /one ", "", "/two", "/one", "   "})
+
+	want := []string{"/one", "/two"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("normalizeFolderList() = %q, want %q", got, want)
+	}
+}
+
+func TestNormalizeFolderListReturnsEmptySliceForNil(t *testing.T) {
+	got := normalizeFolderList(nil)
+
+	if got == nil {
+		t.Fatal("normalizeFolderList(nil) = nil, want an empty slice")
+	}
+	if len(got) != 0 {
+		t.Fatalf("normalizeFolderList(nil) = %q, want no folders", got)
 	}
 }

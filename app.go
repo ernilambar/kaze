@@ -2,6 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -20,6 +25,11 @@ type App struct {
 	// listening is set once the frontend has attached its launch listener, so
 	// later requests can be emitted as events instead of queued.
 	listening bool
+
+	// settingsMu serializes load-modify-write cycles on settings.json. Two
+	// folder changes at once would otherwise read the same list and one of them
+	// would be lost.
+	settingsMu sync.Mutex
 }
 
 // NewApp creates a new App application struct.
@@ -42,6 +52,67 @@ func (a *App) GetSettings() (Settings, error) {
 		return defaultSettings(), err
 	}
 	return loadSettings(path)
+}
+
+// AddSidebarFolder adds one folder to the sidebar's saved list and returns the
+// new list. Opening a folder the user already added is a no-op, so launching
+// `kova .` twice does not duplicate the root. The path is checked here rather
+// than trusted from the caller, because a sidebar root is only useful while it
+// is a real folder.
+func (a *App) AddSidebarFolder(folder string) ([]string, error) {
+	folder = strings.TrimSpace(folder)
+	if folder == "" {
+		return nil, errors.New("no folder to add")
+	}
+	info, err := os.Stat(folder)
+	if err != nil {
+		return nil, err
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("%s is not a folder", filepath.Base(folder))
+	}
+
+	return a.updateSidebarFolders(func(folders []string) []string {
+		return append(folders, folder)
+	})
+}
+
+// RemoveSidebarFolder drops one folder from the sidebar's saved list and
+// returns the new list.
+func (a *App) RemoveSidebarFolder(folder string) ([]string, error) {
+	return a.updateSidebarFolders(func(folders []string) []string {
+		kept := make([]string, 0, len(folders))
+		for _, existing := range folders {
+			if existing != folder {
+				kept = append(kept, existing)
+			}
+		}
+		return kept
+	})
+}
+
+// updateSidebarFolders reads settings.json, applies change to the folder list
+// and writes the result back. The list is normalized on both sides, so the
+// backend and the frontend agree on what a valid root is.
+func (a *App) updateSidebarFolders(change func([]string) []string) ([]string, error) {
+	path, err := settingsFilePath()
+	if err != nil {
+		return nil, err
+	}
+
+	a.settingsMu.Lock()
+	defer a.settingsMu.Unlock()
+
+	settings, err := loadSettings(path)
+	if err != nil {
+		return settings.Sidebar.Folders, err
+	}
+
+	settings.Sidebar.Folders = normalizeFolderList(change(settings.Sidebar.Folders))
+	if err := writeSettings(path, settings); err != nil {
+		return settings.Sidebar.Folders, err
+	}
+	return settings.Sidebar.Folders, nil
 }
 
 // openSettingsFile opens settings.json in the editor named by the user's
@@ -71,6 +142,18 @@ func (a *App) openSettingsFromMenu() {
 func (a *App) quit() {
 	if a.ctx != nil {
 		runtime.Quit(a.ctx)
+	}
+}
+
+// addFolderEvent asks the sidebar to open the folder picker. A menu click has no
+// caller to return to, so the frontend runs the same code path as its own
+// button: one busy state, one place errors are reported.
+const addFolderEvent = "kova:add-folder"
+
+// emitAddFolder tells the frontend to open the folder picker.
+func (a *App) emitAddFolder() {
+	if a.ctx != nil {
+		runtime.EventsEmit(a.ctx, addFolderEvent)
 	}
 }
 

@@ -3,25 +3,18 @@ export function formatCursorPosition(lineNumber: number, column: number): string
 }
 
 export interface LaunchNotice {
-    folder: string;
     missing: string[];
 }
 
-// noticeFor summarizes what a launch request could not open. A folder alone is
-// not an error: it becomes the working folder, shown in the title bar, and the
-// file tree that browses it arrives in a later release.
-export function noticeFor({ folder, missing }: LaunchNotice): string {
-    const parts: string[] = [];
-
+// noticeFor summarizes what a launch request could not open. Folders are not
+// errors: each one becomes a root in the sidebar, so only missing paths are
+// reported.
+export function noticeFor({ missing }: LaunchNotice): string {
     if (missing.length === 1) {
-        parts.push(`Cannot open ${missing[0]}`);
-    } else if (missing.length > 1) {
-        parts.push(`Cannot open ${missing.length} items`);
+        return `Cannot open ${missing[0]}`;
     }
-
-    if (folder !== '') {
-        parts.push('Folder browsing is not available yet');
+    if (missing.length > 1) {
+        return `Cannot open ${missing.length} items`;
     }
-
-    return parts.join(' — ');
+    return '';
 }

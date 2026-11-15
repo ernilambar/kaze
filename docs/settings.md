@@ -18,6 +18,11 @@ loaded (at app startup), so no manual setup is required.
     "font_family": "Menlo",
     "font_size": 13,
     "font_weight": 400
+  },
+  "sidebar": {
+    "folders": [
+      "/Users/me/projects/kova"
+    ]
   }
 }
 ```
@@ -29,6 +34,19 @@ loaded (at app startup), so no manual setup is required.
 | `editor.font_family` | string | `Menlo` | CSS `font-family` for the editor. Use a monospace font. |
 | `editor.font_size` | number | `13` | Font size in pixels. Fractional values are allowed. |
 | `editor.font_weight` | number | `400` | CSS font weight; typical values are `100`–`900` (`400` normal, `700` bold). |
+
+## Sidebar settings
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `sidebar.folders` | string[] | `[]` | Absolute paths of the folders shown in the sidebar, in display order. |
+
+Kova writes `sidebar.folders` itself when you add a folder from the sidebar's
+`+` button, the **File → Add Folder to Sidebar…** menu item
+(<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>), or `kova .`. Editing the list by
+hand is supported: entries are trimmed, blank entries are dropped, and
+repeated paths are collapsed to the first occurrence. A folder that has since
+been moved or deleted still loads, and its row shows an error when expanded.
 
 ## Behavior
 

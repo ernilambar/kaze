@@ -6,11 +6,11 @@ import { EventsOn } from '../wailsjs/runtime/runtime';
 // decides what to display for them.
 export interface LaunchRequest {
     files: string[];
-    folder: string;
+    folders: string[];
     missing: string[];
 }
 
-export const emptyLaunchRequest: LaunchRequest = { files: [], folder: '', missing: [] };
+export const emptyLaunchRequest: LaunchRequest = { files: [], folders: [], missing: [] };
 
 export interface OpenDocument {
     path: string;
@@ -21,15 +21,6 @@ export interface OpenDocument {
 // shownName is what the title bar prints for a document.
 export function shownName(document: OpenDocument | undefined): string {
     return document?.name ?? 'untitled.txt';
-}
-
-// folderLabel names the working folder in the title bar and status bar.
-export function folderLabel(folder: string): string {
-    if (folder === '') {
-        return '';
-    }
-    const parts = folder.split('/').filter((part) => part !== '');
-    return parts.length === 0 ? '/' : parts[parts.length - 1];
 }
 
 export function toOpenDocument(document: main.Document): OpenDocument {

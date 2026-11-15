@@ -2,17 +2,27 @@
 
 A minimal text editor for macOS.
 
+## Sidebar
+
+Add folders with the `+` button in the sidebar header or
+**File → Add Folder to Sidebar…** (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>).
+Several folders can be open at once, each as its own root; children are read
+only when a folder is expanded. Click a file to open it in the editor, and use
+the `×` on a root to remove it. The list is saved in `settings.json`, so it
+comes back on the next launch.
+
+`kova .` adds the current directory to the sidebar in the same way. See
+[docs/cli.md](docs/cli.md) for the full argument rules and current
+limitations, and [docs/settings.md](docs/settings.md) for the saved format.
+
 ## Command line
 
 Install the tool from **Kova → Install Command Line Tool…**, then:
 
 ```sh
 kova notes.txt  # open a file
-kova .          # open a folder
+kova .          # add a folder to the sidebar
 ```
-
-See [docs/cli.md](docs/cli.md) for the full argument rules, the install
-locations, and current limitations.
 
 ## Settings
 
