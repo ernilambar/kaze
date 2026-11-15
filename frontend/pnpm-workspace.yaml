@@ -1,2 +1,7 @@
 allowBuilds:
   esbuild: true
+
+# monaco-editor pins dompurify to 3.4.15, which is affected by GHSA-cg2g-xh64-v4q7
+# (critical) and GHSA-mrv2-3pqr-j5jr (high). 3.4.17 is the patched release.
+overrides:
+  dompurify: 3.4.17

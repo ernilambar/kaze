@@ -16,7 +16,7 @@ rest of this guide covers conventions and review.
 | `main.go` | Wails bootstrap; embeds `frontend/dist` |
 | `app.go` | `App` struct; exported methods become frontend bindings |
 | `settings.go` | Loads and validates `settings.json`; defaults on first run |
-| `frontend/src/` | TypeScript UI (`main.ts`, `editor.ts`, `style.css`) |
+| `frontend/src/` | Svelte UI (`App.svelte` and components, `main.ts`, `style.css`) |
 | `frontend/wailsjs/` | Generated bindings; never edit by hand |
 | `docs/` | User documentation (`settings.md`) and developer documentation (`development.md`) |
 | `build/` | Platform packaging assets |
@@ -29,9 +29,11 @@ rest of this guide covers conventions and review.
 - Export a method on `App` when the frontend needs to call it; Wails generates
   the TypeScript bindings during `wails dev`/`wails build`. Do not hand-edit
   `frontend/wailsjs/`.
-- TypeScript is strict (`noUnusedLocals`, `noUnusedParameters`,
-  `noImplicitReturns`). Use named exports and keep UI concerns in the
-  frontend.
+- The UI is built with Svelte 5 and TypeScript, using runes (`$state`,
+  `$props`) rather than legacy reactive syntax. TypeScript is strict
+  (`noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`);
+  `pnpm run check` (svelte-check) type-checks both `.ts` and `.svelte` files.
+  Use named exports in `.ts` modules and keep UI concerns in the frontend.
 - Monaco Editor must stay excluded from Vite dependency pre-bundling
   (`optimizeDeps.exclude` in `vite.config.ts`) unless worker loading is
   reworked; pre-bundling breaks worker URLs.

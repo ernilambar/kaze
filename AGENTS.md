@@ -3,9 +3,9 @@
 ## Overview
 
 Kova is a desktop text editor built with Wails v2 (Go backend) and Monaco Editor
-(TypeScript frontend bundled by Vite). The Go binary embeds `frontend/dist` and
-serves it as the app's assets; exported `App` methods are exposed to the UI via
-generated Wails bindings.
+(Svelte 5 + TypeScript frontend bundled by Vite). The Go binary embeds
+`frontend/dist` and serves it as the app's assets; exported `App` methods are
+exposed to the UI via generated Wails bindings.
 
 ## Setup
 
@@ -27,8 +27,8 @@ go build ./...                         # compile Go only
 go test -race ./...                    # Go tests
 go vet ./...                           # Go lint
 gofmt -w .                             # Go format (write)
-cd frontend && pnpm run build           # tsc + vite build to frontend/dist
-cd frontend && pnpm exec tsc --noEmit  # TypeScript typecheck
+cd frontend && pnpm run build           # svelte-check + vite build to frontend/dist
+cd frontend && pnpm run check           # svelte-check (Svelte + TypeScript)
 cd frontend && pnpm test               # Vitest frontend tests
 ./scripts/dev.sh                       # debug build installed to /Applications
 ./scripts/bundle.sh                    # release gate + dist/*-macos-arm64.zip
@@ -44,7 +44,7 @@ introduce one unprompted.
   hand-edit it. Add frontend-callable behavior as exported methods on `App` in
   `app.go`, then let `wails dev`/`wails build` regenerate bindings.
 - **Go owns native behavior.** File I/O, dialogs, and OS integration belong in
-  Go; the TypeScript layer handles UI only.
+  Go; the Svelte/TypeScript layer handles UI only.
 - **User settings live in `settings.json`.** `settings.go` loads and validates
   it from the platform config directory (`Kova/settings.json`), creating
   defaults on first run; `App.GetSettings` exposes it to the frontend, which
@@ -60,14 +60,20 @@ introduce one unprompted.
 - **Style:** idiomatic Go via `gofmt`; TypeScript is strict (`noUnusedLocals`,
   `noUnusedParameters`, `noImplicitReturns`) and uses 4-space indentation,
   single quotes, and named exports (`export function createEditor`).
+- **Svelte 5 with runes.** Components live in `frontend/src/*.svelte`
+  (`App.svelte` plus `TitleBar`, `EditorPane`, `StatusBar`), mounted from
+  `main.ts` with `mount()`; `svelte.config.js` pins `runes: true`. Use `$state`,
+  `$props`, and `$derived`/`$effect` rather than legacy `export let`/`$:` syntax,
+  and keep component styles scoped in the component's `<style>` block while
+  shared design tokens stay in `style.css`.
 - **Use pnpm for the frontend.** `frontend/pnpm-lock.yaml` is the lockfile;
   never add `package-lock.json`. `frontend/pnpm-workspace.yaml` allows the
   `esbuild` install script because pnpm blocks dependency build scripts by
   default.
 - **Tests are colocated.** Go tests sit beside the code (`app_test.go`);
   frontend tests use Vitest (`*.test.ts`) and cover pure helpers only, not
-  Monaco or generated bindings. Test logic in Go; test presentation helpers in
-  TypeScript.
+  Svelte components, Monaco, or generated bindings. Test logic in Go; test
+  presentation helpers in TypeScript.
 - **App version lives in `wails.json`.** `info.productVersion` is the single
   source of truth for packaged metadata (macOS bundle, Windows exe, NSIS
   installer); bump it there. `frontend/package.json`'s `version` is not the app
@@ -85,7 +91,7 @@ Run this exact sequence from the repository root and confirm every step exits 0
 before declaring a task complete:
 
 ```sh
-(cd frontend && pnpm exec tsc --noEmit)
+(cd frontend && pnpm run check)
 (cd frontend && pnpm test)
 (cd frontend && pnpm run build)
 go vet ./...

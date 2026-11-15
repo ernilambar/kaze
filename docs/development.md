@@ -63,7 +63,7 @@ plain `go build` because `main.go` embeds it.
 Run all of the following from the repository root and confirm each exits 0:
 
 ```sh
-(cd frontend && pnpm exec tsc --noEmit)
+(cd frontend && pnpm run check)
 (cd frontend && pnpm test)
 (cd frontend && pnpm run build)
 go vet ./...
@@ -78,8 +78,8 @@ packaging, also run `wails build` and launch the resulting app from
 
 Tests are colocated with the code they cover: Go tests use `testing`
 (`app_test.go`) and frontend tests use Vitest (`src/*.test.ts`). TypeScript
-tests cover pure helpers only; Monaco, native dialogs, and generated bindings
-are verified by manual smoke testing.
+tests cover pure helpers only; Svelte components, Monaco, native dialogs, and
+generated bindings are verified by manual smoke testing.
 
 ## Releasing
 

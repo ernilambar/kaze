@@ -84,10 +84,10 @@ if [ "$bindings_before" != "$bindings_after" ]; then
     exit 1
 fi
 
-printf '==> typescript typecheck\n'
+printf '==> frontend typecheck\n'
 (
     cd frontend
-    pnpm exec tsc --noEmit
+    pnpm run check
 )
 
 printf '==> frontend tests\n'

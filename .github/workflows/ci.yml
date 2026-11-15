@@ -54,7 +54,7 @@ jobs:
       - name: Frontend quality gate
         working-directory: frontend
         run: |
-          pnpm exec tsc --noEmit
+          pnpm run check
           pnpm test
 
       - name: Go quality gate
