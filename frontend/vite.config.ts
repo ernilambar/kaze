@@ -11,6 +11,9 @@ export default defineConfig({
     },
     build: {
         target: 'esnext',
+        // Monaco's editor core is intentionally bundled in the app chunk, so it
+        // is large by design; the warning would fire on every build otherwise.
+        chunkSizeWarningLimit: 4500,
     },
     // Monaco ships its own language workers; pre-bundling breaks their
     // relative worker URLs in dev.

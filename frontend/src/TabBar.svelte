@@ -144,6 +144,7 @@
     <div
         class="tabs"
         role="tablist"
+        tabindex="-1"
         aria-label="Open files"
         ondragleave={leaveStrip}
         ondragover={dragOverStrip}

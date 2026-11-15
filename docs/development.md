@@ -63,6 +63,8 @@ a plain `go build` because `main.go` embeds it.
 Run all of the following from the repository root and confirm each exits 0:
 
 ```sh
+# Keep cgo objects at the deployment target declared in build/darwin/Info.plist.
+export MACOSX_DEPLOYMENT_TARGET=12.0 CGO_CFLAGS="-mmacosx-version-min=12.0" CGO_LDFLAGS="-mmacosx-version-min=12.0"
 (cd frontend && pnpm run check)
 (cd frontend && pnpm test)
 (cd frontend && pnpm run build)
@@ -71,6 +73,11 @@ go test -race ./...
 test -z "$(gofmt -l .)"
 go build ./...
 ```
+
+Without those exports cgo compiles per the host macOS version, so the linker
+warns that the objects are newer than the 12.0 target. A single `go.o` warning
+can still appear when the Go toolchain itself is built for a newer macOS
+(Homebrew's Go 1.27 targets 13.0); it is harmless.
 
 If your change affects app startup, Wails configuration, or platform
 packaging, also run `wails3 task darwin:package` and launch the resulting app

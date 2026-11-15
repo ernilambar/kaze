@@ -276,6 +276,8 @@ Run this exact sequence from the repository root and confirm every step exits 0
 before declaring a task complete:
 
 ```sh
+# Keep cgo objects at the deployment target declared in build/darwin/Info.plist.
+export MACOSX_DEPLOYMENT_TARGET=12.0 CGO_CFLAGS="-mmacosx-version-min=12.0" CGO_LDFLAGS="-mmacosx-version-min=12.0"
 (cd frontend && pnpm run check)
 (cd frontend && pnpm test)
 (cd frontend && pnpm run build)
