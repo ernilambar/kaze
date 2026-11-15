@@ -2,6 +2,18 @@
 
 A minimal text editor for macOS.
 
+## Command line
+
+Install the tool from **Kova → Install Command Line Tool…**, then:
+
+```sh
+kova notes.txt  # open a file
+kova .          # open a folder
+```
+
+See [docs/cli.md](docs/cli.md) for the full argument rules, the install
+locations, and current limitations.
+
 ## Settings
 
 Kova reads editor settings from `settings.json` in the platform config

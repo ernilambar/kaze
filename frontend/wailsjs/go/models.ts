@@ -1,5 +1,21 @@
 export namespace main {
 	
+	export class Document {
+	    path: string;
+	    name: string;
+	    content: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Document(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.name = source["name"];
+	        this.content = source["content"];
+	    }
+	}
 	export class EditorSettings {
 	    font_family: string;
 	    font_size: number;
@@ -14,6 +30,22 @@ export namespace main {
 	        this.font_family = source["font_family"];
 	        this.font_size = source["font_size"];
 	        this.font_weight = source["font_weight"];
+	    }
+	}
+	export class LaunchRequest {
+	    files: string[];
+	    folder: string;
+	    missing: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new LaunchRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.files = source["files"];
+	        this.folder = source["folder"];
+	        this.missing = source["missing"];
 	    }
 	}
 	export class Settings {

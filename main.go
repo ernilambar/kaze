@@ -2,12 +2,14 @@ package main
 
 import (
 	"embed"
+	"os"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/menu/keys"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
 )
 
 //go:embed all:frontend/dist
@@ -21,6 +23,9 @@ func appMenu(name string, app *App) *menu.Menu {
 	appMenu.AddText("About "+name, nil, func(*menu.CallbackData) { showAboutPanel() })
 	appMenu.AddSeparator()
 	appMenu.AddText("Settings…", keys.CmdOrCtrl(","), func(*menu.CallbackData) { app.openSettingsFromMenu() })
+	appMenu.AddText("Install Command Line Tool…", nil, func(*menu.CallbackData) {
+		app.installCommandLineToolFromMenu()
+	})
 	appMenu.AddSeparator()
 	appMenu.AddText("Hide "+name, keys.CmdOrCtrl("h"), func(*menu.CallbackData) { hideApplication() })
 	appMenu.AddText("Hide Others", keys.Combo("h", keys.CmdOrCtrlKey, keys.OptionOrAltKey), func(*menu.CallbackData) {
@@ -38,6 +43,9 @@ func main() {
 
 	meta := loadAppMetadata()
 
+	// Paths on the command line are opened by the UI once it is live.
+	app.queueLaunch(parseLaunchRequest(os.Args[1:]))
+
 	// Create application with options
 	err := wails.Run(&options.App{
 		Title:     "Kova",
@@ -52,6 +60,18 @@ func main() {
 		OnStartup:        app.startup,
 		Bind: []interface{}{
 			app,
+		},
+		// One window, one document set: a second `kova <file>` from the terminal
+		// or Finder hands its paths to the instance already running.
+		SingleInstanceLock: &options.SingleInstanceLock{
+			UniqueId: "net.nilambar.kova",
+			OnSecondInstanceLaunch: func(data options.SecondInstanceData) {
+				app.queueLaunchPaths(data.Args)
+			},
+		},
+		Mac: &mac.Options{
+			// Finder's "Open With" and drag-onto-Dock arrive here.
+			OnFileOpen: func(path string) { app.queueLaunchPaths([]string{path}) },
 		},
 		// The app menu is what puts "About Kova" in the macOS menu bar.
 		Menu: menu.NewMenuFromItems(

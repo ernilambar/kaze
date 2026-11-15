@@ -45,6 +45,15 @@ introduce one unprompted.
   `app.go`, then let `wails dev`/`wails build` regenerate bindings.
 - **Go owns native behavior.** File I/O, dialogs, and OS integration belong in
   Go; the Svelte/TypeScript layer handles UI only.
+- **Filesystem access is a binding, not a web API.** Documents are read by
+  `App.LoadDocument` in `document.go` and the CLI paths by `App.GetLaunchRequest`
+  in `app.go`; the frontend never imports Node APIs. `cli.go` parses argv into a
+  `LaunchRequest` that survives the frontend not being ready yet.
+- **`kova` is a shell launcher, not a second binary.** `install.go` writes a
+  script to `/usr/local/bin/kova` that execs the bundle's executable, escalating
+  through `osascript … with administrator privileges` when the directory is not
+  writable. A single-instance lock forwards later invocations to the running
+  window.
 - **User settings live in `settings.json`.** `settings.go` loads and validates
   it from the platform config directory (`Kova/settings.json`), creating
   defaults on first run; `App.GetSettings` exposes it to the frontend, which
