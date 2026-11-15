@@ -61,14 +61,10 @@ func TestLoadSettingsReadsUserValues(t *testing.T) {
 		t.Fatalf("loadSettings() error = %v", err)
 	}
 
-	want := Settings{
-		Editor: EditorSettings{
-			FontFamily: "JetBrains Mono",
-			FontSize:   16.5,
-			FontWeight: 300,
-		},
-		Sidebar: SidebarSettings{Folders: []string{}},
-	}
+	want := defaultSettings()
+	want.Editor.FontFamily = "JetBrains Mono"
+	want.Editor.FontSize = 16.5
+	want.Editor.FontWeight = 300
 	if !reflect.DeepEqual(settings, want) {
 		t.Fatalf("loadSettings() = %+v, want %+v", settings, want)
 	}
@@ -218,5 +214,118 @@ func TestNormalizeFolderListReturnsEmptySliceForNil(t *testing.T) {
 	}
 	if len(got) != 0 {
 		t.Fatalf("normalizeFolderList(nil) = %q, want no folders", got)
+	}
+}
+
+func TestLoadSettingsKeepsViewOptionDefaults(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	if err := os.WriteFile(path, []byte(`{"editor":{"font_size":18}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	settings, err := loadSettings(path)
+	if err != nil {
+		t.Fatalf("loadSettings() error = %v", err)
+	}
+
+	// Absent keys keep the defaults the editor was designed around, so an old
+	// settings file does not silently turn off word wrap or line numbers.
+	defaults := defaultSettings().Editor
+	if !settings.Editor.WordWrap || !settings.Editor.LineNumbers ||
+		!settings.Editor.IndentGuides || !settings.Editor.CodeFolding ||
+		!settings.Editor.AutoCloseBrackets || !settings.Editor.SmartIndent {
+		t.Errorf("missing view options did not keep their defaults: %+v", settings.Editor)
+	}
+	if settings.Editor.CursorBlink != defaults.CursorBlink {
+		t.Errorf("cursor_blink = %v, want %v", settings.Editor.CursorBlink, defaults.CursorBlink)
+	}
+}
+
+func TestLoadSettingsReadsEditorOptions(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	content := `{"editor":{
+		"tab_size":2,
+		"hard_tabs":true,
+		"ligatures":true,
+		"cursor_width":3,
+		"cursor_blink":false,
+		"cursor_surrounding_lines":2,
+		"scroll_beyond_last_line":true,
+		"ensure_final_newline":true,
+		"word_wrap":false,
+		"invisible_characters":true,
+		"line_numbers":false,
+		"indent_guides":false,
+		"code_folding":false,
+		"auto_close_brackets":false,
+		"smart_indent":false
+	}}`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	settings, err := loadSettings(path)
+	if err != nil {
+		t.Fatalf("loadSettings() error = %v", err)
+	}
+
+	editor := settings.Editor
+	if editor.TabSize != 2 || !editor.HardTabs || !editor.Ligatures {
+		t.Errorf("indentation settings = %+v", editor)
+	}
+	if editor.CursorWidth != 3 || editor.CursorBlink || editor.CursorSurroundingLines != 2 {
+		t.Errorf("cursor settings = %+v", editor)
+	}
+	if !editor.ScrollBeyondLastLine || !editor.EnsureFinalNewline {
+		t.Errorf("save/scroll settings = %+v", editor)
+	}
+	if editor.WordWrap || !editor.InvisibleCharacters || editor.LineNumbers ||
+		editor.IndentGuides || editor.CodeFolding || editor.AutoCloseBrackets || editor.SmartIndent {
+		t.Errorf("view settings = %+v", editor)
+	}
+}
+
+func TestUpdateEditorSettingsPersistsAndRepairs(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	app := NewApp()
+	folder := t.TempDir()
+	if _, err := app.AddSidebarFolder(folder); err != nil {
+		t.Fatalf("AddSidebarFolder() error = %v", err)
+	}
+
+	editor := defaultSettings().Editor
+	editor.TabSize = 0 // repaired to the default
+	editor.CursorWidth = -2
+	editor.CursorSurroundingLines = -1
+	editor.HardTabs = true
+	editor.WordWrap = false
+
+	updated, err := app.UpdateEditorSettings(editor)
+	if err != nil {
+		t.Fatalf("UpdateEditorSettings() error = %v", err)
+	}
+	if updated.TabSize != defaultTabSize {
+		t.Errorf("tab_size = %d, want %d", updated.TabSize, defaultTabSize)
+	}
+	if updated.CursorWidth != defaultCursorWidth {
+		t.Errorf("cursor_width = %d, want %d", updated.CursorWidth, defaultCursorWidth)
+	}
+	if updated.CursorSurroundingLines != 0 {
+		t.Errorf("cursor_surrounding_lines = %d, want 0", updated.CursorSurroundingLines)
+	}
+	if !updated.HardTabs || updated.WordWrap {
+		t.Errorf("explicit values were not kept: %+v", updated)
+	}
+
+	settings, err := app.GetSettings()
+	if err != nil {
+		t.Fatalf("GetSettings() error = %v", err)
+	}
+	if !reflect.DeepEqual(settings.Editor, updated) {
+		t.Fatalf("settings.Editor = %+v, want %+v", settings.Editor, updated)
+	}
+	if !reflect.DeepEqual(settings.Sidebar.Folders, []string{folder}) {
+		t.Fatalf("Sidebar.Folders = %q, want the folder to survive the update", settings.Sidebar.Folders)
 	}
 }

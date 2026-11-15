@@ -37,6 +37,11 @@ type App struct {
 	// would be lost.
 	settingsMu sync.Mutex
 
+	// viewItems are the View menu's checkable items by editor option name. They
+	// are built once, before Run, and let a toggle made from the command palette
+	// move the menu's checkmark to match.
+	viewItems map[string]*application.MenuItem
+
 	// unsaved is set by the frontend whenever any buffer holds edits that are
 	// not on disk. Closing the window or quitting asks the frontend first, so
 	// the guard can reject the request and let the user decide.
@@ -51,7 +56,7 @@ type App struct {
 
 // NewApp creates a new App application struct.
 func NewApp() *App {
-	return &App{pending: emptyLaunchRequest()}
+	return &App{pending: emptyLaunchRequest(), viewItems: map[string]*application.MenuItem{}}
 }
 
 // attach records the running application so dialogs, events and window calls
@@ -69,6 +74,39 @@ func (a *App) GetSettings() (Settings, error) {
 		return defaultSettings(), err
 	}
 	return loadSettings(path)
+}
+
+// UpdateEditorSettings replaces the editor section of settings.json and returns
+// the normalized result. The frontend calls it whenever a view toggle changes,
+// so the next launch starts with the same editor.
+func (a *App) UpdateEditorSettings(editor EditorSettings) (EditorSettings, error) {
+	path, err := settingsFilePath()
+	if err != nil {
+		return editor, err
+	}
+
+	a.settingsMu.Lock()
+	defer a.settingsMu.Unlock()
+
+	settings, err := loadSettings(path)
+	if err != nil {
+		return editor, err
+	}
+	settings.Editor = editor
+	settings.normalize()
+	if err := writeSettings(path, settings); err != nil {
+		return settings.Editor, err
+	}
+	return settings.Editor, nil
+}
+
+// SetViewOption moves one View menu checkmark. The frontend owns the editor
+// options, so a toggle that runs from the command palette reports its new value
+// here; the menu's own click already moved the checkmark natively.
+func (a *App) SetViewOption(option string, checked bool) {
+	if item, ok := a.viewItems[option]; ok {
+		item.SetChecked(checked)
+	}
 }
 
 // AddSidebarFolder adds one folder to the sidebar's saved list and returns the
@@ -229,6 +267,14 @@ func (a *App) emitEvent(name string) {
 	}
 }
 
+// emitEventWith sends a menu command that carries a value: a case transform, a
+// zoom direction, or a View menu toggle's new state.
+func (a *App) emitEventWith(name string, data any) {
+	if a.wails != nil {
+		a.wails.Event.Emit(name, data)
+	}
+}
+
 // closeTabEvent asks the frontend to close the active tab. The tab list lives in
 // the frontend, so the menu only sends the command.
 const closeTabEvent = "kova:close-tab"
@@ -293,6 +339,42 @@ const closeRequestEvent = "kova:confirm-close"
 
 // emitCloseRequest tells the frontend to confirm losing unsaved edits.
 func (a *App) emitCloseRequest() { a.emitEvent(closeRequestEvent) }
+
+// The Edit and View menus are frontend state too: the transform, whitespace,
+// preview and zoom commands all act on Monaco buffers, so Go forwards each one.
+const (
+	transformCaseEvent  = "kova:transform-case"
+	trimWhitespaceEvent = "kova:trim-whitespace"
+	zoomEvent           = "kova:zoom"
+	togglePreviewEvent  = "kova:toggle-preview"
+	toggleViewEvent     = "kova:toggle-view"
+)
+
+// emitTransformCase tells the frontend to convert the selection to id's case.
+func (a *App) emitTransformCase(id string) { a.emitEventWith(transformCaseEvent, id) }
+
+// emitTrimWhitespace tells the frontend to trim the active buffer's trailing
+// whitespace.
+func (a *App) emitTrimWhitespace() { a.emitEvent(trimWhitespaceEvent) }
+
+// emitZoom tells the frontend to change the editor font size by command.
+func (a *App) emitZoom(command string) { a.emitEventWith(zoomEvent, command) }
+
+// emitTogglePreview tells the frontend to show or hide the Markdown or SVG
+// preview of the active buffer.
+func (a *App) emitTogglePreview() { a.emitEvent(togglePreviewEvent) }
+
+// ViewToggle is a View menu checkbox click: the editor option the frontend
+// should apply and the checkmark's new state.
+type ViewToggle struct {
+	Option  string `json:"option"`
+	Checked bool   `json:"checked"`
+}
+
+// emitToggleView tells the frontend that option's checkmark moved.
+func (a *App) emitToggleView(option string, checked bool) {
+	a.emitEventWith(toggleViewEvent, ViewToggle{Option: option, Checked: checked})
+}
 
 // GetLaunchRequest hands the frontend the paths Kova was started with. The
 // frontend calls it once after attaching its listener, so anything passed in

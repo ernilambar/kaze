@@ -11,9 +11,11 @@ import (
 )
 
 const (
-	defaultFontFamily = "Menlo"
-	defaultFontSize   = 13.0
-	defaultFontWeight = 400.0
+	defaultFontFamily  = "Menlo"
+	defaultFontSize    = 13.0
+	defaultFontWeight  = 400.0
+	defaultTabSize     = 4
+	defaultCursorWidth = 1
 )
 
 // Settings is the contents of the user's settings.json file.
@@ -22,11 +24,34 @@ type Settings struct {
 	Sidebar SidebarSettings `json:"sidebar"`
 }
 
-// EditorSettings tunes the Monaco editor instance.
+// EditorSettings tunes the Monaco editor instance. Booleans that default to
+// true rely on defaultSettings prepopulating the struct before the file is
+// decoded; a missing key keeps its default while an explicit false stays false.
 type EditorSettings struct {
 	FontFamily string  `json:"font_family"`
 	FontSize   float64 `json:"font_size"`
 	FontWeight float64 `json:"font_weight"`
+
+	TabSize     int  `json:"tab_size"`
+	HardTabs    bool `json:"hard_tabs"`
+	Ligatures   bool `json:"ligatures"`
+	CursorWidth int  `json:"cursor_width"`
+	CursorBlink bool `json:"cursor_blink"`
+	// CursorSurroundingLines keeps this many lines visible above and below the
+	// cursor while scrolling.
+	CursorSurroundingLines int  `json:"cursor_surrounding_lines"`
+	ScrollBeyondLastLine   bool `json:"scroll_beyond_last_line"`
+	EnsureFinalNewline     bool `json:"ensure_final_newline"`
+
+	// The view toggles are editor options too. Keeping them here means a
+	// View menu choice survives a relaunch, and the menu starts checked.
+	WordWrap            bool `json:"word_wrap"`
+	InvisibleCharacters bool `json:"invisible_characters"`
+	LineNumbers         bool `json:"line_numbers"`
+	IndentGuides        bool `json:"indent_guides"`
+	CodeFolding         bool `json:"code_folding"`
+	AutoCloseBrackets   bool `json:"auto_close_brackets"`
+	SmartIndent         bool `json:"smart_indent"`
 }
 
 // SidebarSettings is the folder tree's saved state. A future workspace feature
@@ -41,6 +66,23 @@ func defaultSettings() Settings {
 			FontFamily: defaultFontFamily,
 			FontSize:   defaultFontSize,
 			FontWeight: defaultFontWeight,
+
+			TabSize:                defaultTabSize,
+			HardTabs:               false,
+			Ligatures:              false,
+			CursorWidth:            defaultCursorWidth,
+			CursorBlink:            true,
+			CursorSurroundingLines: 0,
+			ScrollBeyondLastLine:   false,
+			EnsureFinalNewline:     false,
+
+			WordWrap:            true,
+			InvisibleCharacters: false,
+			LineNumbers:         true,
+			IndentGuides:        true,
+			CodeFolding:         true,
+			AutoCloseBrackets:   true,
+			SmartIndent:         true,
 		},
 		Sidebar: SidebarSettings{Folders: []string{}},
 	}
@@ -59,6 +101,15 @@ func (s *Settings) normalize() {
 	}
 	if s.Editor.FontWeight <= 0 {
 		s.Editor.FontWeight = defaultFontWeight
+	}
+	if s.Editor.TabSize <= 0 {
+		s.Editor.TabSize = defaultTabSize
+	}
+	if s.Editor.CursorWidth <= 0 {
+		s.Editor.CursorWidth = defaultCursorWidth
+	}
+	if s.Editor.CursorSurroundingLines < 0 {
+		s.Editor.CursorSurroundingLines = 0
 	}
 
 	s.Sidebar.Folders = normalizeFolderList(s.Sidebar.Folders)
@@ -106,7 +157,9 @@ func loadSettings(path string) (Settings, error) {
 		return defaultSettings(), fmt.Errorf("read settings file: %w", err)
 	}
 
-	var settings Settings
+	// Decode over the defaults so a key the user removed keeps its default
+	// instead of decoding as the zero value; an explicit false still applies.
+	settings := defaultSettings()
 	if err := json.Unmarshal(data, &settings); err != nil {
 		return defaultSettings(), fmt.Errorf("parse %s: %w", path, err)
 	}

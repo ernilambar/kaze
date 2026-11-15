@@ -12,6 +12,12 @@ func TestMenuCommandsBeforeAttachAreNoOps(t *testing.T) {
 	app.emitCloseTab()
 	app.emitQuickOpen()
 	app.emitCommandPalette()
+	app.emitTransformCase("upper")
+	app.emitTrimWhitespace()
+	app.emitZoom("in")
+	app.emitTogglePreview()
+	app.emitToggleView("wordWrap", false)
+	app.SetViewOption("wordWrap", true)
 	app.quit()
 }
 

@@ -1,8 +1,19 @@
 <script lang="ts">
-    import type * as monaco from 'monaco-editor';
+    import * as monaco from 'monaco-editor';
     import { onMount } from 'svelte';
-    import { createEditor, createModel, WELCOME_KEY, WELCOME_TEXT } from './editor';
-    import { loadEditorSettings } from './settings';
+    import { transformCase, type CaseTransform } from './case';
+    import {
+        createEditor,
+        createModel,
+        editorOptions,
+        languageForPath,
+        modelOptions,
+        WELCOME_KEY,
+        WELCOME_TEXT,
+    } from './editor';
+    import type { ZoomCommand } from './editorcommands';
+    import type { EditorSettings } from './settings';
+    import { appendFinalNewline, trimTrailingWhitespace as trimLineEnd } from './text';
 
     interface Props {
         // modelKey identifies the active buffer: a document tab's id, or
@@ -14,6 +25,9 @@
         // openIds is every tab currently open. Models for closed tabs are
         // disposed so reopening a file starts from its content on disk.
         openIds?: string[];
+        // settings is the editor configuration from settings.json. Changing it
+        // re-applies the options to the live editor and its buffers.
+        settings: EditorSettings;
         onCursorMove?: (line: number, column: number) => void;
         // onDirtyChange reports when a buffer stops or starts matching the file
         // it came from, so its tab can be marked.
@@ -24,12 +38,19 @@
         modelKey = WELCOME_KEY,
         content = WELCOME_TEXT,
         openIds = [],
+        settings,
         onCursorMove,
         onDirtyChange,
     }: Props = $props();
 
+    // Zoom moves the font size in session steps around the configured size;
+    // Actual Size returns to it. The offset is never written to settings.json.
+    const MIN_FONT_SIZE = 6;
+    const MAX_FONT_SIZE = 72;
+
     let container: HTMLElement;
     let editor = $state<monaco.editor.IStandaloneCodeEditor>();
+    let zoomOffset = $state(0);
 
     // One model per document key, plus the view state to restore when the user
     // returns to a tab.
@@ -63,10 +84,110 @@
         return true;
     }
 
+    // setLanguage re-highlights a buffer after Save As gave it a real path.
+    export function setLanguage(key: string, path: string): void {
+        const model = models.get(key);
+        if (model !== undefined) {
+            monaco.editor.setModelLanguage(model, languageForPath(path));
+        }
+    }
+
+    // transformSelection converts the selection, or the whole buffer when
+    // nothing is selected. It is one undo step and leaves the cursor in place.
+    export function transformSelection(transform: CaseTransform): void {
+        const current = editor;
+        const model = current?.getModel() ?? null;
+        if (current === undefined || model === null) {
+            return;
+        }
+        const selection = current.getSelection();
+        if (selection === null) {
+            return;
+        }
+        const range = selection.isEmpty() ? model.getFullModelRange() : selection;
+        const text = model.getValueInRange(range);
+        const converted = transformCase(text, transform);
+        if (converted === text) {
+            return;
+        }
+        current.pushUndoStop();
+        current.executeEdits('kova-transform-case', [
+            { range, text: converted, forceMoveMarkers: true },
+        ]);
+        current.pushUndoStop();
+        current.focus();
+    }
+
+    // trimTrailingWhitespace edits only the line ends that actually need it, so
+    // cursors and the rest of the buffer are untouched.
+    export function trimTrailingWhitespace(): void {
+        const current = editor;
+        const model = current?.getModel() ?? null;
+        if (current === undefined || model === null) {
+            return;
+        }
+        const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [];
+        for (let line = 1; line <= model.getLineCount(); line++) {
+            const lineContent = model.getLineContent(line);
+            const trimmed = trimLineEnd(lineContent);
+            if (trimmed !== lineContent) {
+                edits.push({
+                    range: new monaco.Range(line, trimmed.length + 1, line, lineContent.length + 1),
+                    text: '',
+                });
+            }
+        }
+        if (edits.length === 0) {
+            return;
+        }
+        current.pushUndoStop();
+        current.executeEdits('kova-trim-trailing-whitespace', edits);
+        current.pushUndoStop();
+        current.focus();
+    }
+
+    // ensureFinalNewline appends the newline the save setting promises, editing
+    // the buffer itself so the saved text and the model still agree afterwards.
+    export function ensureFinalNewline(key: string): void {
+        const model = models.get(key);
+        if (model === undefined) {
+            return;
+        }
+        const text = model.getValue();
+        if (appendFinalNewline(text) === text) {
+            return;
+        }
+        const line = model.getLineCount();
+        const column = model.getLineMaxColumn(line);
+        model.pushEditOperations(
+            [],
+            [{ range: new monaco.Range(line, column, line, column), text: '\n' }],
+            () => null,
+        );
+    }
+
+    // zoom changes the effective font size around the configured one.
+    export function zoom(command: ZoomCommand): void {
+        if (editor === undefined) {
+            return;
+        }
+        if (command === 'reset') {
+            zoomOffset = 0;
+            return;
+        }
+        const size = settings.fontSize + zoomOffset;
+        const next = Math.min(
+            Math.max(command === 'in' ? size + 1 : size - 1, MIN_FONT_SIZE),
+            MAX_FONT_SIZE,
+        );
+        zoomOffset = next - settings.fontSize;
+    }
+
     function modelFor(key: string, text: string): monaco.editor.ITextModel {
         let model = models.get(key);
         if (model === undefined) {
             model = createModel(key, text);
+            model.updateOptions(modelOptions(settings));
             models.set(key, model);
             savedTexts.set(key, text);
         }
@@ -135,29 +256,32 @@
         pruneModels(openIds, modelKey);
     });
 
-    onMount(() => {
-        let disposed = false;
-        let cursorSubscription: { dispose(): void } | undefined;
-        let contentSubscription: { dispose(): void } | undefined;
+    // A settings change (a toggle, or a zoom step) re-applies the options to the
+    // live editor and to every buffer, because indentation lives on the model.
+    $effect(() => {
+        const current = editor;
+        if (current === undefined) {
+            return;
+        }
+        current.updateOptions(editorOptions(settings, settings.fontSize + zoomOffset));
+        for (const model of models.values()) {
+            model.updateOptions(modelOptions(settings));
+        }
+    });
 
-        void loadEditorSettings().then((settings) => {
-            // The pane can unmount while settings are still loading.
-            if (disposed) {
-                return;
-            }
-            editor = createEditor(container, settings, modelFor(modelKey, content));
-            activeKey = modelKey;
-            cursorSubscription = editor.onDidChangeCursorPosition((event) => {
-                onCursorMove?.(event.position.lineNumber, event.position.column);
-            });
-            contentSubscription = editor.onDidChangeModelContent(() => reportDirty(activeKey));
+    onMount(() => {
+        const created = createEditor(container, settings, modelFor(modelKey, content));
+        editor = created;
+        activeKey = modelKey;
+        const cursorSubscription = created.onDidChangeCursorPosition((event) => {
+            onCursorMove?.(event.position.lineNumber, event.position.column);
         });
+        const contentSubscription = created.onDidChangeModelContent(() => reportDirty(activeKey));
 
         return () => {
-            disposed = true;
-            cursorSubscription?.dispose();
-            contentSubscription?.dispose();
-            editor?.dispose();
+            cursorSubscription.dispose();
+            contentSubscription.dispose();
+            created.dispose();
             for (const model of models.values()) {
                 model.dispose();
             }

@@ -158,3 +158,21 @@ export function SaveFileDialog(suggested: string): $CancellablePromise<string> {
 export function SetUnsavedChanges(unsaved: boolean): $CancellablePromise<void> {
     return $Call.ByID(1769354848, unsaved);
 }
+
+/**
+ * SetViewOption moves one View menu checkmark. The frontend owns the editor
+ * options, so a toggle that runs from the command palette reports its new value
+ * here; the menu's own click already moved the checkmark natively.
+ */
+export function SetViewOption(option: string, checked: boolean): $CancellablePromise<void> {
+    return $Call.ByID(359865011, option, checked);
+}
+
+/**
+ * UpdateEditorSettings replaces the editor section of settings.json and returns
+ * the normalized result. The frontend calls it whenever a view toggle changes,
+ * so the next launch starts with the same editor.
+ */
+export function UpdateEditorSettings(editor: $models.EditorSettings): $CancellablePromise<$models.EditorSettings> {
+    return $Call.ByID(3125471320, editor);
+}

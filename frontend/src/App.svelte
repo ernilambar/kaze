@@ -9,10 +9,13 @@
         SaveDocument,
         SaveFileDialog,
         SetUnsavedChanges,
+        SetViewOption,
     } from '../bindings/kova/app';
     import type { SaveResult } from '../bindings/kova/models';
+    import { CASE_TRANSFORMS, type CaseTransform } from './case';
     import EditorPane from './EditorPane.svelte';
     import ImageViewer from './ImageViewer.svelte';
+    import Preview from './Preview.svelte';
     import Palette from './Palette.svelte';
     import Prompt from './Prompt.svelte';
     import Sidebar from './Sidebar.svelte';
@@ -28,9 +31,16 @@
         type LaunchRequest,
         type OpenDocument,
     } from './document';
-    import { WELCOME_KEY, WELCOME_TEXT } from './editor';
+    import { languageLabel, WELCOME_KEY, WELCOME_TEXT } from './editor';
+    import {
+        listenForEditorCommands,
+        VIEW_OPTIONS,
+        type ViewOption,
+        type ZoomCommand,
+    } from './editorcommands';
     import { listenForCloseRequest, listenForFileCommands } from './filecommands';
     import type { PaletteItem } from './palette';
+    import { previewKindFor, type PreviewKind } from './preview';
     import {
         listFiles,
         listenForQuickOpen,
@@ -38,6 +48,12 @@
         toQuickOpenFiles,
         type QuickOpenFile,
     } from './quickOpen';
+    import {
+        defaultEditorSettings,
+        loadEditorSettings,
+        saveEditorSettings,
+        type EditorSettings,
+    } from './settings';
     import {
         addSidebarFolder,
         errorMessage,
@@ -55,6 +71,7 @@
         setDocumentDirty,
         updateDocument,
     } from './tabs';
+    import { appendFinalNewline } from './text';
 
     // UnsavedPrompt is the dialog asking what to do with modified buffers
     // before they are closed. answer resolves the promise the caller is
@@ -74,14 +91,25 @@
         answer: (overwrite: boolean) => void;
     }
 
+    // PreviewState is the buffer a preview is showing. It is a snapshot: the
+    // editor is hidden while the preview is up, so nothing can change underneath
+    // it, and switching tabs clears it.
+    interface PreviewState {
+        id: string;
+        kind: PreviewKind;
+        content: string;
+    }
+
     const APP_NAME = 'Kova';
-    const LANGUAGE = 'Plain Text';
 
     let tabs = $state<OpenDocument[]>([]);
     let activeId = $state('');
     let folders = $state<string[]>([]);
     let notice = $state('');
     let busy = $state(false);
+
+    let editorSettings = $state<EditorSettings>({ ...defaultEditorSettings });
+    let preview = $state<PreviewState | null>(null);
 
     let quickOpen = $state(false);
     let quickOpenFiles = $state<QuickOpenFile[]>([]);
@@ -98,6 +126,11 @@
 
     let active = $derived(tabs.find((tab) => tab.id === activeId));
     let imageActive = $derived(active?.kind === 'image');
+    let previewActive = $derived(preview !== null && preview.id === activeId);
+    // Either surface replaces the editor, which stays laid out behind it so a
+    // text tab keeps its viewport.
+    let viewerActive = $derived(imageActive || previewActive);
+    let language = $derived(imageActive ? 'Image' : languageLabel(active?.path ?? ''));
     // Monaco keeps its buffers while an image tab is showing, so switching back
     // to a text tab preserves edits. The welcome buffer keeps the hidden editor
     // from creating a model for an image path.
@@ -276,6 +309,9 @@
             content,
             dirty: !clean,
         });
+        // Save As can give an untitled buffer a real path, and with it a
+        // language the model should start highlighting.
+        editorPane?.setLanguage(id, result.path);
         notice = '';
     }
 
@@ -290,7 +326,15 @@
             return true;
         }
 
-        const content = bufferText(tab);
+        // ensure_final_newline edits the buffer before its text is read, so the
+        // write and the model still agree and the tab does not stay dirty.
+        if (editorSettings.ensureFinalNewline) {
+            editorPane?.ensureFinalNewline(tab.id);
+        }
+        let content = bufferText(tab);
+        if (editorSettings.ensureFinalNewline) {
+            content = appendFinalNewline(content);
+        }
         let path = tab.path;
         let expected = tab.modified;
         if (saveAs || path === '') {
@@ -460,6 +504,59 @@
         }
     }
 
+    // togglePreview shows the active buffer as Markdown or SVG. The preview is a
+    // snapshot of the buffer; the hidden editor keeps its model untouched, so
+    // hiding the preview returns to the same viewport.
+    function togglePreview(): void {
+        if (previewActive) {
+            preview = null;
+            return;
+        }
+        const tab = active;
+        const kind = previewKindFor(tab?.path ?? '');
+        if (tab === undefined || kind === '') {
+            notice = 'Preview is available for Markdown and SVG files.';
+            return;
+        }
+        preview = { id: tab.id, kind, content: bufferText(tab) };
+        notice = '';
+    }
+
+    function transformSelection(transform: CaseTransform): void {
+        editorPane?.transformSelection(transform);
+    }
+
+    function trimWhitespace(): void {
+        editorPane?.trimTrailingWhitespace();
+    }
+
+    function zoom(command: ZoomCommand): void {
+        editorPane?.zoom(command);
+    }
+
+    // setViewOption applies a view toggle, saves it, and moves the View menu's
+    // checkmark when the toggle came from the command palette instead.
+    function setViewOption(option: ViewOption, checked: boolean): void {
+        if (editorSettings[option] === checked) {
+            return;
+        }
+        editorSettings = { ...editorSettings, [option]: checked };
+        void saveEditorSettings(editorSettings)
+            .then((saved) => {
+                editorSettings = saved;
+            })
+            .catch((error) => {
+                notice = errorMessage(error);
+            });
+        void SetViewOption(option, checked).catch((error) =>
+            console.error('Failed to update the View menu.', error),
+        );
+    }
+
+    function toggleViewOption(option: ViewOption): void {
+        setViewOption(option, !editorSettings[option]);
+    }
+
     // showQuickOpen opens the palette first and fills it as soon as Go has
     // walked the sidebar roots, so the input is usable while a large tree is
     // still being read.
@@ -521,6 +618,20 @@
     // that open another dialog (Quick Open, the folder picker) start clean.
     function selectCommand(id: string): void {
         commandPalette = false;
+
+        // The case and view toggles are generated from their shared tables, so a
+        // new transform needs no second switch arm here.
+        const transform = CASE_TRANSFORMS.find((entry) => `case-${entry.id}` === id);
+        if (transform !== undefined) {
+            transformSelection(transform.id);
+            return;
+        }
+        const viewOption = VIEW_OPTIONS.find((entry) => `toggle-${entry.id}` === id);
+        if (viewOption !== undefined) {
+            toggleViewOption(viewOption.id);
+            return;
+        }
+
         switch (id) {
             case 'new-file':
                 newFile();
@@ -539,6 +650,21 @@
                 break;
             case 'print':
                 void printActive();
+                break;
+            case 'trim-whitespace':
+                trimWhitespace();
+                break;
+            case 'toggle-preview':
+                togglePreview();
+                break;
+            case 'zoom-in':
+                zoom('in');
+                break;
+            case 'zoom-out':
+                zoom('out');
+                break;
+            case 'zoom-reset':
+                zoom('reset');
                 break;
             case 'quick-open':
                 void showQuickOpen();
@@ -591,6 +717,14 @@
         }
     }
 
+    // A preview belongs to the tab it was opened on; selecting another tab puts
+    // the editor back rather than showing a stale snapshot.
+    $effect(() => {
+        if (preview !== null && preview.id !== activeId) {
+            preview = null;
+        }
+    });
+
     // Go decides whether closing needs a prompt, so it is told whenever the
     // answer changes. A failed report only costs a redundant prompt.
     $effect(() => {
@@ -607,10 +741,17 @@
         let unsubscribeCommandPalette: (() => void) | undefined;
         let unsubscribeFileCommands: (() => void) | undefined;
         let unsubscribeCloseRequest: (() => void) | undefined;
+        let unsubscribeEditorCommands: (() => void) | undefined;
         let disposed = false;
 
         void (async () => {
             folders = await loadSidebarFolders();
+            const loaded = await loadEditorSettings();
+            if (disposed) {
+                return;
+            }
+            editorSettings = loaded;
+
             const off = await listenForLaunch((request) => void applyLaunch(request));
             if (disposed) {
                 off();
@@ -634,6 +775,13 @@
                 'print': () => void printActive(),
             });
             unsubscribeCloseRequest = listenForCloseRequest(() => void confirmClose());
+            unsubscribeEditorCommands = listenForEditorCommands({
+                transformSelection,
+                trimWhitespace,
+                zoom,
+                togglePreview,
+                setViewOption,
+            });
         })();
 
         return () => {
@@ -645,6 +793,7 @@
             unsubscribeCommandPalette?.();
             unsubscribeFileCommands?.();
             unsubscribeCloseRequest?.();
+            unsubscribeEditorCommands?.();
         };
     });
 </script>
@@ -672,14 +821,15 @@
             <div class="app__pane">
                 <div
                     class="app__pane-layer"
-                    class:app__pane-layer--hidden={imageActive}
-                    inert={imageActive}
+                    class:app__pane-layer--hidden={viewerActive}
+                    inert={viewerActive}
                 >
                     <EditorPane
                         bind:this={editorPane}
                         modelKey={editorKey}
                         content={editorContent}
                         {openIds}
+                        settings={editorSettings}
                         onDirtyChange={(id, dirty) => {
                             tabs = setDocumentDirty(tabs, id, dirty);
                         }}
@@ -693,11 +843,17 @@
                     {#key active.src}
                         <ImageViewer src={active.src} name={active.name} />
                     {/key}
+                {:else if previewActive && preview !== null}
+                    <Preview
+                        kind={preview.kind}
+                        content={preview.content}
+                        name={active?.name ?? ''}
+                    />
                 {/if}
             </div>
         </div>
     </div>
-    <StatusBar {line} {column} language={imageActive ? 'Image' : LANGUAGE} {notice} {folderLabel} />
+    <StatusBar {line} {column} {language} {notice} {folderLabel} />
     {#if quickOpen}
         <Palette
             title="Quick Open"

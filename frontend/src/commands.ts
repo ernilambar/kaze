@@ -1,10 +1,33 @@
 import { Events } from '@wailsio/runtime';
+import { CASE_TRANSFORMS } from './case';
+import { VIEW_OPTIONS } from './editorcommands';
 import type { PaletteItem } from './palette';
 import { rankCandidates } from './quickOpen';
 
 // Command is one entry in the command palette. Commands are static metadata;
 // App.svelte maps each id to the function that runs it.
 export type Command = PaletteItem;
+
+const EDIT_COMMANDS: readonly Command[] = [
+    ...CASE_TRANSFORMS.map((transform) => ({
+        id: `case-${transform.id}`,
+        name: `Transform to ${transform.label}`,
+        detail: 'Edit',
+    })),
+    { id: 'trim-whitespace', name: 'Trim Trailing Whitespace', detail: 'Edit' },
+];
+
+const VIEW_COMMANDS: readonly Command[] = [
+    { id: 'toggle-preview', name: 'Toggle Preview', detail: 'View' },
+    { id: 'zoom-in', name: 'Zoom In', detail: 'View' },
+    { id: 'zoom-out', name: 'Zoom Out', detail: 'View' },
+    { id: 'zoom-reset', name: 'Actual Size', detail: 'View' },
+    ...VIEW_OPTIONS.map((option) => ({
+        id: `toggle-${option.id}`,
+        name: `Toggle ${option.label}`,
+        detail: 'View',
+    })),
+];
 
 // COMMANDS is the full palette, in the order shown before the user types. The
 // detail names the menu the command comes from, so typing "file" or "kova"
@@ -19,6 +42,8 @@ export const COMMANDS: readonly Command[] = [
     { id: 'quick-open', name: 'Quick Open…', detail: 'File' },
     { id: 'add-folder', name: 'Add Folder to Sidebar…', detail: 'File' },
     { id: 'close-tab', name: 'Close Tab', detail: 'File' },
+    ...EDIT_COMMANDS,
+    ...VIEW_COMMANDS,
     { id: 'settings', name: 'Settings…', detail: 'Kova' },
     { id: 'install-command-line-tool', name: 'Install Command Line Tool…', detail: 'Kova' },
 ];

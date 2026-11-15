@@ -24,12 +24,39 @@ export interface Document {
 }
 
 /**
- * EditorSettings tunes the Monaco editor instance.
+ * EditorSettings tunes the Monaco editor instance. Booleans that default to
+ * true rely on defaultSettings prepopulating the struct before the file is
+ * decoded; a missing key keeps its default while an explicit false stays false.
  */
 export interface EditorSettings {
     "font_family": string;
     "font_size": number;
     "font_weight": number;
+    "tab_size": number;
+    "hard_tabs": boolean;
+    "ligatures": boolean;
+    "cursor_width": number;
+    "cursor_blink": boolean;
+
+    /**
+     * CursorSurroundingLines keeps this many lines visible above and below the
+     * cursor while scrolling.
+     */
+    "cursor_surrounding_lines": number;
+    "scroll_beyond_last_line": boolean;
+    "ensure_final_newline": boolean;
+
+    /**
+     * The view toggles are editor options too. Keeping them here means a
+     * View menu choice survives a relaunch, and the menu starts checked.
+     */
+    "word_wrap": boolean;
+    "invisible_characters": boolean;
+    "line_numbers": boolean;
+    "indent_guides": boolean;
+    "code_folding": boolean;
+    "auto_close_brackets": boolean;
+    "smart_indent": boolean;
 }
 
 /**

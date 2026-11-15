@@ -18,6 +18,16 @@ A minimal text editor for macOS.
   `node_modules`.
 - **Command palette** (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>) — run any
   menu action by name.
+- **Syntax highlighting** — the language comes from the file's extension and
+  the status bar names it.
+- **Markdown and SVG preview** (<kbd>Ctrl</kbd>+<kbd>Cmd</kbd>+<kbd>V</kbd>) —
+  render the buffer in place, unsaved edits included.
+- **Text transforms** — upper, lower, title, camel, pascal, snake, kebab and
+  constant case for the selection (or the whole buffer), plus trim trailing
+  whitespace.
+- **View toggles and zoom** — word wrap, invisible characters, line numbers,
+  indent guides, folding, auto-close brackets and smart indent from the View
+  menu; zoom in, out and back to actual size.
 - **Image viewer** — PNG, JPEG, GIF, WebP, BMP, TIFF and ICO open in a viewer
   with Cmd-scroll zoom and fit/actual-size toggle (up to 32 MB).
 - **Native printing** — the macOS print panel for the active buffer, laid out

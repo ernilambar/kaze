@@ -17,7 +17,22 @@ loaded (at app startup), so no manual setup is required.
   "editor": {
     "font_family": "Menlo",
     "font_size": 13,
-    "font_weight": 400
+    "font_weight": 400,
+    "tab_size": 4,
+    "hard_tabs": false,
+    "ligatures": false,
+    "cursor_width": 1,
+    "cursor_blink": true,
+    "cursor_surrounding_lines": 0,
+    "scroll_beyond_last_line": false,
+    "ensure_final_newline": false,
+    "word_wrap": true,
+    "invisible_characters": false,
+    "line_numbers": true,
+    "indent_guides": true,
+    "code_folding": true,
+    "auto_close_brackets": true,
+    "smart_indent": true
   },
   "sidebar": {
     "folders": [
@@ -34,6 +49,21 @@ loaded (at app startup), so no manual setup is required.
 | `editor.font_family` | string | `Menlo` | CSS `font-family` for the editor. Use a monospace font. |
 | `editor.font_size` | number | `13` | Font size in pixels. Fractional values are allowed. |
 | `editor.font_weight` | number | `400` | CSS font weight; typical values are `100`–`900` (`400` normal, `700` bold). |
+| `editor.tab_size` | number | `4` | Columns a tab occupies and an indent level adds. |
+| `editor.hard_tabs` | boolean | `false` | Pressing Tab inserts a tab character instead of spaces. |
+| `editor.ligatures` | boolean | `false` | Render font ligatures such as `->` and `=>`. |
+| `editor.cursor_width` | number | `1` | Width in pixels of the line cursor. |
+| `editor.cursor_blink` | boolean | `true` | Blink the cursor; `false` keeps it solid. |
+| `editor.cursor_surrounding_lines` | number | `0` | Lines always kept visible above and below the cursor. |
+| `editor.scroll_beyond_last_line` | boolean | `false` | Allow scrolling past the last line. |
+| `editor.ensure_final_newline` | boolean | `false` | Append a newline on save when the buffer has none. |
+| `editor.word_wrap` | boolean | `true` | Wrap long lines instead of scrolling horizontally. |
+| `editor.invisible_characters` | boolean | `false` | Draw spaces, tabs and line ends. |
+| `editor.line_numbers` | boolean | `true` | Show the line number gutter. |
+| `editor.indent_guides` | boolean | `true` | Draw vertical guides at indent levels. |
+| `editor.code_folding` | boolean | `true` | Show folding controls in the gutter. |
+| `editor.auto_close_brackets` | boolean | `true` | Close brackets and quotes as you type. |
+| `editor.smart_indent` | boolean | `true` | Keep the previous line's indentation and follow brackets. |
 
 ## Sidebar settings
 
@@ -48,12 +78,18 @@ hand is supported: entries are trimmed, blank entries are dropped, and
 repeated paths are collapsed to the first occurrence. A folder that has since
 been moved or deleted still loads, and its row shows an error when expanded.
 
+The **View** menu's checkable toggles (`word_wrap` through `smart_indent`) are
+written back here whenever you flip them, from the menu or the command palette,
+so the editor comes back the way you left it. The values are stored as the
+booleans above, not as a separate UI state.
+
 ## Behavior
 
 - Missing keys keep their defaults, so a partial file is valid.
 - `font_family` is trimmed; an empty value falls back to `Menlo`.
 - Non-positive `font_size` or `font_weight` values fall back to their
-  defaults.
+  defaults; the same goes for `tab_size` and `cursor_width`, and a negative
+  `cursor_surrounding_lines` becomes `0`.
 - Unknown keys are ignored.
 - Malformed JSON is reported in the developer console; Kova runs with defaults
   and leaves the file untouched so it can be fixed.

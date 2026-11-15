@@ -99,7 +99,23 @@ introduce one unprompted.
   applies the editor font values at startup and reads `sidebar.folders` for the
   tree roots. Keep `frontend/src/settings.ts`
   defaults in sync with `defaultSettings()` in Go (the TS copy is only the
-  fallback when the backend call fails).
+  fallback when the backend call fails). `EditorSettings` also carries
+  indentation, cursor and **View toggle** options; since some default to
+  `true`, `loadSettings` decodes over `defaultSettings()` so an absent key
+  keeps its default. `App.UpdateEditorSettings` is the write path.
+- **Editor commands forward from Go to the frontend.** `main.go` builds the
+  Edit menu (case transforms, trim trailing whitespace) and the View menu
+  (zoom, preview, checkable toggles) and emits `kova:transform-case`,
+  `kova:trim-whitespace`, `kova:zoom`, `kova:toggle-preview` and
+  `kova:toggle-view`; `editorcommands.ts` listens. A menu checkbox flips
+  natively, so `App.SetViewOption` moves the same checkmark when the toggle
+  came from the command palette. Monaco options are built in `editor.ts`
+  (indentation lives on the model, so every buffer is updated too).
+- **Preview is dependency-free.** `markdown.ts` renders a Markdown subset from
+  the buffer, escaping text and limiting link schemes before `{@html}`;
+  SVG previews go through an `<img>` data URL so scripts never run. Transforms
+  and whitespace helpers live in `case.ts` and `text.ts`, all covered by
+  Vitest.
 - **Monaco stays excluded from Vite pre-bundling.** `optimizeDeps.exclude:
   ['monaco-editor']` exists because pre-bundling breaks worker URL resolution;
   keep it unless you also rework worker loading.

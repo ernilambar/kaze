@@ -74,6 +74,97 @@ func fileMenu(m *application.Menu, app *App) {
 	})
 }
 
+// caseTransforms is the Edit menu's Transform Case submenu, in display order.
+// The id matches the frontend's CaseTransform values.
+var caseTransforms = []struct{ label, id string }{
+	{"Uppercase", "upper"},
+	{"Lowercase", "lower"},
+	{"Title Case", "title"},
+	{"camelCase", "camel"},
+	{"PascalCase", "pascal"},
+	{"snake_case", "snake"},
+	{"kebab-case", "kebab"},
+	{"CONSTANT_CASE", "constant"},
+}
+
+// editMenu holds the buffer transforms. They act on Monaco's selection, which
+// lives in the frontend, so each item only forwards the command.
+func editMenu(m *application.Menu, app *App) {
+	transform := m.AddSubmenu("Transform Case")
+	for _, entry := range caseTransforms {
+		transform.Add(entry.label).OnClick(func(*application.Context) {
+			app.emitTransformCase(entry.id)
+		})
+	}
+	m.AddSeparator()
+	m.Add("Trim Trailing Whitespace").OnClick(func(*application.Context) {
+		app.emitTrimWhitespace()
+	})
+}
+
+// viewOption is one checkable View menu item. name is the editor settings field
+// the frontend applies; label is what the menu prints.
+type viewOption struct {
+	name    string
+	label   string
+	checked bool
+}
+
+// viewOptions lists the View menu checkboxes in display order.
+func viewOptions(editor EditorSettings) []viewOption {
+	return []viewOption{
+		{"wordWrap", "Word Wrap", editor.WordWrap},
+		{"invisibleCharacters", "Invisible Characters", editor.InvisibleCharacters},
+		{"lineNumbers", "Line Numbers", editor.LineNumbers},
+		{"indentGuides", "Indent Guides", editor.IndentGuides},
+		{"codeFolding", "Code Folding", editor.CodeFolding},
+		{"autoCloseBrackets", "Auto-Close Brackets", editor.AutoCloseBrackets},
+		{"smartIndent", "Smart Indent", editor.SmartIndent},
+	}
+}
+
+// viewMenu holds zoom, preview and the editor view toggles. A checkbox owns its
+// state natively, so each click forwards the new value; SetViewOption keeps the
+// checkmark honest when the same toggle runs from the command palette.
+func viewMenu(m *application.Menu, app *App, editor EditorSettings) {
+	m.Add("Zoom In").SetAccelerator("CmdOrCtrl+=").OnClick(func(*application.Context) {
+		app.emitZoom("in")
+	})
+	m.Add("Zoom Out").SetAccelerator("CmdOrCtrl+-").OnClick(func(*application.Context) {
+		app.emitZoom("out")
+	})
+	m.Add("Actual Size").SetAccelerator("CmdOrCtrl+0").OnClick(func(*application.Context) {
+		app.emitZoom("reset")
+	})
+	m.AddSeparator()
+	m.Add("Toggle Preview").SetAccelerator("CmdOrCtrl+Ctrl+V").OnClick(func(*application.Context) {
+		app.emitTogglePreview()
+	})
+	m.AddSeparator()
+	for _, option := range viewOptions(editor) {
+		item := m.AddCheckbox(option.label, option.checked)
+		item.OnClick(func(ctx *application.Context) {
+			app.emitToggleView(option.name, ctx.IsChecked())
+		})
+		app.viewItems[option.name] = item
+	}
+}
+
+// startupSettings loads settings.json before the menu is built, so the View
+// menu starts with the same checkmarks the editor will use. A missing or broken
+// file falls back to the defaults the frontend also falls back to.
+func startupSettings() Settings {
+	path, err := settingsFilePath()
+	if err != nil {
+		return defaultSettings()
+	}
+	settings, err := loadSettings(path)
+	if err != nil {
+		return defaultSettings()
+	}
+	return settings
+}
+
 func main() {
 	// Create an instance of the app structure
 	app := NewApp()
@@ -137,6 +228,8 @@ func main() {
 	menu := wailsApp.NewMenu()
 	appMenu(menu.AddSubmenu(meta.ProductName), meta.ProductName, app)
 	fileMenu(menu.AddSubmenu("File"), app)
+	editMenu(menu.AddSubmenu("Edit"), app)
+	viewMenu(menu.AddSubmenu("View"), app, startupSettings().Editor)
 	wailsApp.Menu.Set(menu)
 
 	app.window = wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
