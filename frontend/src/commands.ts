@@ -1,4 +1,4 @@
-import { Events } from '@wailsio/runtime';
+import { onWindowEvent } from './windowstate';
 import { CASE_TRANSFORMS } from './case';
 import { VIEW_OPTIONS } from './editorcommands';
 import type { PaletteItem } from './palette';
@@ -56,6 +56,8 @@ const TAB_COMMANDS: readonly Command[] = [
 // detail names the menu the command comes from, so typing "file" or "kova"
 // narrows the list by category as well as by name.
 export const COMMANDS: readonly Command[] = [
+    { id: 'new-window', name: 'New Window', detail: 'File' },
+    { id: 'open-folder-new-window', name: 'Open Folder in New Window…', detail: 'File' },
     { id: 'new-file', name: 'New File', detail: 'File' },
     { id: 'open-file', name: 'Open…', detail: 'File' },
     { id: 'open-recent', name: 'Open Recent…', detail: 'File' },
@@ -84,6 +86,9 @@ export const COMMANDS: readonly Command[] = [
     { id: 'minimize-window', name: 'Minimize', detail: 'Window' },
     { id: 'zoom-window', name: 'Zoom', detail: 'Window' },
     { id: 'toggle-full-screen', name: 'Toggle Full Screen', detail: 'Window' },
+    { id: 'close-window', name: 'Close Window', detail: 'Window' },
+    { id: 'move-tab-new-window', name: 'Move Tab to New Window', detail: 'Window' },
+    { id: 'bring-all-to-front', name: 'Bring All to Front', detail: 'Window' },
     { id: 'settings', name: 'Settings…', detail: 'Kova' },
     { id: 'open-settings-json', name: 'Open Settings JSON', detail: 'Kova' },
     { id: 'open-default-settings', name: 'Open Default Settings', detail: 'Kova' },
@@ -105,5 +110,5 @@ export function rankCommands(
 // listenForCommandPalette runs handler when the File menu asks for the palette.
 // Returns an unsubscribe function.
 export function listenForCommandPalette(handler: () => void): () => void {
-    return Events.On('kova:command-palette', () => handler());
+    return onWindowEvent('kova:command-palette', () => handler());
 }

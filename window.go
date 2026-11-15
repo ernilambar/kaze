@@ -1,38 +1,62 @@
 package main
 
-import "errors"
+import (
+	"errors"
 
-// errNoWindow is returned by the window commands before main creates the
-// window. Unit tests call the bindings without one, so the nil check is part of
-// the contract.
+	"github.com/wailsapp/wails/v3/pkg/application"
+)
+
+// errNoWindow is returned by the window commands when the named window is not
+// open. Unit tests call the bindings without a runtime, so the nil check is
+// part of the contract.
 var errNoWindow = errors.New("window is not available before startup")
 
-// MinimiseWindow minimises the window. The native Window menu calls it
-// directly; the command palette reaches it through the generated binding.
-func (a *App) MinimiseWindow() error {
-	if a.window == nil {
-		return errNoWindow
+// windowFor returns one window's native handle.
+func (a *App) windowFor(name string) (*application.WebviewWindow, error) {
+	session := a.session(name)
+	if session == nil || session.window == nil {
+		return nil, errNoWindow
 	}
-	a.window.Minimise()
+	return session.window, nil
+}
+
+// focusedWindowName is the name the native Window menu acts on. An empty name
+// makes the binding fall back to the focused window.
+func (a *App) focusedWindowName() string {
+	if session := a.focusedSession(); session != nil {
+		return session.name
+	}
+	return ""
+}
+
+// MinimiseWindow minimises one window. The native Window menu calls it for the
+// focused one; the command palette reaches it through the generated binding.
+func (a *App) MinimiseWindow(window string) error {
+	target, err := a.windowFor(window)
+	if err != nil {
+		return err
+	}
+	target.Minimise()
 	return nil
 }
 
-// ZoomWindow toggles the window between its standard and zoomed size, matching
+// ZoomWindow toggles a window between its standard and zoomed size, matching
 // the macOS Window > Zoom item.
-func (a *App) ZoomWindow() error {
-	if a.window == nil {
-		return errNoWindow
+func (a *App) ZoomWindow(window string) error {
+	target, err := a.windowFor(window)
+	if err != nil {
+		return err
 	}
-	a.window.Zoom()
+	target.Zoom()
 	return nil
 }
 
-// ToggleFullScreen switches the window between fullscreen and its previous
-// size.
-func (a *App) ToggleFullScreen() error {
-	if a.window == nil {
-		return errNoWindow
+// ToggleFullScreen switches a window between fullscreen and its previous size.
+func (a *App) ToggleFullScreen(window string) error {
+	target, err := a.windowFor(window)
+	if err != nil {
+		return err
 	}
-	a.window.ToggleFullscreen()
+	target.ToggleFullscreen()
 	return nil
 }

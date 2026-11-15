@@ -17,6 +17,7 @@ export type {
     GitSnapshot,
     Keybinding,
     KeybindingsState,
+    LaunchBuffer,
     LaunchRequest,
     PrintRequest,
     RecentSettings,

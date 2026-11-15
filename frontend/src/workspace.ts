@@ -9,7 +9,7 @@ import {
     SetSidebarVisible,
     WatchPaths,
 } from '../bindings/kova/app';
-import { Events } from '@wailsio/runtime';
+import { onWindowEvent } from './windowstate';
 
 // WorkspaceState is the part of settings.json that outlives a window: the
 // sidebar's visibility, the Open Recent list and the tabs to restore.
@@ -76,16 +76,17 @@ export async function saveWorkspaceAs(folders: readonly string[]): Promise<model
     return await SaveWorkspaceAs(folders.slice());
 }
 
-// watchPaths tells Go which files and folders to poll for external changes.
-export async function watchPaths(paths: readonly string[]): Promise<void> {
-    await WatchPaths(paths.slice());
+// watchPaths tells Go which files and folders one window wants polled for
+// external changes.
+export async function watchPaths(windowName: string, paths: readonly string[]): Promise<void> {
+    await WatchPaths(windowName, paths.slice());
 }
 
-// listenForWatchedChanges runs handler with the paths that changed on disk.
-// Returns an unsubscribe function.
+// listenForWatchedChanges runs handler with the paths that changed on disk for
+// this window. Returns an unsubscribe function.
 export function listenForWatchedChanges(handler: (paths: string[]) => void): () => void {
-    return Events.On('kova:watched-changed', (event) => {
-        const paths = event.data as string[] | undefined;
+    return onWindowEvent('kova:watched-changed', (data) => {
+        const paths = data as string[] | undefined;
         if (paths !== undefined) {
             handler(paths);
         }

@@ -8,7 +8,7 @@ import {
     RemoveSidebarFolder,
     SetSidebarFolders,
 } from '../bindings/kova/app';
-import { Events } from '@wailsio/runtime';
+import { onWindowEvent } from './windowstate';
 
 // FolderEntry mirrors FolderEntry in folder.go: one child of a folder. The
 // backend lists one level at a time, so the tree only reads what it expands.
@@ -107,7 +107,7 @@ export async function openFolderDialog(): Promise<string> {
 // so the menu and the sidebar button share one code path. Returns an unsubscribe
 // function.
 export function listenForAddFolder(handler: () => void): () => void {
-    return Events.On('kova:add-folder', () => handler());
+    return onWindowEvent('kova:add-folder', () => handler());
 }
 
 // relativePath is path with its innermost sidebar root removed. A path outside

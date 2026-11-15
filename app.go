@@ -19,18 +19,26 @@ type App struct {
 	// callbacks and dialogs go through it; tests call the exported methods
 	// without one, so every use is nil-checked.
 	wails *application.App
-	// window is the single webview window, used to surface the app when a
-	// second `kova <file>` arrives.
-	window *application.WebviewWindow
 
-	mu sync.Mutex
-	// pending holds a launch request the frontend has not collected yet. It is
-	// kept here because a second `kova file.txt` can arrive while the window is
-	// still starting up, before anything is listening for the event.
+	// windowsMu guards the open windows and the pre-window launch queue. Each
+	// window has its own session, because tabs, dirty flags and pending launch
+	// paths belong to one window and must never leak into another.
+	windowsMu sync.Mutex
+	windows   map[string]*windowSession
+	order     []string
+	// pending holds a launch request that arrived before any window existed.
 	pending LaunchRequest
-	// listening is set once the frontend has attached its launch listener, so
-	// later requests can be emitted as events instead of queued.
-	listening bool
+	// windowSeq names windows main, window-2, window-3, … so a frontend can
+	// address its own session and menu commands can find the focused one.
+	windowSeq atomic.Int64
+
+	// allowQuit records that the user answered a close or quit prompt with "go
+	// ahead". It lets the termination that follows through without a second
+	// prompt; opening a window clears it again.
+	allowQuit atomic.Bool
+	// quitInProgress keeps Cmd+Q from stacking a second prompt while the
+	// windows with unsaved buffers are being asked one at a time.
+	quitInProgress atomic.Bool
 
 	// settingsMu serializes load-modify-write cycles on settings.json. Two
 	// folder changes at once would otherwise read the same list and one of them
@@ -73,6 +81,7 @@ type App struct {
 // NewApp creates a new App application struct.
 func NewApp() *App {
 	return &App{
+		windows:         map[string]*windowSession{},
 		pending:         emptyLaunchRequest(),
 		viewItems:       map[string]*application.MenuItem{},
 		appearanceItems: map[string]*application.MenuItem{},
@@ -308,55 +317,6 @@ func (a *App) openSettingsFromMenu() {
 	}
 }
 
-// SetUnsavedChanges records whether any open buffer has edits that are not on
-// disk yet. The frontend pushes it whenever that answer changes, so a close or
-// quit can tell whether it must ask before throwing work away.
-func (a *App) SetUnsavedChanges(unsaved bool) {
-	a.unsaved.Store(unsaved)
-}
-
-// allowClose reports whether the app may go away without asking the frontend.
-func (a *App) allowClose() bool {
-	return !a.unsaved.Load() || a.confirmed.Load()
-}
-
-// shouldQuit answers macOS's terminate request. Unsaved buffers cancel the
-// quit and hand the decision to the frontend, which shows one prompt and then
-// answers with ResolveClose.
-func (a *App) shouldQuit() bool {
-	if a.allowClose() {
-		return true
-	}
-	a.requestClose()
-	return false
-}
-
-// requestClose asks the frontend to confirm before unsaved edits are lost.
-func (a *App) requestClose() {
-	if a.wails == nil || !a.closeRequested.CompareAndSwap(false, true) {
-		return
-	}
-	a.emitCloseRequest()
-}
-
-// ResolveClose answers a close request. Cancelling clears the request so the
-// next Cmd+Q asks again; quitting records the answer and terminates.
-func (a *App) ResolveClose(quit bool) {
-	a.closeRequested.Store(false)
-	if !quit {
-		return
-	}
-	a.confirmed.Store(true)
-	a.quit()
-}
-
-// quit shuts the app down so its shutdown path runs.
-func (a *App) quit() {
-	if a.wails != nil {
-		a.wails.Quit()
-	}
-}
-
 // addFolderEvent asks the sidebar to open the folder picker. A menu click has no
 // caller to return to, so the frontend runs the same code path as its own
 // button: one busy state, one place errors are reported.
@@ -367,25 +327,43 @@ func (a *App) emitAddFolder() {
 	a.emitEvent(addFolderEvent)
 }
 
-// emitEvent sends one menu command to the frontend. Before main has attached
-// the application there is no one to tell, so it is a no-op.
+// emitEvent sends one menu command to the focused window. The native menu is
+// shared by every window, so the command belongs to the one the user is
+// looking at. Before main has attached the application there is no one to tell,
+// so it is a no-op.
 func (a *App) emitEvent(name string) {
-	if a.wails != nil {
-		a.wails.Event.Emit(name)
+	if session := a.focusedSession(); session != nil {
+		session.emit(name)
 	}
 }
 
-// emitEventWith sends a menu command that carries a value: a case transform, a
-// zoom direction, or a View menu toggle's new state.
+// emitEventWith sends a menu command that carries a value to the focused
+// window.
 func (a *App) emitEventWith(name string, data any) {
+	if session := a.focusedSession(); session != nil {
+		session.emit(name, data)
+	}
+}
+
+// emitAll sends an event every window must see, because it changes app-wide
+// state such as settings, themes or a View menu toggle. A Wails application
+// event carries no sender, which the frontend's listener accepts.
+func (a *App) emitAll(name string, data ...any) {
 	if a.wails != nil {
-		a.wails.Event.Emit(name, data)
+		a.wails.Event.Emit(name, data...)
 	}
 }
 
 // closeTabEvent asks the frontend to close the active tab. The tab list lives in
 // the frontend, so the menu only sends the command.
 const closeTabEvent = "kova:close-tab"
+
+// moveTabToNewWindowEvent asks the frontend to hand its active tab to a new
+// window. Only the frontend can read the buffer that moves.
+const moveTabToNewWindowEvent = "kova:move-tab-to-new-window"
+
+// emitMoveTabToNewWindow tells the focused window to move its active tab.
+func (a *App) emitMoveTabToNewWindow() { a.emitEvent(moveTabToNewWindowEvent) }
 
 // The navigation commands work on the frontend's tab list. nextTabEvent and
 // previousTabEvent step through it; goToTabEvent carries the 1-based position.
@@ -513,9 +491,6 @@ func (a *App) emitPrint() { a.emitEvent(printEvent) }
 // window closes. The prompt is the frontend's, because only it can save them.
 const closeRequestEvent = "kova:confirm-close"
 
-// emitCloseRequest tells the frontend to confirm losing unsaved edits.
-func (a *App) emitCloseRequest() { a.emitEvent(closeRequestEvent) }
-
 // The Edit and View menus are frontend state too: the transform, whitespace,
 // preview and zoom commands all act on Monaco buffers, so Go forwards each one.
 const (
@@ -547,9 +522,10 @@ type ViewToggle struct {
 	Checked bool   `json:"checked"`
 }
 
-// emitToggleView tells the frontend that option's checkmark moved.
+// emitToggleView tells every window that option's checkmark moved. Editor
+// settings are shared, so a View menu toggle applies to all of them.
 func (a *App) emitToggleView(option string, checked bool) {
-	a.emitEventWith(toggleViewEvent, ViewToggle{Option: option, Checked: checked})
+	a.emitAll(toggleViewEvent, ViewToggle{Option: option, Checked: checked})
 }
 
 // settingsOverlayEvent asks the frontend to open the settings overlay.
@@ -561,51 +537,59 @@ func (a *App) emitSettingsOverlay() { a.emitEvent(settingsOverlayEvent) }
 // appearanceEvent carries the mode the Appearance submenu selected.
 const appearanceEvent = "kova:appearance"
 
-// emitAppearance tells the frontend that the menu selected a new mode.
-func (a *App) emitAppearance(mode string) { a.emitEventWith(appearanceEvent, mode) }
+// emitAppearance tells every window that the menu selected a new mode, because
+// the palette is shared by all of them.
+func (a *App) emitAppearance(mode string) { a.emitAll(appearanceEvent, mode) }
 
-// GetLaunchRequest hands the frontend the paths Kova was started with. The
-// frontend calls it once after attaching its listener, so anything passed in
-// before the UI was ready is still opened.
-func (a *App) GetLaunchRequest() LaunchRequest {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	a.listening = true
-	request := a.pending.normalized()
-	a.pending = emptyLaunchRequest()
-	return request
+// ShouldRestoreSession reports whether this window owns the saved tab session.
+// It is read before the window collects its launch request, so the first window
+// can restore the session while later windows start empty. It does not mark the
+// window as listening, so paths arriving before the listener is ready still
+// wait in the session.
+func (a *App) ShouldRestoreSession(window string) bool {
+	session := a.session(window)
+	if session == nil {
+		return false
+	}
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	return session.pending.RestoreSession
 }
 
-// queueLaunch records what a command line asked to open and, when the UI is
-// already listening, hands it over immediately.
+// GetLaunchRequest hands one window the paths it was started with. The
+// frontend calls it once after attaching its listener, so anything passed in
+// before the UI was ready is still opened.
+func (a *App) GetLaunchRequest(window string) LaunchRequest {
+	session := a.session(window)
+	if session == nil {
+		return emptyLaunchRequest()
+	}
+	return session.takeLaunch()
+}
+
+// queueLaunch records what a command line asked to open and, when the focused
+// window is already listening, hands it over immediately.
 func (a *App) queueLaunch(request LaunchRequest) {
 	if request.Empty() {
 		return
 	}
 
-	a.mu.Lock()
-	a.pending.Merge(request)
-	ready := a.listening
-	var payload LaunchRequest
-	if ready {
-		payload = a.pending.normalized()
-		a.pending = emptyLaunchRequest()
+	session := a.targetSession()
+	if session == nil {
+		a.windowsMu.Lock()
+		a.pending.Merge(request)
+		a.windowsMu.Unlock()
+		return
 	}
-	a.mu.Unlock()
 
+	payload, ready := session.queueLaunch(request)
 	if !ready {
 		return
 	}
 	// A second launch should surface the window, not leave files open behind
 	// another app.
-	if a.window != nil {
-		a.window.UnMinimise()
-		a.window.Show()
-	}
-	if a.wails != nil {
-		a.wails.Event.Emit(launchEvent, payload)
-	}
+	session.show()
+	session.emit(launchEvent, payload)
 }
 
 // queueLaunchPaths is queueLaunch for callers that only have path strings: the

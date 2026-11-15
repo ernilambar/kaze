@@ -61,12 +61,13 @@ func main() {
 		// saved, discarded, or cancelled.
 		ShouldQuit: app.shouldQuit,
 		Mac: application.MacOptions{
-			// The window is the app. Closing it ends the app instead of leaving
-			// a process with no window to reopen.
+			// Closing the last window ends the app instead of leaving a process
+			// with no window to reopen. Closing one of several windows only
+			// closes that window.
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
-		// One window, one document set: a second `kova <file>` from the terminal
-		// or Finder hands its paths to the instance already running.
+		// One process, several windows: a second `kova <file>` from the
+		// terminal or Finder hands its paths to the window already in front.
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID: "net.nilambar.kova",
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
@@ -93,26 +94,13 @@ func main() {
 	settings := startupSettings()
 	wailsApp.Menu.Set(buildMenu(wailsApp, app, settings.Editor, settings.Theme, loadKeybindingsForMenu()))
 
-	app.window = wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:              meta.ProductName,
-		Width:              1200,
-		Height:             800,
-		MinWidth:           600,
-		MinHeight:          400,
-		BackgroundColour:   application.NewRGB(30, 30, 30),
-		URL:                "/",
-		UseApplicationMenu: true,
-	})
-
-	// The red close button bypasses ShouldQuit, so it gets the same guard: the
-	// close is cancelled and the frontend decides before the window goes away.
-	app.window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
-		if app.allowClose() {
-			return
-		}
-		event.Cancel()
-		app.requestClose()
-	})
+	// The first window adopts the paths queued before it existed. Later windows
+	// are created by New Window, Open Folder in New Window and Move Tab to New
+	// Window, each with its own launch request.
+	if err := app.openWindow(emptyLaunchRequest()); err != nil {
+		println("Error:", err.Error())
+		return
+	}
 
 	if err := wailsApp.Run(); err != nil {
 		println("Error:", err.Error())

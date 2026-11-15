@@ -154,6 +154,27 @@ export interface KeybindingsState {
 }
 
 /**
+ * LaunchBuffer is one tab handed to another window. A text buffer carries its
+ * text, so unsaved edits move with the tab; an image or diff travels by path
+ * and the receiving window reads it again.
+ */
+export interface LaunchBuffer {
+    "name": string;
+    "path": string;
+    "kind": string;
+    "content": string;
+
+    /**
+     * SavedContent is the text the tab last had on disk. A moved dirty buffer
+     * needs it so the editor knows what "clean" means after the move.
+     */
+    "saved_content": string;
+    "modified": number;
+    "dirty": boolean;
+    "source_path": string;
+}
+
+/**
  * LaunchRequest is what a `kova` command line asked the app to open. It travels
  * from the invocation that saw the arguments to the running UI, so paths are
  * absolute by then and every rejected argument is reported back to the user.
@@ -162,6 +183,20 @@ export interface LaunchRequest {
     "files": string[] | null;
     "folders": string[] | null;
     "missing": string[] | null;
+
+    /**
+     * Buffers carries tabs moved from another window, and ReplaceFolders makes
+     * Folders the window's only roots (Open Folder in New Window).
+     */
+    "buffers": LaunchBuffer[] | null;
+    "replace_folders": boolean;
+
+    /**
+     * RestoreSession marks the first window of a launch. Only it reopens the
+     * saved tabs and writes the session back, so a new window does not clobber
+     * the session with its own empty or moved tab list.
+     */
+    "restore_session": boolean;
 }
 
 /**

@@ -23,6 +23,10 @@
         // content is only read the first time a model is created, so a tab
         // keeps its edits when the user switches away and back.
         content?: string;
+        // savedContent is what the buffer last held on disk. It differs from
+        // content for a tab moved from another window with unsaved edits, so
+        // the moved buffer keeps its dirty state and its undo cannot look saved.
+        savedContent?: string;
         // openIds is every tab currently open. Models for closed tabs are
         // disposed so reopening a file starts from its content on disk.
         openIds?: string[];
@@ -40,6 +44,7 @@
     let {
         modelKey = WELCOME_KEY,
         content = '',
+        savedContent = '',
         openIds = [],
         settings,
         readOnly = false,
@@ -311,7 +316,7 @@
             model = createModel(key, text);
             model.updateOptions(modelOptions(settings));
             models.set(key, model);
-            savedTexts.set(key, text);
+            savedTexts.set(key, savedContent);
             // A baseline may have arrived before the tab was first shown.
             updateDecorations(key);
         }

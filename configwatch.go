@@ -67,7 +67,7 @@ func (a *App) configWatchLoop() {
 			}
 		}
 		if change.Themes || change.Keybindings {
-			a.emitEventWith(configChangedEvent, change)
+			a.emitAll(configChangedEvent, change)
 		}
 	}
 }

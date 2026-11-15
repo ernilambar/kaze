@@ -92,6 +92,17 @@ func appMenu(m *application.Menu, name string, app *App, b *menuBuilder) {
 // their tabs live in the frontend, so every item forwards a command instead of
 // acting on the file itself.
 func fileMenu(m *application.Menu, app *App, b *menuBuilder) {
+	b.item(m, "new-window", "New Window", "CmdOrCtrl+Shift+n", func(*application.Context) {
+		if err := app.NewWindow(); err != nil {
+			app.reportMenuError("New Window", err)
+		}
+	})
+	b.item(m, "open-folder-new-window", "Open Folder in New Window…", "", func(*application.Context) {
+		if err := app.OpenFolderInNewWindow(); err != nil {
+			app.reportMenuError("Open Folder in New Window", err)
+		}
+	})
+	m.AddSeparator()
 	b.item(m, "new-file", "New File", "CmdOrCtrl+n", func(*application.Context) {
 		app.emitNewFile()
 	})
@@ -272,23 +283,36 @@ func viewMenu(m *application.Menu, app *App, b *menuBuilder, editor EditorSettin
 	}
 }
 
-// windowMenu holds the three native window commands. They act on the Wails
+// windowMenu holds the native window commands. They act on the focused Wails
 // window rather than on a buffer, so the menu calls the bindings directly.
 func windowMenu(m *application.Menu, app *App, b *menuBuilder) {
 	b.item(m, "minimize-window", "Minimize", "CmdOrCtrl+m", func(*application.Context) {
-		if err := app.MinimiseWindow(); err != nil {
+		if err := app.MinimiseWindow(app.focusedWindowName()); err != nil {
 			app.reportMenuError("Minimize", err)
 		}
 	})
 	b.item(m, "zoom-window", "Zoom", "", func(*application.Context) {
-		if err := app.ZoomWindow(); err != nil {
+		if err := app.ZoomWindow(app.focusedWindowName()); err != nil {
 			app.reportMenuError("Zoom", err)
 		}
 	})
 	b.item(m, "toggle-full-screen", "Toggle Full Screen", "CmdOrCtrl+Ctrl+f", func(*application.Context) {
-		if err := app.ToggleFullScreen(); err != nil {
+		if err := app.ToggleFullScreen(app.focusedWindowName()); err != nil {
 			app.reportMenuError("Toggle Full Screen", err)
 		}
+	})
+	m.AddSeparator()
+	b.item(m, "close-window", "Close Window", "CmdOrCtrl+Shift+w", func(*application.Context) {
+		if err := app.CloseWindow(app.focusedWindowName()); err != nil {
+			app.reportMenuError("Close Window", err)
+		}
+	})
+	b.item(m, "move-tab-new-window", "Move Tab to New Window", "", func(*application.Context) {
+		app.emitMoveTabToNewWindow()
+	})
+	m.AddSeparator()
+	b.item(m, "bring-all-to-front", "Bring All to Front", "", func(*application.Context) {
+		app.BringAllToFront()
 	})
 }
 

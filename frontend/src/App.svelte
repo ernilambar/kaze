@@ -2,12 +2,17 @@
     import * as monaco from 'monaco-editor';
     import { onMount, tick } from 'svelte';
     import {
+        BringAllToFront,
+        CloseWindow,
         CopyText,
         GetKeybindings,
         InstallCommandLineTool,
         MinimiseWindow,
+        MoveTabToNewWindow,
+        NewWindow,
         OpenDefaultSettings,
         OpenFileDialog,
+        OpenFolderInNewWindow,
         OpenKeybindings,
         OpenSettings,
         OpenThemesFolder,
@@ -21,6 +26,7 @@
         SetAppearanceMode,
         SetUnsavedChanges,
         SetViewOption,
+        ShouldRestoreSession,
         ToggleFullScreen,
         WatchConfig,
         ZoomWindow,
@@ -48,6 +54,8 @@
         listenForLaunch,
         readDocument,
         shownName,
+        toBufferDocument,
+        type LaunchBuffer,
         type LaunchRequest,
         type OpenDocument,
     } from './document';
@@ -58,7 +66,7 @@
         type ViewOption,
         type ZoomCommand,
     } from './editorcommands';
-    import { listenForCloseRequest, listenForFileCommands } from './filecommands';
+    import { listenForCloseRequest, listenForFileCommands, type CloseReason } from './filecommands';
     import {
         branchLabel,
         loadGitStatus,
@@ -151,6 +159,7 @@
         type WorkspaceState,
     } from './workspace';
     import { listenForWorkspaceCommands, type CopyPathKind } from './workspacecommands';
+    import { resolveWindowName, setWindowName } from './windowstate';
 
     // UnsavedPrompt is the dialog asking what to do with modified buffers
     // before they are closed. answer resolves the promise the caller is
@@ -196,6 +205,10 @@
     let activeWorkspace = $state<WorkspaceInfo | null>(null);
     let notice = $state('');
     let busy = $state(false);
+    // windowName is this window's Wails identity. Every per-window backend call
+    // and event listener uses it, so a menu command or close prompt lands in
+    // the window it belongs to.
+    let windowName = $state('');
 
     // Git is read-only. The sidebar shows the status marks from gitChanges,
     // while the status bar shows the active file's branch.
@@ -225,6 +238,10 @@
     let expandedPaths = $state<string[]>([]);
     let treeRefreshToken = $state(0);
     let sessionReady = $state(false);
+    // Only the window that restored the saved tabs writes the session back.
+    // Other windows have their own tabs and must not replace it with an empty
+    // or partial list.
+    let sessionOwner = $state(false);
     // closedTabs is the Reopen Closed Tab stack. It is never rendered, so it
     // stays a plain array instead of reactive state.
     let closedTabs: ClosedTab[] = [];
@@ -275,6 +292,11 @@
     // from creating a model for an image path.
     let editorKey = $derived(imageActive ? WELCOME_KEY : (active?.id ?? WELCOME_KEY));
     let editorContent = $derived(imageActive ? '' : (active?.content ?? ''));
+    // savedContent is what a clean buffer would hold. A moved dirty tab carries
+    // a different text than the file on disk, so its tab records the baseline.
+    let editorSavedContent = $derived(
+        imageActive ? '' : (active?.savedContent ?? active?.content ?? ''),
+    );
     let openIds = $derived(tabs.map((tab) => tab.id));
     let unsaved = $derived(tabs.some((tab) => tab.dirty));
     let folderLabel = $derived(
@@ -367,8 +389,32 @@
 
     async function applyLaunch(request: LaunchRequest): Promise<void> {
         let failure = '';
-        if (request.folders.length > 0) {
+        if (request.replace_folders) {
+            // Open Folder in New Window: the new window starts with exactly the
+            // chosen folder, and the roots are saved for the next launch.
+            try {
+                folders = await setSidebarFolders(request.folders);
+                void refreshGitStatus();
+            } catch (error) {
+                failure = errorMessage(error);
+            }
+        } else if (request.folders.length > 0) {
             failure = await addFolders(request.folders);
+        }
+
+        // A tab moved from another window arrives as a buffer. Text keeps the
+        // text the other window held, so unsaved edits survive the move; an
+        // image or diff is read again from its path.
+        for (const buffer of request.buffers) {
+            if (buffer.kind === 'image' && buffer.path !== '') {
+                await openFile(buffer.path);
+                continue;
+            }
+            if (buffer.kind === 'diff' && buffer.source_path !== '') {
+                await openDiff(buffer.source_path);
+                continue;
+            }
+            showDocument(toBufferDocument(buffer), false);
         }
 
         for (const path of request.files) {
@@ -597,6 +643,7 @@
             name: result.name,
             modified: result.modified,
             content,
+            savedContent: undefined,
             dirty: !clean,
         });
         // Save As can give an untitled buffer a real path, and with it a
@@ -717,16 +764,17 @@
 
     async function resolveClose(quit: boolean): Promise<void> {
         try {
-            await ResolveClose(quit);
+            await ResolveClose(windowName, quit);
         } catch (error) {
             notice = errorMessage(error);
         }
     }
 
-    // confirmClose answers Go's close request. It is the one place that decides
-    // whether the window may go away, so the close button and Cmd+Q behave the
-    // same and share one prompt.
-    async function confirmClose(): Promise<void> {
+    // confirmClose answers Go's close request for this window. It is the one
+    // place that decides whether the window may go away, so the close button
+    // and Cmd+Q behave the same and share one prompt. The reason changes the
+    // wording: closing one window is not quitting the app.
+    async function confirmClose(reason: CloseReason = 'quit'): Promise<void> {
         // Another prompt is already on screen; the user is deciding, so a
         // second Cmd+Q must not stack a dialog on top of it. Answering the
         // request with "cancel" clears Go's pending flag, so the next Cmd+Q
@@ -743,13 +791,17 @@
         }
 
         const answer = await askUnsaved({
-            title: 'Quit Kova',
+            title: reason === 'close' ? 'Close Window' : 'Quit Kova',
             message:
-                dirty.length === 1
-                    ? 'Save changes before quitting?'
-                    : `${dirty.length} files have unsaved changes.`,
+                reason === 'close'
+                    ? dirty.length === 1
+                        ? 'Save changes before closing this window?'
+                        : `${dirty.length} files in this window have unsaved changes.`
+                    : dirty.length === 1
+                      ? 'Save changes before quitting?'
+                      : `${dirty.length} files have unsaved changes.`,
             details: dirty.map((tab) => tab.name),
-            confirmLabel: 'Save All',
+            confirmLabel: dirty.length === 1 ? 'Save' : 'Save All',
         });
         if (answer === 'cancel') {
             await resolveClose(false);
@@ -1098,6 +1150,34 @@
         });
     }
 
+    // moveTabToNewWindow hands the active tab to a new window and drops it from
+    // this one. The buffer text travels with the request, so unsaved edits are
+    // not lost; the new window removes the tab only after the call succeeds.
+    async function moveTabToNewWindow(): Promise<void> {
+        const tab = active;
+        if (tab === undefined) {
+            notice = 'Open a tab to move to a new window.';
+            return;
+        }
+        const buffer: LaunchBuffer = {
+            name: tab.name,
+            path: tab.kind === 'diff' ? '' : tab.path,
+            kind: tab.kind,
+            content: tab.kind === 'text' ? bufferText(tab) : tab.content,
+            saved_content: tab.content,
+            modified: tab.modified,
+            dirty: tab.kind === 'text' ? tab.dirty : false,
+            source_path: tab.sourcePath ?? '',
+        };
+        try {
+            await MoveTabToNewWindow(buffer);
+            removeTab(tab.id);
+            notice = '';
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
     // selectCommand closes the palette before running the command, so commands
     // that open another dialog (Quick Open, the folder picker) start clean.
     function selectCommand(id: string): void {
@@ -1217,13 +1297,28 @@
                 void closeWorkspace();
                 break;
             case 'minimize-window':
-                runWindowCommand(() => MinimiseWindow());
+                runWindowCommand(() => MinimiseWindow(windowName));
                 break;
             case 'zoom-window':
-                runWindowCommand(() => ZoomWindow());
+                runWindowCommand(() => ZoomWindow(windowName));
                 break;
             case 'toggle-full-screen':
-                runWindowCommand(() => ToggleFullScreen());
+                runWindowCommand(() => ToggleFullScreen(windowName));
+                break;
+            case 'new-window':
+                runWindowCommand(() => NewWindow());
+                break;
+            case 'open-folder-new-window':
+                runWindowCommand(() => OpenFolderInNewWindow());
+                break;
+            case 'close-window':
+                runWindowCommand(() => CloseWindow(windowName));
+                break;
+            case 'move-tab-new-window':
+                void moveTabToNewWindow();
+                break;
+            case 'bring-all-to-front':
+                runWindowCommand(() => BringAllToFront());
                 break;
             case 'close-all-folders':
                 void closeAllFolders();
@@ -1504,6 +1599,7 @@
         tabs = updateDocument(tabs, id, {
             kind: opened.kind,
             content: opened.content,
+            savedContent: undefined,
             src: opened.src,
             modified: opened.modified,
             dirty: false,
@@ -1720,18 +1816,24 @@
     });
 
     // The watcher only needs paths that exist: open files and expanded folders.
+    // It is registered per window, so a change reaches the window that asked
+    // for it and closing the window stops its events.
     $effect(() => {
+        if (windowName === '') {
+            return;
+        }
         const paths = watchedPaths;
-        void watchPaths(paths).catch((error) =>
+        void watchPaths(windowName, paths).catch((error) =>
             console.error('Failed to watch the workspace.', error),
         );
     });
 
     // The session is written whenever the set of file-backed tabs or the active
     // file changes. Gating on sessionReady keeps startup from overwriting the
-    // saved session with the empty list the app begins with.
+    // saved session with the empty list the app begins with; only the window
+    // that restored it writes, so a new window cannot replace it.
     $effect(() => {
-        if (!sessionReady) {
+        if (!sessionReady || !sessionOwner) {
             return;
         }
         const files = sessionFiles;
@@ -1742,9 +1844,13 @@
     });
 
     // Go decides whether closing needs a prompt, so it is told whenever the
-    // answer changes. A failed report only costs a redundant prompt.
+    // answer changes. Each window reports its own buffers; a failed report only
+    // costs a redundant prompt.
     $effect(() => {
-        void SetUnsavedChanges(unsaved).catch((error) =>
+        if (windowName === '') {
+            return;
+        }
+        void SetUnsavedChanges(windowName, unsaved).catch((error) =>
             console.error('Failed to report unsaved changes.', error),
         );
     });
@@ -1775,6 +1881,22 @@
         };
 
         void (async () => {
+            // The window name is the identity every per-window binding and
+            // event uses, so it is resolved before anything else happens.
+            const name = await resolveWindowName();
+            if (disposed) {
+                return;
+            }
+            windowName = name;
+            setWindowName(name);
+
+            // The request this window was created with decides two things: the
+            // paths or buffers to open, and whether this is the window that
+            // restores and writes the shared session. Only the session flag is
+            // read now; the request itself is collected once its listener is
+            // installed, so nothing queued meanwhile can be lost.
+            sessionOwner = await ShouldRestoreSession(windowName);
+
             const workspace = await loadWorkspaceState();
             sidebarVisible = workspace.sidebarVisible;
             recentFiles = workspace.recentFiles;
@@ -1782,7 +1904,9 @@
             // Git status may walk a large repository; the session restore does
             // not wait for it, and the branch appears when the read lands.
             void refreshGitStatus();
-            await restoreSession(workspace.session);
+            if (sessionOwner) {
+                await restoreSession(workspace.session);
+            }
             // From here on tab changes are saved as the session; before this
             // point an empty list is just startup, not the user closing tabs.
             sessionReady = true;
@@ -1806,7 +1930,7 @@
                 console.error('Failed to update the Appearance menu.', error),
             );
 
-            const off = await listenForLaunch((request) => void applyLaunch(request));
+            const off = await listenForLaunch(windowName, (request) => void applyLaunch(request));
             if (disposed) {
                 off();
                 return;
@@ -1828,7 +1952,7 @@
                 'save-all': () => void saveAll(),
                 'print': () => void printActive(),
             });
-            unsubscribeCloseRequest = listenForCloseRequest(() => void confirmClose());
+            unsubscribeCloseRequest = listenForCloseRequest((reason) => void confirmClose(reason));
             unsubscribeEditorCommands = listenForEditorCommands({
                 transformSelection,
                 trimWhitespace,
@@ -1857,6 +1981,7 @@
                 previous: () => stepTab(-1),
                 reopen: () => void reopenClosedTab(),
                 goToTab,
+                moveToNewWindow: () => void moveTabToNewWindow(),
             });
             unsubscribeConfig = listenForConfigChanges((change) => {
                 if (change.themes) {
@@ -1958,6 +2083,7 @@
                         bind:this={editorPane}
                         modelKey={editorKey}
                         content={editorContent}
+                        savedContent={editorSavedContent}
                         {openIds}
                         settings={editorSettings}
                         readOnly={active?.kind === 'diff'}

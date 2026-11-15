@@ -36,11 +36,26 @@ export function AddSidebarFolder(folder: string): $CancellablePromise<string[] |
 }
 
 /**
+ * BringAllToFront raises every window, restoring minimised ones.
+ */
+export function BringAllToFront(): $CancellablePromise<void> {
+    return $Call.ByID(2904879530);
+}
+
+/**
  * ClearRecentFiles empties the Open Recent list and returns the result, which
  * is now empty.
  */
 export function ClearRecentFiles(): $CancellablePromise<string[] | null> {
     return $Call.ByID(1785700092);
+}
+
+/**
+ * CloseWindow closes one window through the same unsaved-buffer guard as its
+ * red close button.
+ */
+export function CloseWindow(window: string): $CancellablePromise<void> {
+    return $Call.ByID(3642446947, window);
 }
 
 /**
@@ -89,12 +104,12 @@ export function GetKeybindings(): $CancellablePromise<$models.KeybindingsState> 
 }
 
 /**
- * GetLaunchRequest hands the frontend the paths Kova was started with. The
+ * GetLaunchRequest hands one window the paths it was started with. The
  * frontend calls it once after attaching its listener, so anything passed in
  * before the UI was ready is still opened.
  */
-export function GetLaunchRequest(): $CancellablePromise<$models.LaunchRequest> {
-    return $Call.ByID(2194906801);
+export function GetLaunchRequest(window: string): $CancellablePromise<$models.LaunchRequest> {
+    return $Call.ByID(2194906801, window);
 }
 
 /**
@@ -153,11 +168,28 @@ export function LoadTheme(name: string): $CancellablePromise<$models.ThemePalett
 }
 
 /**
- * MinimiseWindow minimises the window. The native Window menu calls it
- * directly; the command palette reaches it through the generated binding.
+ * MinimiseWindow minimises one window. The native Window menu calls it for the
+ * focused one; the command palette reaches it through the generated binding.
  */
-export function MinimiseWindow(): $CancellablePromise<void> {
-    return $Call.ByID(722444756);
+export function MinimiseWindow(window: string): $CancellablePromise<void> {
+    return $Call.ByID(722444756, window);
+}
+
+/**
+ * MoveTabToNewWindow hands one buffer to a new window. The frontend removes the
+ * tab from its own list once this returns, because the buffer now lives in the
+ * new window.
+ */
+export function MoveTabToNewWindow(buffer: $models.LaunchBuffer): $CancellablePromise<void> {
+    return $Call.ByID(116838076, buffer);
+}
+
+/**
+ * NewWindow opens an empty editor window. It shares the saved sidebar roots and
+ * settings, but its tabs are its own.
+ */
+export function NewWindow(): $CancellablePromise<void> {
+    return $Call.ByID(369706665);
 }
 
 /**
@@ -183,6 +215,14 @@ export function OpenFileDialog(): $CancellablePromise<string> {
  */
 export function OpenFolderDialog(): $CancellablePromise<string> {
     return $Call.ByID(1898277525);
+}
+
+/**
+ * OpenFolderInNewWindow asks for a folder and opens it as the only root of a
+ * new window. The roots are saved, so the next launch starts there too.
+ */
+export function OpenFolderInNewWindow(): $CancellablePromise<void> {
+    return $Call.ByID(2093654144);
 }
 
 /**
@@ -263,11 +303,12 @@ export function ReplaceInProject(request: $models.SearchRequest): $CancellablePr
 }
 
 /**
- * ResolveClose answers a close request. Cancelling clears the request so the
- * next Cmd+Q asks again; quitting records the answer and terminates.
+ * ResolveClose answers a close request for one window. Cancelling clears the
+ * request so the next attempt asks again; confirming either closes that window
+ * or continues the app quit with the next dirty window.
  */
-export function ResolveClose(quit: boolean): $CancellablePromise<void> {
-    return $Call.ByID(2112675041, quit);
+export function ResolveClose(window: string, quit: boolean): $CancellablePromise<void> {
+    return $Call.ByID(2112675041, window, quit);
 }
 
 /**
@@ -348,12 +389,12 @@ export function SetSidebarVisible(visible: boolean): $CancellablePromise<void> {
 }
 
 /**
- * SetUnsavedChanges records whether any open buffer has edits that are not on
- * disk yet. The frontend pushes it whenever that answer changes, so a close or
- * quit can tell whether it must ask before throwing work away.
+ * SetUnsavedChanges records whether one window has edits that are not on disk
+ * yet. Each window reports its own state, so closing one never asks about
+ * another window's buffers.
  */
-export function SetUnsavedChanges(unsaved: boolean): $CancellablePromise<void> {
-    return $Call.ByID(1769354848, unsaved);
+export function SetUnsavedChanges(window: string, unsaved: boolean): $CancellablePromise<void> {
+    return $Call.ByID(1769354848, window, unsaved);
 }
 
 /**
@@ -366,11 +407,21 @@ export function SetViewOption(option: string, checked: boolean): $CancellablePro
 }
 
 /**
- * ToggleFullScreen switches the window between fullscreen and its previous
- * size.
+ * ShouldRestoreSession reports whether this window owns the saved tab session.
+ * It is read before the window collects its launch request, so the first window
+ * can restore the session while later windows start empty. It does not mark the
+ * window as listening, so paths arriving before the listener is ready still
+ * wait in the session.
  */
-export function ToggleFullScreen(): $CancellablePromise<void> {
-    return $Call.ByID(203905296);
+export function ShouldRestoreSession(window: string): $CancellablePromise<boolean> {
+    return $Call.ByID(2520047444, window);
+}
+
+/**
+ * ToggleFullScreen switches a window between fullscreen and its previous size.
+ */
+export function ToggleFullScreen(window: string): $CancellablePromise<void> {
+    return $Call.ByID(203905296, window);
 }
 
 /**
@@ -409,18 +460,18 @@ export function WatchConfig(): $CancellablePromise<void> {
 }
 
 /**
- * WatchPaths replaces the set of files and directories whose external changes
- * the frontend wants to hear about. Calling it the first time starts the
- * polling loop, which runs for the life of the process.
+ * WatchPaths replaces one window's set of files and directories whose external
+ * changes it wants to hear about. Calling it the first time starts the polling
+ * loop, which runs for the life of the process.
  */
-export function WatchPaths(paths: string[] | null): $CancellablePromise<void> {
-    return $Call.ByID(2033137100, paths);
+export function WatchPaths(window: string, paths: string[] | null): $CancellablePromise<void> {
+    return $Call.ByID(2033137100, window, paths);
 }
 
 /**
- * ZoomWindow toggles the window between its standard and zoomed size, matching
+ * ZoomWindow toggles a window between its standard and zoomed size, matching
  * the macOS Window > Zoom item.
  */
-export function ZoomWindow(): $CancellablePromise<void> {
-    return $Call.ByID(939524438);
+export function ZoomWindow(window: string): $CancellablePromise<void> {
+    return $Call.ByID(939524438, window);
 }

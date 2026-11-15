@@ -1,4 +1,4 @@
-import { Events } from '@wailsio/runtime';
+import { onWindowEvent } from './windowstate';
 import type * as monaco from 'monaco-editor';
 import { ListThemes, LoadTheme } from '../bindings/kova/app';
 import type * as models from '../bindings/kova/models';
@@ -243,8 +243,8 @@ export async function loadTheme(name: string): Promise<ThemePalette> {
 // listenForConfigChanges runs handler when the themes folder or keybindings
 // file changes. Returns an unsubscribe function.
 export function listenForConfigChanges(handler: (change: ConfigChange) => void): () => void {
-    return Events.On('kova:config-changed', (event) => {
-        const change = event.data as ConfigChange | undefined;
+    return onWindowEvent('kova:config-changed', (data) => {
+        const change = data as ConfigChange | undefined;
         if (change !== undefined) {
             handler(change);
         }
@@ -252,8 +252,8 @@ export function listenForConfigChanges(handler: (change: ConfigChange) => void):
 }
 
 export function listenForAppearance(handler: (mode: ThemeMode) => void): () => void {
-    return Events.On('kova:appearance', (event) => {
-        const mode = event.data as string | undefined;
+    return onWindowEvent('kova:appearance', (data) => {
+        const mode = data as string | undefined;
         if (mode === 'system' || mode === 'light' || mode === 'dark') {
             handler(mode);
         }
@@ -261,5 +261,5 @@ export function listenForAppearance(handler: (mode: ThemeMode) => void): () => v
 }
 
 export function listenForSettingsOverlay(handler: () => void): () => void {
-    return Events.On('kova:settings-overlay', () => handler());
+    return onWindowEvent('kova:settings-overlay', () => handler());
 }

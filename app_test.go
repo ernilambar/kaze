@@ -23,27 +23,92 @@ func TestMenuCommandsBeforeAttachAreNoOps(t *testing.T) {
 
 func TestQuitGuardAsksBeforeDroppingUnsavedBuffers(t *testing.T) {
 	app := NewApp()
+	app.registerWindow("main", emptyLaunchRequest())
 
 	// Nothing modified: quitting needs no prompt.
 	if !app.shouldQuit() {
 		t.Fatal("shouldQuit() = false with no unsaved buffers")
 	}
 
-	app.SetUnsavedChanges(true)
+	app.SetUnsavedChanges("main", true)
 	if app.shouldQuit() {
 		t.Fatal("shouldQuit() = true, want unsaved buffers to hold the quit")
 	}
 
 	// Cancelling the prompt clears the request so the next quit asks again.
-	app.ResolveClose(false)
-	if app.closeRequested.Load() {
+	app.ResolveClose("main", false)
+	if app.session("main").closeRequested.Load() {
 		t.Fatal("closeRequested = true after a cancelled prompt")
 	}
 
-	// Confirming lets the guarded quit through. Tests never attach a runtime,
-	// so the quit itself must stay a no-op.
-	app.ResolveClose(true)
+	// Confirming the second prompt lets the guarded quit through. Tests never
+	// attach a runtime, so the quit itself must stay a no-op.
+	if app.shouldQuit() {
+		t.Fatal("shouldQuit() = true while the prompt is still pending")
+	}
+	app.ResolveClose("main", true)
 	if !app.shouldQuit() {
 		t.Fatal("shouldQuit() = false after the user confirmed the quit")
+	}
+}
+
+func TestOnlyTheFirstWindowOwnsTheSession(t *testing.T) {
+	app := NewApp()
+	first := app.registerWindow("main", emptyLaunchRequest())
+	second := app.registerWindow("window-2", emptyLaunchRequest())
+
+	if !app.ShouldRestoreSession("main") {
+		t.Fatal("ShouldRestoreSession(main) = false")
+	}
+	if app.ShouldRestoreSession("window-2") {
+		t.Fatal("ShouldRestoreSession(window-2) = true for a later window")
+	}
+	if request := first.takeLaunch(); !request.RestoreSession {
+		t.Fatal("the first window did not receive the session")
+	}
+	if request := second.takeLaunch(); request.RestoreSession {
+		t.Fatal("a later window must not restore or overwrite the session")
+	}
+}
+
+func TestMovedBufferStaysWithItsWindow(t *testing.T) {
+	app := NewApp()
+	first := app.registerWindow("main", emptyLaunchRequest())
+	moved := LaunchBuffer{Name: "notes.txt", Path: "/notes.txt", Kind: "text", Content: "draft", Dirty: true}
+	second := app.registerWindow("window-2", LaunchRequest{Buffers: []LaunchBuffer{moved}})
+
+	if request := first.takeLaunch(); len(request.Buffers) != 0 {
+		t.Fatalf("the original window received the moved buffer: %+v", request.Buffers)
+	}
+	request := second.takeLaunch()
+	if len(request.Buffers) != 1 || request.Buffers[0].Content != "draft" || !request.Buffers[0].Dirty {
+		t.Fatalf("the new window received %+v, want the dirty buffer", request.Buffers)
+	}
+}
+
+func TestQuitAsksEachDirtyWindowOnce(t *testing.T) {
+	app := NewApp()
+	app.registerWindow("main", emptyLaunchRequest())
+	app.registerWindow("window-2", emptyLaunchRequest())
+	app.SetUnsavedChanges("main", true)
+	app.SetUnsavedChanges("window-2", true)
+
+	if app.shouldQuit() {
+		t.Fatal("shouldQuit() = true with two dirty windows")
+	}
+	if !app.session("main").closeRequested.Load() {
+		t.Fatal("the first dirty window was not asked")
+	}
+	if app.session("window-2").closeRequested.Load() {
+		t.Fatal("the second dirty window was asked before the first answered")
+	}
+
+	app.ResolveClose("main", true)
+	if !app.session("window-2").closeRequested.Load() {
+		t.Fatal("the second dirty window was not asked after the first confirmed")
+	}
+	app.ResolveClose("window-2", true)
+	if !app.allowQuit.Load() {
+		t.Fatal("allowQuit = false after every dirty window confirmed")
 	}
 }

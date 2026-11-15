@@ -121,20 +121,20 @@ func TestSetSidebarVisibleSurvivesFolderChanges(t *testing.T) {
 func TestWatcherReportsExternalChangesOncePerBaseline(t *testing.T) {
 	path := writeTempFile(t, t.TempDir(), "notes.txt", "one")
 	watcher := fileWatcher{}
-	watcher.set([]string{path})
+	watcher.set("main", []string{path})
 
-	if changed := watcher.poll(); len(changed) != 0 {
+	if changed := watcher.poll()["main"]; len(changed) != 0 {
 		t.Fatalf("first poll = %q, want no changes", changed)
 	}
 
 	if err := os.WriteFile(path, []byte("two, longer"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	changed := watcher.poll()
+	changed := watcher.poll()["main"]
 	if len(changed) != 1 || changed[0] != path {
 		t.Fatalf("poll after write = %q, want the file", changed)
 	}
-	if changed := watcher.poll(); len(changed) != 0 {
+	if changed := watcher.poll()["main"]; len(changed) != 0 {
 		t.Fatalf("second poll = %q, want the change reported once", changed)
 	}
 
@@ -142,14 +142,14 @@ func TestWatcherReportsExternalChangesOncePerBaseline(t *testing.T) {
 	if err := os.WriteFile(path, []byte("three"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if changed := watcher.poll(); len(changed) != 1 {
+	if changed := watcher.poll()["main"]; len(changed) != 1 {
 		t.Fatalf("poll after a rebaselined write = %q, want the file", changed)
 	}
 
 	if err := os.Remove(path); err != nil {
 		t.Fatal(err)
 	}
-	if changed := watcher.poll(); len(changed) != 1 {
+	if changed := watcher.poll()["main"]; len(changed) != 1 {
 		t.Fatalf("poll after delete = %q, want the file", changed)
 	}
 }

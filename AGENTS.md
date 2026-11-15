@@ -63,7 +63,9 @@ introduce one unprompted.
   saved through `App.AddSidebarFolder`/`App.RemoveSidebarFolder` into
   `settings.json`. `files.exclude` hides entries from the same read, and
   **View → Toggle Sidebar**
-  (<kbd>Cmd</kbd>+<kbd>B</kbd>) saves `sidebar.visible`.
+  (<kbd>Cmd</kbd>+<kbd>B</kbd>) saves `sidebar.visible`. A new window starts
+  with the saved roots; **File → Open Folder in New Window…** saves the chosen
+  folder as the window's only root and makes it the saved root set.
 - **Workspaces are committable files.** `workspacefile.go` reads and writes
   `.kova-workspace` JSON files whose `folders` entries are relative to the file
   when they sit inside its directory, so the file can live in the repository.
@@ -95,17 +97,36 @@ introduce one unprompted.
   jumps between tabs, and `App.svelte` keeps the Reopen Closed Tab stack.
   `workspace.ts` persists `session.open_files`/`session.active` whenever the
   file-backed tabs change, so a relaunch restores them; untitled buffers are
-  deliberately left out because there is no text on disk to restore.
+  deliberately left out because there is no text on disk to restore. Only the
+  first window of a launch restores the session and writes it back: the launch
+  request's `restore_session` flag marks that window, so a new window never
+  replaces the saved session with its own empty or moved tab list.
+- **Windows are independent editors in one process.** `windows.go` keeps one
+  `windowSession` per Wails window (`main`, `window-2`, …); each owns its tabs,
+  sidebar roots, search results and dirty flag, while settings, recent files and
+  the theme stay shared. Native menu clicks act on the focused window, and a
+  targeted event carries the sender's window name, which `onWindowEvent` in
+  `windowstate.ts` checks, so a command cannot run in another window. **New
+  Window** (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd>), **Close Window**
+  (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>W</kbd>), **Move Tab to New Window**,
+  **Open Folder in New Window…** and **Bring All to Front** live in the File and
+  Window menus and the command palette. Closing a window asks that window's
+  dirty buffers first; closing the last one quits the app, while Cmd+Q asks
+  every dirty window one at a time.
 - **Saving writes what the frontend holds.** `SaveDocument` in `save.go` writes
   the buffer text the frontend hands it, and returns `Conflict: true` without
   writing when the file's mtime moved since `LoadDocument` reported it;
-  `SaveFileDialog` and `OpenFileDialog` wrap the native panels. The frontend
-  pushes `SetUnsavedChanges`, so `ShouldQuit` and a `WindowClosing` hook can
-  cancel a quit or window close and emit `kova:confirm-close`, which the
-  Save/Don't Save prompt answers with `ResolveClose`.
+  `SaveFileDialog` and `OpenFileDialog` wrap the native panels. Each frontend
+  pushes its own window's `SetUnsavedChanges`, so `ShouldQuit` and the
+  `WindowClosing` hook can cancel a quit or window close and emit
+  `kova:confirm-close` with a `close` or `quit` reason. The Save/Don't Save
+  prompt answers with `ResolveClose(window, quit)`; a quit asks every dirty
+  window in turn.
 - **File watching polls rather than subscribing.** `watch.go` stats open
   buffers and expanded folders once a second and emits `kova:watched-changed`
-  with the changed paths. `App.svelte` reloads clean buffers, keeps dirty ones
+  with the changed paths. The watcher records which windows asked for each path,
+  so a change reaches only those windows and closing one drops its
+  registrations. `App.svelte` reloads clean buffers, keeps dirty ones
   (with a notice), and refreshes the tree; `SaveDocument` rebaselines the path
   it wrote so Kova's own save is not echoed back. **View → Refresh** forces the
   same reread on demand.
@@ -173,8 +194,10 @@ introduce one unprompted.
   radio emits `kova:appearance`, and `SetAppearanceMode` moves the checkmark
   when the mode came from the overlay or a keybinding.
 - **Window commands are native.** `window.go` exposes `MinimiseWindow`,
-  `ZoomWindow` and `ToggleFullScreen`, which the Window menu calls directly and
-  the command palette reaches through the bindings.
+  `ZoomWindow` and `ToggleFullScreen` for one window, which the Window menu calls
+  for the focused window and the command palette reaches through the bindings.
+  `windows.go` adds `NewWindow`, `CloseWindow`, `MoveTabToNewWindow`,
+  `OpenFolderInNewWindow` and `BringAllToFront`.
 - **Editor commands forward from Go to the frontend.** `main.go` builds the
   Edit menu (case transforms, trim trailing whitespace) and the View menu
   (zoom, preview, appearance, checkable toggles) and emits `kova:transform-case`,

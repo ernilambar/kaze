@@ -12,8 +12,10 @@ A minimal text editor for macOS.
   Palette, Find in Files and Settings.
 - **Workspaces** — Open, Save As and Close; the workspace file keeps folders
   relative to itself, so it can be committed with the project.
-- **Window commands** — Minimize, Zoom and Toggle Full Screen from the Window
-  menu or the command palette.
+- **Multiple windows** — New Window, Close Window, Move Tab to New Window,
+  Open Folder in New Window and Bring All to Front, alongside Minimize, Zoom and
+  Toggle Full Screen from the Window menu or the command palette. Each window
+  has its own tabs and sidebar; settings and themes are shared.
 - **File handling** — New, Open, Save, Save As and Save All. Closing a dirty
   tab, window or quit prompts to save, and saving over a file another program
   changed warns first.

@@ -1,4 +1,4 @@
-import { Events } from '@wailsio/runtime';
+import { onWindowEvent } from './windowstate';
 import type { CaseTransform } from './case';
 
 // ViewOption is the editor settings a View menu checkbox flips. The names match
@@ -47,14 +47,14 @@ export function listenForEditorCommands(
     handlers: Partial<EditorCommandHandlers>,
 ): () => void {
     const offs = [
-        Events.On('kova:transform-case', (event) =>
-            handlers.transformSelection?.(event.data as CaseTransform),
+        onWindowEvent('kova:transform-case', (data) =>
+            handlers.transformSelection?.(data as CaseTransform),
         ),
-        Events.On('kova:trim-whitespace', () => handlers.trimWhitespace?.()),
-        Events.On('kova:zoom', (event) => handlers.zoom?.(event.data as ZoomCommand)),
-        Events.On('kova:toggle-preview', () => handlers.togglePreview?.()),
-        Events.On('kova:toggle-view', (event) => {
-            const toggle = event.data as ViewToggle | undefined;
+        onWindowEvent('kova:trim-whitespace', () => handlers.trimWhitespace?.()),
+        onWindowEvent('kova:zoom', (data) => handlers.zoom?.(data as ZoomCommand)),
+        onWindowEvent('kova:toggle-preview', () => handlers.togglePreview?.()),
+        onWindowEvent('kova:toggle-view', (data) => {
+            const toggle = data as ViewToggle | undefined;
             if (toggle !== undefined) {
                 handlers.setViewOption?.(toggle.option, toggle.checked);
             }

@@ -1,4 +1,4 @@
-import { Events } from '@wailsio/runtime';
+import { onWindowEvent } from './windowstate';
 
 // FileCommand is every File menu item that acts on a buffer. Go only forwards
 // the click: buffers, their paths and their modified flags are frontend state,
@@ -18,7 +18,7 @@ const FILE_COMMANDS: readonly FileCommand[] = [
 // and returns one function that unsubscribes from all of them.
 export function listenForFileCommands(handlers: Partial<Record<FileCommand, () => void>>): () => void {
     const offs = FILE_COMMANDS.map((command) =>
-        Events.On(`kova:${command}`, () => handlers[command]?.()),
+        onWindowEvent(`kova:${command}`, () => handlers[command]?.()),
     );
     return () => {
         for (const off of offs) {
@@ -27,9 +27,16 @@ export function listenForFileCommands(handlers: Partial<Record<FileCommand, () =
     };
 }
 
-// listenForCloseRequest runs handler when the window or the app is closing with
+// CloseReason is why a close prompt was raised: the window's own close button
+// ("close") or an app quit ("quit"). The prompt's wording differs.
+export type CloseReason = 'quit' | 'close';
+
+// listenForCloseRequest runs handler when a window or the app is closing with
 // unsaved buffers. The frontend answers with ResolveClose, because only it can
 // save them.
-export function listenForCloseRequest(handler: () => void): () => void {
-    return Events.On('kova:confirm-close', () => handler());
+export function listenForCloseRequest(handler: (reason: CloseReason) => void): () => void {
+    return onWindowEvent('kova:confirm-close', (data) => {
+        const prompt = data as { reason?: string } | undefined;
+        handler(prompt?.reason === 'close' ? 'close' : 'quit');
+    });
 }

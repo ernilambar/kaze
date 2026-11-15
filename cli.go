@@ -11,6 +11,22 @@ import (
 // passed to a Kova that is already running.
 const launchEvent = "kova:launch"
 
+// LaunchBuffer is one tab handed to another window. A text buffer carries its
+// text, so unsaved edits move with the tab; an image or diff travels by path
+// and the receiving window reads it again.
+type LaunchBuffer struct {
+	Name    string `json:"name"`
+	Path    string `json:"path"`
+	Kind    string `json:"kind"`
+	Content string `json:"content"`
+	// SavedContent is the text the tab last had on disk. A moved dirty buffer
+	// needs it so the editor knows what "clean" means after the move.
+	SavedContent string `json:"saved_content"`
+	Modified     int64  `json:"modified"`
+	Dirty        bool   `json:"dirty"`
+	SourcePath   string `json:"source_path"`
+}
+
 // LaunchRequest is what a `kova` command line asked the app to open. It travels
 // from the invocation that saw the arguments to the running UI, so paths are
 // absolute by then and every rejected argument is reported back to the user.
@@ -18,17 +34,30 @@ type LaunchRequest struct {
 	Files   []string `json:"files"`
 	Folders []string `json:"folders"`
 	Missing []string `json:"missing"`
+	// Buffers carries tabs moved from another window, and ReplaceFolders makes
+	// Folders the window's only roots (Open Folder in New Window).
+	Buffers        []LaunchBuffer `json:"buffers"`
+	ReplaceFolders bool           `json:"replace_folders"`
+	// RestoreSession marks the first window of a launch. Only it reopens the
+	// saved tabs and writes the session back, so a new window does not clobber
+	// the session with its own empty or moved tab list.
+	RestoreSession bool `json:"restore_session"`
 }
 
 // emptyLaunchRequest is the zero request, with the slices the frontend expects
 // as arrays rather than null.
 func emptyLaunchRequest() LaunchRequest {
-	return LaunchRequest{Files: []string{}, Folders: []string{}, Missing: []string{}}
+	return LaunchRequest{
+		Files:   []string{},
+		Folders: []string{},
+		Missing: []string{},
+		Buffers: []LaunchBuffer{},
+	}
 }
 
 // Empty reports whether nothing at all was requested.
 func (r LaunchRequest) Empty() bool {
-	return len(r.Files) == 0 && len(r.Folders) == 0 && len(r.Missing) == 0
+	return len(r.Files) == 0 && len(r.Folders) == 0 && len(r.Missing) == 0 && len(r.Buffers) == 0
 }
 
 // Merge appends another request, keeping command line order. Every folder is
@@ -37,6 +66,9 @@ func (r *LaunchRequest) Merge(other LaunchRequest) {
 	r.Files = append(r.Files, other.Files...)
 	r.Folders = append(r.Folders, other.Folders...)
 	r.Missing = append(r.Missing, other.Missing...)
+	r.Buffers = append(r.Buffers, other.Buffers...)
+	r.ReplaceFolders = r.ReplaceFolders || other.ReplaceFolders
+	r.RestoreSession = r.RestoreSession || other.RestoreSession
 }
 
 // normalized replaces nil slices with empty ones and drops repeated folders.
@@ -48,6 +80,9 @@ func (r LaunchRequest) normalized() LaunchRequest {
 	}
 	if r.Missing == nil {
 		r.Missing = []string{}
+	}
+	if r.Buffers == nil {
+		r.Buffers = []LaunchBuffer{}
 	}
 	r.Folders = uniquePaths(r.Folders)
 	return r

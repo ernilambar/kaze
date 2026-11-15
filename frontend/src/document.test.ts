@@ -4,6 +4,7 @@ import {
     emptyLaunchRequest,
     nextUntitledName,
     shownName,
+    toBufferDocument,
     toOpenDocument,
     type OpenDocument,
 } from './document';
@@ -112,6 +113,70 @@ describe('createUntitledDocument', () => {
 
 describe('emptyLaunchRequest', () => {
     it('starts with array fields so the UI never reads null', () => {
-        expect(emptyLaunchRequest).toEqual({ files: [], folders: [], missing: [] });
+        expect(emptyLaunchRequest).toEqual({
+            files: [],
+            folders: [],
+            missing: [],
+            buffers: [],
+            replace_folders: false,
+            restore_session: false,
+        });
+    });
+});
+
+describe('toBufferDocument', () => {
+    it('keeps a dirty buffer text and path when it moves windows', () => {
+        expect(
+            toBufferDocument({
+                name: 'notes.txt',
+                path: '/tmp/notes.txt',
+                kind: 'text',
+                content: 'unsaved',
+                saved_content: 'on disk',
+                modified: 42,
+                dirty: true,
+                source_path: '',
+            }),
+        ).toEqual({
+            id: '/tmp/notes.txt',
+            path: '/tmp/notes.txt',
+            name: 'notes.txt',
+            kind: 'text',
+            content: 'unsaved',
+            savedContent: 'on disk',
+            src: '',
+            modified: 42,
+            dirty: true,
+        });
+    });
+
+    it('gives an untitled buffer its name as an id', () => {
+        expect(
+            toBufferDocument({
+                name: 'Untitled-2',
+                path: '',
+                kind: 'text',
+                content: 'draft',
+                saved_content: '',
+                modified: 0,
+                dirty: true,
+                source_path: '',
+            }).id,
+        ).toBe('untitled:Untitled-2');
+    });
+
+    it('rebuilds a diff tab from the file it shows', () => {
+        const moved = toBufferDocument({
+            name: 'notes.txt (Diff)',
+            path: '',
+            kind: 'diff',
+            content: '@@ -1 +1 @@',
+            saved_content: '',
+            modified: 0,
+            dirty: false,
+            source_path: '/tmp/notes.txt',
+        });
+        expect(moved.id).toBe('diff:/tmp/notes.txt');
+        expect(moved.sourcePath).toBe('/tmp/notes.txt');
     });
 });

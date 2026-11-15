@@ -1,4 +1,4 @@
-import { Events } from '@wailsio/runtime';
+import { onWindowEvent } from './windowstate';
 import type { OpenDocument } from './document';
 
 // openDocumentTab returns tabs with document appended, unless a tab for the
@@ -72,7 +72,7 @@ export function setDocumentDirty(tabs: OpenDocument[], id: string, dirty: boolea
 // listenForCloseTab runs handler when the File menu asks to close the active
 // tab. Returns an unsubscribe function.
 export function listenForCloseTab(handler: () => void): () => void {
-    return Events.On('kova:close-tab', () => handler());
+    return onWindowEvent('kova:close-tab', () => handler());
 }
 
 // stepTabId returns the tab a next/previous command activates, wrapping at
@@ -111,15 +111,16 @@ export function listenForTabCommands(handlers: {
     previous: () => void;
     reopen: () => void;
     goToTab: (position: number) => void;
+    moveToNewWindow: () => void;
 }): () => void {
     const offs = [
-        Events.On('kova:next-tab', () => handlers.next()),
-        Events.On('kova:previous-tab', () => handlers.previous()),
-        Events.On('kova:reopen-closed-tab', () => handlers.reopen()),
-        Events.On('kova:go-to-tab', (event) => {
-            const position = event.data as number | undefined;
-            if (typeof position === 'number') {
-                handlers.goToTab(position);
+        onWindowEvent('kova:next-tab', () => handlers.next()),
+        onWindowEvent('kova:previous-tab', () => handlers.previous()),
+        onWindowEvent('kova:reopen-closed-tab', () => handlers.reopen()),
+        onWindowEvent('kova:move-tab-to-new-window', () => handlers.moveToNewWindow()),
+        onWindowEvent('kova:go-to-tab', (data) => {
+            if (typeof data === 'number') {
+                handlers.goToTab(data);
             }
         }),
     ];

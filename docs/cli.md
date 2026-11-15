@@ -40,8 +40,8 @@ command cache; if `kova` reports `command not found`, run `hash -r`.
 
 Relative paths are resolved by the installed launcher against the directory you
 ran it from, so `kova notes.txt` works from any shell. If Kova is already
-running, the arguments are forwarded to that window and it comes to the front;
-a second window is never created.
+running, the arguments are forwarded to the focused window and it comes to the
+front; a second process is never started.
 
 ## Help and version
 

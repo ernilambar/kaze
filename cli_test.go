@@ -26,6 +26,7 @@ func TestParseLaunchRequestClassifiesPaths(t *testing.T) {
 		Files:   []string{file},
 		Folders: []string{dir},
 		Missing: []string{"missing.txt"},
+		Buffers: []LaunchBuffer{},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("parseLaunchRequest() = %+v, want %+v", got, want)
@@ -124,13 +125,14 @@ func TestNormalizedDropsRepeatedFolders(t *testing.T) {
 
 func TestQueueLaunchBeforeListeningKeepsRequest(t *testing.T) {
 	app := NewApp()
+	app.registerWindow("main", emptyLaunchRequest())
 	app.queueLaunch(parseLaunchRequest([]string{t.TempDir()}))
 
-	got := app.GetLaunchRequest()
+	got := app.GetLaunchRequest("main")
 	if len(got.Folders) == 0 {
 		t.Fatal("GetLaunchRequest() lost a request queued before the UI was listening")
 	}
-	if !app.GetLaunchRequest().Empty() {
+	if !app.GetLaunchRequest("main").Empty() {
 		t.Fatal("GetLaunchRequest() must hand a request over only once")
 	}
 }

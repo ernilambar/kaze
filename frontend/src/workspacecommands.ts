@@ -1,4 +1,4 @@
-import { Events } from '@wailsio/runtime';
+import { onWindowEvent } from './windowstate';
 
 // CopyPathKind is what "Copy Path" copies: the absolute path, the path relative
 // to the innermost sidebar root, or the bare file name.
@@ -25,18 +25,18 @@ export function listenForWorkspaceCommands(
     handlers: Partial<WorkspaceCommandHandlers>,
 ): () => void {
     const offs = [
-        Events.On('kova:open-recent', () => handlers.openRecent?.()),
-        Events.On('kova:clear-recent', () => handlers.clearRecent?.()),
-        Events.On('kova:open-workspace', () => handlers.openWorkspace?.()),
-        Events.On('kova:save-workspace-as', () => handlers.saveWorkspaceAs?.()),
-        Events.On('kova:close-workspace', () => handlers.closeWorkspace?.()),
-        Events.On('kova:refresh', () => handlers.refresh?.()),
-        Events.On('kova:find-in-files', () => handlers.findInFiles?.()),
-        Events.On('kova:toggle-sidebar', () => handlers.toggleSidebar?.()),
-        Events.On('kova:close-all-folders', () => handlers.closeAllFolders?.()),
-        Events.On('kova:reveal-file', () => handlers.revealFile?.()),
-        Events.On('kova:copy-path', (event) => {
-            const kind = event.data as CopyPathKind | undefined;
+        onWindowEvent('kova:open-recent', () => handlers.openRecent?.()),
+        onWindowEvent('kova:clear-recent', () => handlers.clearRecent?.()),
+        onWindowEvent('kova:open-workspace', () => handlers.openWorkspace?.()),
+        onWindowEvent('kova:save-workspace-as', () => handlers.saveWorkspaceAs?.()),
+        onWindowEvent('kova:close-workspace', () => handlers.closeWorkspace?.()),
+        onWindowEvent('kova:refresh', () => handlers.refresh?.()),
+        onWindowEvent('kova:find-in-files', () => handlers.findInFiles?.()),
+        onWindowEvent('kova:toggle-sidebar', () => handlers.toggleSidebar?.()),
+        onWindowEvent('kova:close-all-folders', () => handlers.closeAllFolders?.()),
+        onWindowEvent('kova:reveal-file', () => handlers.revealFile?.()),
+        onWindowEvent('kova:copy-path', (data) => {
+            const kind = data as CopyPathKind | undefined;
             if (kind !== undefined) {
                 handlers.copyPath?.(kind);
             }

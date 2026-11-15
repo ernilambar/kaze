@@ -1,6 +1,19 @@
 import type * as models from '../bindings/kova/models';
 import { GetLaunchRequest, LoadDocument } from '../bindings/kova/app';
-import { Events } from '@wailsio/runtime';
+import { onWindowEvent } from './windowstate';
+
+// LaunchBuffer mirrors LaunchBuffer in cli.go: one tab handed to another
+// window. A text buffer carries its text so unsaved edits move with it.
+export interface LaunchBuffer {
+    name: string;
+    path: string;
+    kind: string;
+    content: string;
+    saved_content: string;
+    modified: number;
+    dirty: boolean;
+    source_path: string;
+}
 
 // Mirrors LaunchRequest in cli.go. The backend resolves paths; the frontend only
 // decides what to display for them.
@@ -8,9 +21,19 @@ export interface LaunchRequest {
     files: string[];
     folders: string[];
     missing: string[];
+    buffers: LaunchBuffer[];
+    replace_folders: boolean;
+    restore_session: boolean;
 }
 
-export const emptyLaunchRequest: LaunchRequest = { files: [], folders: [], missing: [] };
+export const emptyLaunchRequest: LaunchRequest = {
+    files: [],
+    folders: [],
+    missing: [],
+    buffers: [],
+    replace_folders: false,
+    restore_session: false,
+};
 
 // toLaunchRequest normalizes the binding model, whose slices are nullable
 // because a nil Go slice encodes as null. The rest of the frontend works with
@@ -20,6 +43,18 @@ export function toLaunchRequest(request: models.LaunchRequest): LaunchRequest {
         files: request.files ?? [],
         folders: request.folders ?? [],
         missing: request.missing ?? [],
+        buffers: (request.buffers ?? []).map((buffer) => ({
+            name: buffer.name,
+            path: buffer.path,
+            kind: buffer.kind,
+            content: buffer.content,
+            saved_content: buffer.saved_content ?? '',
+            modified: buffer.modified,
+            dirty: buffer.dirty,
+            source_path: buffer.source_path ?? '',
+        })),
+        replace_folders: request.replace_folders ?? false,
+        restore_session: request.restore_session ?? false,
     };
 }
 
@@ -50,6 +85,10 @@ export interface OpenDocument {
     modified: number;
     // dirty marks edits that are not on disk yet.
     dirty: boolean;
+    // savedContent is the text on disk when it differs from content. It is set
+    // for a tab moved from another window with unsaved edits, so the editor
+    // still knows what a clean buffer would be.
+    savedContent?: string;
     // sourcePath is the file a diff tab is showing. It is empty for every other
     // kind, and kept apart from path so a diff never looks saveable.
     sourcePath?: string;
@@ -141,6 +180,36 @@ export function toOpenDocument(document: models.Document): OpenDocument {
     };
 }
 
+// toBufferDocument turns a tab moved from another window back into a document.
+// A text buffer keeps the text the other window held, so unsaved edits survive
+// the move; an untitled buffer keeps its name because it has no path.
+export function toBufferDocument(buffer: LaunchBuffer): OpenDocument {
+    if (buffer.kind === 'diff') {
+        return {
+            id: diffTabId(buffer.source_path),
+            path: '',
+            name: buffer.name,
+            kind: 'diff',
+            content: buffer.content,
+            src: '',
+            modified: 0,
+            dirty: false,
+            sourcePath: buffer.source_path,
+        };
+    }
+    return {
+        id: buffer.path !== '' ? buffer.path : `${UNTITLED_PREFIX}${buffer.name}`,
+        path: buffer.path,
+        name: buffer.name,
+        kind: buffer.kind === 'image' ? 'image' : 'text',
+        content: buffer.content,
+        savedContent: buffer.saved_content,
+        src: '',
+        modified: buffer.modified,
+        dirty: buffer.dirty,
+    };
+}
+
 // readDocument loads one file, reporting failures as a message instead of
 // throwing, so one bad path cannot stop the rest of a launch.
 export async function readDocument(path: string): Promise<OpenDocument | undefined> {
@@ -152,18 +221,23 @@ export async function readDocument(path: string): Promise<OpenDocument | undefin
     }
 }
 
-// listenForLaunch runs handler with every launch request, starting with the one
-// Kova was started with. New requests arrive as events while the app runs.
-export async function listenForLaunch(handler: (request: LaunchRequest) => void): Promise<() => void> {
-    const off = Events.On('kova:launch', (event) => {
-        const request = event.data as LaunchRequest | undefined;
+// listenForLaunch runs handler with every launch request for one window,
+// starting with the one the window was created with. The listener is installed
+// before the request is collected, so a path that arrives at the same moment is
+// queued rather than lost.
+export async function listenForLaunch(
+    windowName: string,
+    handler: (request: LaunchRequest) => void,
+): Promise<() => void> {
+    const off = onWindowEvent('kova:launch', (data) => {
+        const request = data as LaunchRequest | undefined;
         if (request !== undefined) {
             handler(request);
         }
     });
 
     try {
-        handler(toLaunchRequest(await GetLaunchRequest()));
+        handler(toLaunchRequest(await GetLaunchRequest(windowName)));
     } catch (error) {
         console.error('Failed to read the launch request.', error);
     }
