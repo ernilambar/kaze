@@ -116,8 +116,8 @@ introduce one unprompted.
 - **The title bar is the frontend's.** `openWindow` in `windows.go` passes
   `MacTitleBarHidden`, so macOS hides its native title bar and extends the
   content under the traffic lights; `TitleBar.svelte` is then the window's only
-  title bar, 30px tall on macOS (the strip's midline is the lights' centre
-  line), padded on macOS to leave room for the buttons and marked
+  title bar, 32px tall on macOS with 2px top padding (so the text's visual
+  centre meets the lights' centre, measured from a screenshot), padded on macOS to leave room for the buttons and marked
   `--wails-draggable: drag` so the strip moves and double-click-zooms the
   window. Other platforms keep their native title bar above the same strip.
 - **Saving writes what the frontend holds.** `SaveDocument` in `save.go` writes

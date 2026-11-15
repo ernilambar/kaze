@@ -40,8 +40,11 @@
     }
 
     .titlebar--mac {
-        /* 30px puts the strip's midline on the traffic lights' centre line. */
-        height: 30px;
+        /* The traffic lights are centred about 16px from the top. The bottom
+           border and the glyphs' cap height sit the text above the box's
+           midline, so the top padding lowers it onto the lights' centre. */
+        height: 32px;
+        padding-top: 2px;
         padding-left: 80px;
     }
 
