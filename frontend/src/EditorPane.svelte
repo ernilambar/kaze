@@ -11,7 +11,6 @@
         languageForPath,
         modelOptions,
         WELCOME_KEY,
-        WELCOME_TEXT,
     } from './editor';
     import type { ZoomCommand } from './editorcommands';
     import type { EditorSettings } from './settings';
@@ -19,7 +18,7 @@
 
     interface Props {
         // modelKey identifies the active buffer: a document tab's id, or
-        // WELCOME_KEY for the welcome screen.
+        // WELCOME_KEY for the idle screen.
         modelKey?: string;
         // content is only read the first time a model is created, so a tab
         // keeps its edits when the user switches away and back.
@@ -40,7 +39,7 @@
 
     let {
         modelKey = WELCOME_KEY,
-        content = WELCOME_TEXT,
+        content = '',
         openIds = [],
         settings,
         readOnly = false,

@@ -36,6 +36,7 @@
     import StatusBar from './StatusBar.svelte';
     import TabBar from './TabBar.svelte';
     import TitleBar from './TitleBar.svelte';
+    import Welcome from './Welcome.svelte';
     import { COMMANDS, listenForCommandPalette, rankCommands } from './commands';
     import {
         createDiffDocument,
@@ -47,7 +48,7 @@
         type LaunchRequest,
         type OpenDocument,
     } from './document';
-    import { languageLabel, WELCOME_KEY, WELCOME_TEXT } from './editor';
+    import { languageLabel, WELCOME_KEY } from './editor';
     import {
         listenForEditorCommands,
         VIEW_OPTIONS,
@@ -248,9 +249,11 @@
     let imageActive = $derived(active?.kind === 'image');
     let previewActive = $derived(preview !== null && preview.id === activeId);
     // Either surface replaces the editor, which stays laid out behind it so a
-    // text tab keeps its viewport.
+    // text tab keeps its viewport. The welcome screen is the same layer when no
+    // tab is open.
     let viewerActive = $derived(imageActive || previewActive);
-    let paneReplaced = $derived(viewerActive || searchActive);
+    let welcomeActive = $derived(active === undefined && !searchActive);
+    let paneReplaced = $derived(viewerActive || searchActive || welcomeActive);
     let language = $derived(
         imageActive
             ? 'Image'
@@ -259,10 +262,10 @@
               : languageLabel(active?.path ?? ''),
     );
     // Monaco keeps its buffers while an image tab is showing, so switching back
-    // to a text tab preserves edits. The welcome buffer keeps the hidden editor
+    // to a text tab preserves edits. The idle buffer keeps the hidden editor
     // from creating a model for an image path.
     let editorKey = $derived(imageActive ? WELCOME_KEY : (active?.id ?? WELCOME_KEY));
-    let editorContent = $derived(imageActive ? WELCOME_TEXT : (active?.content ?? WELCOME_TEXT));
+    let editorContent = $derived(imageActive ? '' : (active?.content ?? ''));
     let openIds = $derived(tabs.map((tab) => tab.id));
     let unsaved = $derived(tabs.some((tab) => tab.dirty));
     let folderLabel = $derived(sidebarLabel(folders));
@@ -1896,6 +1899,12 @@
                         kind={preview.kind}
                         content={preview.content}
                         name={active?.name ?? ''}
+                    />
+                {:else if welcomeActive}
+                    <Welcome
+                        recent={recentItems.slice(0, 6)}
+                        onCommand={selectCommand}
+                        onOpenRecent={(path) => void openFile(path)}
                     />
                 {/if}
             </div>

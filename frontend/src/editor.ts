@@ -6,27 +6,22 @@ import type { EditorSettings } from './settings';
 // tabs. It is not chosen from a file extension.
 const DIFF_LANGUAGE = 'diff';
 
-// WELCOME_TEXT is what the editor shows when no file was opened.
-export const WELCOME_TEXT = `Hello, world!
-
-Kova is a simple text editor built with Wails and Monaco.
-`;
-
-// WELCOME_KEY is the model key for the welcome buffer. It is empty because an
-// open document is identified by its tab id, and no tab has an empty id.
+// WELCOME_KEY is the model key for the idle buffer shown when no file is open.
+// It is empty because an open document is identified by its tab id, and no tab
+// has an empty id.
 export const WELCOME_KEY = '';
 
 // PLAIN_TEXT_LANGUAGE is Monaco's id for an unstyled buffer.
 export const PLAIN_TEXT_LANGUAGE = 'plaintext';
 
-const WELCOME_URI = 'inmemory://model/welcome.txt';
+const IDLE_URI = 'inmemory://model/idle.txt';
 
 // modelURI gives a buffer its Monaco identity. Files use their path, so two
 // models can never claim the same document; untitled buffers have no path, so
 // they live in memory under their tab name.
 function modelURI(key: string): monaco.Uri {
     if (key === WELCOME_KEY) {
-        return monaco.Uri.parse(WELCOME_URI);
+        return monaco.Uri.parse(IDLE_URI);
     }
     if (key.startsWith(DIFF_PREFIX)) {
         return monaco.Uri.parse(
