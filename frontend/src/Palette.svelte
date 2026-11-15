@@ -1,22 +1,24 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { rankQuickOpen, type QuickOpenFile } from './quickOpen';
+    import type { PaletteItem } from './palette';
 
     interface Props {
-        files: QuickOpenFile[];
-        loading?: boolean;
-        onOpen: (path: string) => void;
+        title: string;
+        placeholder: string;
+        rank: (query: string) => PaletteItem[];
+        empty: string;
+        onSelect: (id: string) => void;
         onClose: () => void;
     }
 
-    let { files, loading = false, onOpen, onClose }: Props = $props();
+    let { title, placeholder, rank, empty, onSelect, onClose }: Props = $props();
 
     let query = $state('');
     let selected = $state(0);
     let input = $state<HTMLInputElement>();
     let list = $state<HTMLUListElement>();
 
-    let results = $derived(rankQuickOpen(query, files));
+    let results = $derived(rank(query));
 
     function move(step: number): void {
         if (results.length === 0) {
@@ -26,9 +28,9 @@
     }
 
     function choose(): void {
-        const file = results[selected] ?? results[0];
-        if (file !== undefined) {
-            onOpen(file.path);
+        const item = results[selected] ?? results[0];
+        if (item !== undefined) {
+            onSelect(item.id);
         }
     }
 
@@ -63,65 +65,57 @@
     onMount(() => input?.focus());
 </script>
 
-<div class="quick-open">
+<div class="palette">
     <button
-        class="quick-open__backdrop"
-        aria-label="Close Quick Open"
+        class="palette__backdrop"
+        aria-label={`Close ${title}`}
         tabindex="-1"
         onclick={onClose}
     ></button>
-    <div class="quick-open__dialog" role="dialog" aria-modal="true" aria-label="Quick Open">
+    <div class="palette__dialog" role="dialog" aria-modal="true" aria-label={title}>
         <input
-            class="quick-open__input"
+            class="palette__input"
             bind:this={input}
             bind:value={query}
             oninput={() => (selected = 0)}
             onkeydown={onKeydown}
             type="text"
-            placeholder="Search files by name or path"
-            aria-label="Search files by name or path"
-            aria-controls="quick-open-results"
-            aria-activedescendant={results.length > 0 ? `quick-open-option-${selected}` : undefined}
+            {placeholder}
+            aria-label={placeholder}
+            aria-controls="palette-results"
+            aria-activedescendant={results.length > 0 ? `palette-option-${selected}` : undefined}
             autocomplete="off"
             spellcheck="false"
         />
-        <ul class="quick-open__results" id="quick-open-results" role="listbox" bind:this={list}>
-            {#each results as file, index (file.path)}
+        <ul class="palette__results" id="palette-results" role="listbox" bind:this={list}>
+            {#each results as item, index (item.id)}
                 <li role="presentation">
                     <button
-                        id={`quick-open-option-${index}`}
-                        class="quick-open__option"
+                        id={`palette-option-${index}`}
+                        class="palette__option"
                         type="button"
                         role="option"
                         aria-selected={index === selected}
-                        onclick={() => onOpen(file.path)}
+                        onclick={() => onSelect(item.id)}
                         onmouseenter={() => (selected = index)}
-                        title={file.path}
+                        title={item.detail === '' ? item.name : `${item.detail}/${item.name}`}
                     >
-                        <span class="quick-open__name">{file.name}</span>
-                        {#if file.detail !== ''}
-                            <span class="quick-open__detail">{file.detail}</span>
+                        <span class="palette__name">{item.name}</span>
+                        {#if item.detail !== ''}
+                            <span class="palette__detail">{item.detail}</span>
                         {/if}
                     </button>
                 </li>
             {/each}
         </ul>
         {#if results.length === 0}
-            <p class="quick-open__empty">
-                {#if loading}
-                    Loading files…
-                {:else if files.length === 0}
-                    Add a folder to the sidebar to search its files.
-                {:else}
-                    No matching files.
-                {/if}
-            </p>
+            <p class="palette__empty">{empty}</p>
         {/if}
     </div>
 </div>
 
 <style>
-    .quick-open {
+    .palette {
         position: fixed;
         inset: 0;
         z-index: 100;
@@ -130,7 +124,7 @@
         align-items: flex-start;
     }
 
-    .quick-open__backdrop {
+    .palette__backdrop {
         position: absolute;
         inset: 0;
         padding: 0;
@@ -139,7 +133,7 @@
         cursor: default;
     }
 
-    .quick-open__dialog {
+    .palette__dialog {
         position: relative;
         width: min(640px, 90vw);
         margin-top: 10vh;
@@ -150,7 +144,7 @@
         overflow: hidden;
     }
 
-    .quick-open__input {
+    .palette__input {
         width: 100%;
         padding: 10px 12px;
         border: none;
@@ -162,11 +156,11 @@
         outline: none;
     }
 
-    .quick-open__input::placeholder {
+    .palette__input::placeholder {
         color: var(--fg-muted);
     }
 
-    .quick-open__results {
+    .palette__results {
         max-height: 46vh;
         margin: 0;
         padding: 4px 0;
@@ -174,7 +168,7 @@
         overflow-y: auto;
     }
 
-    .quick-open__option {
+    .palette__option {
         display: flex;
         align-items: baseline;
         gap: 8px;
@@ -188,18 +182,18 @@
         cursor: pointer;
     }
 
-    .quick-open__option[aria-selected='true'] {
+    .palette__option[aria-selected='true'] {
         background: var(--bg-selected);
     }
 
-    .quick-open__name {
+    .palette__name {
         flex: 0 1 auto;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
-    .quick-open__detail {
+    .palette__detail {
         flex: 0 1 auto;
         margin-left: auto;
         color: var(--fg-muted);
@@ -209,7 +203,7 @@
         white-space: nowrap;
     }
 
-    .quick-open__empty {
+    .palette__empty {
         margin: 0;
         padding: 12px;
         color: var(--fg-muted);

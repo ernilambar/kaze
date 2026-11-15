@@ -1,11 +1,12 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import EditorPane from './EditorPane.svelte';
-    import QuickOpen from './QuickOpen.svelte';
+    import Palette from './Palette.svelte';
     import Sidebar from './Sidebar.svelte';
     import StatusBar from './StatusBar.svelte';
     import TabBar from './TabBar.svelte';
     import TitleBar from './TitleBar.svelte';
+    import { listenForCommandPalette, rankCommands } from './commands';
     import {
         listenForLaunch,
         readDocument,
@@ -14,9 +15,12 @@
         type OpenDocument,
     } from './document';
     import { WELCOME_KEY, WELCOME_TEXT } from './editor';
+    import { InstallCommandLineTool, OpenSettings } from '../wailsjs/go/main/App';
+    import type { PaletteItem } from './palette';
     import {
         listFiles,
         listenForQuickOpen,
+        rankQuickOpen,
         toQuickOpenFiles,
         type QuickOpenFile,
     } from './quickOpen';
@@ -44,6 +48,7 @@
     let quickOpen = $state(false);
     let quickOpenFiles = $state<QuickOpenFile[]>([]);
     let quickOpenLoading = $state(false);
+    let commandPalette = $state(false);
 
     let line = $state(1);
     let column = $state(1);
@@ -51,6 +56,13 @@
     let active = $derived(tabs.find((tab) => tab.path === activePath));
     let openPaths = $derived(tabs.map((tab) => tab.path));
     let folderLabel = $derived(sidebarLabel(folders));
+    let quickOpenEmpty = $derived(
+        quickOpenLoading
+            ? 'Loading files…'
+            : quickOpenFiles.length === 0
+              ? 'Add a folder to the sidebar to search its files.'
+              : 'No matching files.',
+    );
 
     // showDocument adds a tab for the document unless its path is already open,
     // then makes it active.
@@ -129,6 +141,7 @@
     // walked the sidebar roots, so the input is usable while a large tree is
     // still being read.
     async function showQuickOpen(): Promise<void> {
+        commandPalette = false;
         quickOpen = true;
         quickOpenLoading = true;
         try {
@@ -150,6 +163,72 @@
     async function openFromQuickOpen(path: string): Promise<void> {
         quickOpen = false;
         await openFile(path);
+    }
+
+    // The two palettes share Palette.svelte, so Quick Open rows are mapped onto
+    // the common row shape and ranked with the same function.
+    function rankFiles(query: string): PaletteItem[] {
+        return rankQuickOpen(query, quickOpenFiles).map(toPaletteItem);
+    }
+
+    function toPaletteItem(file: QuickOpenFile): PaletteItem {
+        return { id: file.path, name: file.name, detail: file.detail };
+    }
+
+    function rankCommandRows(query: string): PaletteItem[] {
+        return rankCommands(query);
+    }
+
+    function showCommandPalette(): void {
+        quickOpen = false;
+        commandPalette = true;
+    }
+
+    function closeCommandPalette(): void {
+        commandPalette = false;
+    }
+
+    // selectCommand closes the palette before running the command, so commands
+    // that open another dialog (Quick Open, the folder picker) start clean.
+    function selectCommand(id: string): void {
+        commandPalette = false;
+        switch (id) {
+            case 'quick-open':
+                void showQuickOpen();
+                break;
+            case 'add-folder':
+                void addFolderFromDialog();
+                break;
+            case 'close-tab':
+                if (activePath !== '') {
+                    closeTab(activePath);
+                }
+                break;
+            case 'settings':
+                void openSettings();
+                break;
+            case 'install-command-line-tool':
+                void installCommandLineTool();
+                break;
+        }
+    }
+
+    async function openSettings(): Promise<void> {
+        try {
+            await OpenSettings();
+            notice = '';
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
+    async function installCommandLineTool(): Promise<void> {
+        try {
+            await InstallCommandLineTool();
+            notice = '';
+        } catch (error) {
+            notice = errorMessage(error);
+        }
     }
 
     async function addFolderFromDialog(): Promise<void> {
@@ -188,6 +267,7 @@
         let unsubscribeMenu: (() => void) | undefined;
         let unsubscribeClose: (() => void) | undefined;
         let unsubscribeQuickOpen: (() => void) | undefined;
+        let unsubscribeCommandPalette: (() => void) | undefined;
         let disposed = false;
 
         void (async () => {
@@ -205,6 +285,7 @@
                 }
             });
             unsubscribeQuickOpen = listenForQuickOpen(() => void showQuickOpen());
+            unsubscribeCommandPalette = listenForCommandPalette(showCommandPalette);
         })();
 
         return () => {
@@ -213,6 +294,7 @@
             unsubscribeMenu?.();
             unsubscribeClose?.();
             unsubscribeQuickOpen?.();
+            unsubscribeCommandPalette?.();
         };
     });
 </script>
@@ -250,11 +332,23 @@
     </div>
     <StatusBar {line} {column} language={LANGUAGE} {notice} {folderLabel} />
     {#if quickOpen}
-        <QuickOpen
-            files={quickOpenFiles}
-            loading={quickOpenLoading}
-            onOpen={(path) => void openFromQuickOpen(path)}
+        <Palette
+            title="Quick Open"
+            placeholder="Search files by name or path"
+            rank={rankFiles}
+            empty={quickOpenEmpty}
+            onSelect={(path) => void openFromQuickOpen(path)}
             onClose={closeQuickOpen}
+        />
+    {/if}
+    {#if commandPalette}
+        <Palette
+            title="Command Palette"
+            placeholder="Type a command"
+            rank={rankCommandRows}
+            empty="No matching commands."
+            onSelect={selectCommand}
+            onClose={closeCommandPalette}
         />
     {/if}
 </div>

@@ -8,11 +8,15 @@ export function GetLaunchRequest():Promise<main.LaunchRequest>;
 
 export function GetSettings():Promise<main.Settings>;
 
+export function InstallCommandLineTool():Promise<void>;
+
 export function ListFiles():Promise<Array<string>>;
 
 export function LoadDocument(arg1:string):Promise<main.Document>;
 
 export function OpenFolderDialog():Promise<string>;
+
+export function OpenSettings():Promise<void>;
 
 export function ReadFolder(arg1:string):Promise<Array<main.FolderEntry>>;
 

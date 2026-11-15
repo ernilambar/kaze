@@ -14,6 +14,10 @@ export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
 }
 
+export function InstallCommandLineTool() {
+  return window['go']['main']['App']['InstallCommandLineTool']();
+}
+
 export function ListFiles() {
   return window['go']['main']['App']['ListFiles']();
 }
@@ -24,6 +28,10 @@ export function LoadDocument(arg1) {
 
 export function OpenFolderDialog() {
   return window['go']['main']['App']['OpenFolderDialog']();
+}
+
+export function OpenSettings() {
+  return window['go']['main']['App']['OpenSettings']();
 }
 
 export function ReadFolder(arg1) {

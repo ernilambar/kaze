@@ -121,24 +121,33 @@ function isBoundary(text: string, index: number): boolean {
     return current !== current.toLowerCase() && previous === previous.toLowerCase();
 }
 
-// rankQuickOpen matches query against each file's name and its path. Names rank
-// above paths, exact names above prefixes, and prefixes above loose matches.
-export function rankQuickOpen(
+// Rankable is one row shared by the palettes: a name and the dimmed detail
+// shown beside it.
+export interface Rankable {
+    name: string;
+    detail: string;
+}
+
+// rankCandidates matches query against each row's name and its detail/name
+// path. Names rank above details, exact names above prefixes, and prefixes
+// above loose matches. Both palettes share this so they order matches the same
+// way.
+export function rankCandidates<T extends Rankable>(
     query: string,
-    files: readonly QuickOpenFile[],
+    candidates: readonly T[],
     limit: number = QUICK_OPEN_LIMIT,
-): QuickOpenFile[] {
+): T[] {
     const needle = query.trim();
     if (needle === '') {
-        return files.slice(0, limit);
+        return candidates.slice(0, limit);
     }
 
     const lowerNeedle = needle.toLowerCase();
-    const matches: Array<{ file: QuickOpenFile; score: number }> = [];
+    const matches: Array<{ candidate: T; score: number }> = [];
 
-    for (const file of files) {
-        const nameScore = fuzzyScore(needle, file.name);
-        const pathScore = fuzzyScore(needle, `${file.detail}/${file.name}`);
+    for (const candidate of candidates) {
+        const nameScore = fuzzyScore(needle, candidate.name);
+        const pathScore = fuzzyScore(needle, `${candidate.detail}/${candidate.name}`);
         if (nameScore === undefined && pathScore === undefined) {
             continue;
         }
@@ -148,32 +157,42 @@ export function rankQuickOpen(
             score = Math.max(score, pathScore);
         }
 
-        const lowerName = file.name.toLowerCase();
+        const lowerName = candidate.name.toLowerCase();
         if (lowerName === lowerNeedle) {
             score += 100;
         } else if (lowerName.startsWith(lowerNeedle)) {
             score += 40;
         } else if (lowerName.includes(lowerNeedle)) {
             score += 20;
-        } else if (file.detail.toLowerCase().includes(lowerNeedle)) {
+        } else if (candidate.detail.toLowerCase().includes(lowerNeedle)) {
             score += 10;
         }
 
-        matches.push({ file, score });
+        matches.push({ candidate, score });
     }
 
     matches.sort((left, right) => {
         if (left.score !== right.score) {
             return right.score - left.score;
         }
-        if (left.file.detail.length !== right.file.detail.length) {
-            return left.file.detail.length - right.file.detail.length;
+        if (left.candidate.detail.length !== right.candidate.detail.length) {
+            return left.candidate.detail.length - right.candidate.detail.length;
         }
-        const byDetail = left.file.detail.localeCompare(right.file.detail);
-        return byDetail !== 0 ? byDetail : left.file.name.localeCompare(right.file.name);
+        const byDetail = left.candidate.detail.localeCompare(right.candidate.detail);
+        return byDetail !== 0 ? byDetail : left.candidate.name.localeCompare(right.candidate.name);
     });
 
-    return matches.slice(0, limit).map((match) => match.file);
+    return matches.slice(0, limit).map((match) => match.candidate);
+}
+
+// rankQuickOpen matches query against each file's name and its path using the
+// shared palette ranking.
+export function rankQuickOpen(
+    query: string,
+    files: readonly QuickOpenFile[],
+    limit: number = QUICK_OPEN_LIMIT,
+): QuickOpenFile[] {
+    return rankCandidates(query, files, limit);
 }
 
 function innermostRoot(path: string, roots: readonly string[]): string {

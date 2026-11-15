@@ -130,10 +130,17 @@ func (a *App) openSettingsFile() error {
 	return openInEditor(path)
 }
 
+// OpenSettings opens settings.json in the editor named by the user's
+// environment, falling back to the platform's default file handler. The command
+// palette reports the error; the menu logs it.
+func (a *App) OpenSettings() error {
+	return a.openSettingsFile()
+}
+
 // openSettingsFromMenu opens settings.json from the app menu. A menu click has
 // no caller to return to, so failures are logged.
 func (a *App) openSettingsFromMenu() {
-	if err := a.openSettingsFile(); err != nil {
+	if err := a.OpenSettings(); err != nil {
 		runtime.LogError(a.ctx, err.Error())
 	}
 }
@@ -177,6 +184,17 @@ const quickOpenEvent = "kova:quick-open"
 func (a *App) emitQuickOpen() {
 	if a.ctx != nil {
 		runtime.EventsEmit(a.ctx, quickOpenEvent)
+	}
+}
+
+// commandPaletteEvent asks the frontend to show the command palette. Commands
+// are frontend state, so the menu only sends the command.
+const commandPaletteEvent = "kova:command-palette"
+
+// emitCommandPalette tells the frontend to show the command palette.
+func (a *App) emitCommandPalette() {
+	if a.ctx != nil {
+		runtime.EventsEmit(a.ctx, commandPaletteEvent)
 	}
 }
 
@@ -231,9 +249,10 @@ func (a *App) queueLaunchPaths(paths []string) {
 }
 
 // InstallCommandLineTool installs the `kova` command in /usr/local/bin, asking
-// for an administrator password when the directory is not writable. The menu
-// item reports the outcome, since a menu click has no caller to return to.
-func (a *App) installCommandLineToolFromMenu() {
+// for an administrator password when the directory is not writable. It reports
+// the outcome with dialogs, because the app menu and the command palette have no
+// caller to return to.
+func (a *App) InstallCommandLineTool() {
 	err := installCommandLineTool()
 	if err != nil {
 		runtime.LogError(a.ctx, err.Error())

@@ -32,6 +32,15 @@ the arrow keys, and press <kbd>Enter</kbd> to open the selected file;
 <kbd>Esc</kbd> dismisses the palette. Version-control metadata and
 `node_modules` are skipped so generated trees do not bury your files.
 
+## Command palette
+
+Press **File → Command Palette…** (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>)
+to run a command by name. It lists the same actions as the menus—Quick Open,
+adding a folder, closing a tab, Settings, and installing the command line
+tool—and ranks matches exactly like Quick Open. Type to narrow the list, use
+the arrow keys to move, and press <kbd>Enter</kbd> to run the selected command;
+<kbd>Esc</kbd> dismisses the palette.
+
 ## Command line
 
 Install the tool from **Kova → Install Command Line Tool…**, then:

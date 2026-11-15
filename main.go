@@ -25,7 +25,7 @@ func appMenu(name string, app *App) *menu.Menu {
 	appMenu.AddSeparator()
 	appMenu.AddText("Settings…", keys.CmdOrCtrl(","), func(*menu.CallbackData) { app.openSettingsFromMenu() })
 	appMenu.AddText("Install Command Line Tool…", nil, func(*menu.CallbackData) {
-		app.installCommandLineToolFromMenu()
+		app.InstallCommandLineTool()
 	})
 	appMenu.AddSeparator()
 	appMenu.AddText("Hide "+name, keys.CmdOrCtrl("h"), func(*menu.CallbackData) { hideApplication() })
@@ -42,6 +42,9 @@ func appMenu(name string, app *App) *menu.Menu {
 // window actions, so they live here rather than in the app menu.
 func fileMenu(app *App) *menu.Menu {
 	fileMenu := menu.NewMenu()
+	fileMenu.AddText("Command Palette…", keys.Combo("p", keys.CmdOrCtrlKey, keys.ShiftKey), func(*menu.CallbackData) {
+		app.emitCommandPalette()
+	})
 	fileMenu.AddText("Quick Open…", keys.CmdOrCtrl("p"), func(*menu.CallbackData) {
 		app.emitQuickOpen()
 	})
