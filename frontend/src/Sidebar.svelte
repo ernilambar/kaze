@@ -1,5 +1,6 @@
 <script lang="ts">
     import FolderTree from './FolderTree.svelte';
+    import type { GitStatusKind } from './git';
     import { folderName } from './sidebar';
 
     interface Props {
@@ -8,6 +9,8 @@
         busy?: boolean;
         // refreshToken changes when the tree should reread what is on disk.
         refreshToken?: number;
+        // statuses maps a path to its git state for the row's status mark.
+        statuses?: Record<string, GitStatusKind>;
         onAddFolder: () => void;
         onRemoveFolder: (path: string) => void;
         onOpenFile: (path: string) => void;
@@ -21,6 +24,7 @@
         selectedPath = '',
         busy = false,
         refreshToken = 0,
+        statuses = {},
         onAddFolder,
         onRemoveFolder,
         onOpenFile,
@@ -56,6 +60,7 @@
                     name={folderName(folder)}
                     {selectedPath}
                     {refreshToken}
+                    {statuses}
                     expanded={true}
                     removable={true}
                     {onOpenFile}

@@ -18,6 +18,8 @@ const EDIT_COMMANDS: readonly Command[] = [
 ];
 
 const VIEW_COMMANDS: readonly Command[] = [
+    { id: 'show-explorer', name: 'Show Explorer', detail: 'View' },
+    { id: 'show-changes', name: 'Show Changes', detail: 'View' },
     { id: 'toggle-preview', name: 'Toggle Preview', detail: 'View' },
     { id: 'zoom-in', name: 'Zoom In', detail: 'View' },
     { id: 'zoom-out', name: 'Zoom Out', detail: 'View' },

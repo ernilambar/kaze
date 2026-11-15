@@ -53,6 +53,33 @@ export function CopyText(text: string): $CancellablePromise<void> {
 }
 
 /**
+ * GetGitBaseline returns the committed text of path. A path outside a
+ * repository, or one HEAD does not contain, reports that instead of an error:
+ * the gutter only needs to know whether it has a baseline to compare against.
+ */
+export function GetGitBaseline(path: string): $CancellablePromise<$models.GitBaseline> {
+    return $Call.ByID(3065424274, path);
+}
+
+/**
+ * GetGitDiff returns a unified diff of path against HEAD. Tracked changes use
+ * `git diff HEAD`, which includes both staged and unstaged edits; an untracked
+ * file is shown as an added file instead.
+ */
+export function GetGitDiff(path: string): $CancellablePromise<string> {
+    return $Call.ByID(2688063178, path);
+}
+
+/**
+ * GetGitStatus reports the repositories behind the sidebar roots and the
+ * changed files inside them. A root outside a repository is skipped silently:
+ * a non-repository folder is normal, not a failure.
+ */
+export function GetGitStatus(folders: string[] | null): $CancellablePromise<$models.GitSnapshot> {
+    return $Call.ByID(4123560639, folders);
+}
+
+/**
  * GetLaunchRequest hands the frontend the paths Kova was started with. The
  * frontend calls it once after attaching its listener, so anything passed in
  * before the UI was ready is still opened.

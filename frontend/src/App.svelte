@@ -17,6 +17,7 @@
     } from '../bindings/kova/app';
     import type { SaveResult, SearchMatch } from '../bindings/kova/models';
     import { CASE_TRANSFORMS, type CaseTransform } from './case';
+    import ChangesView from './ChangesView.svelte';
     import EditorPane from './EditorPane.svelte';
     import ImageViewer from './ImageViewer.svelte';
     import Preview from './Preview.svelte';
@@ -29,7 +30,9 @@
     import TitleBar from './TitleBar.svelte';
     import { listenForCommandPalette, rankCommands } from './commands';
     import {
+        createDiffDocument,
         createUntitledDocument,
+        diffTabId,
         listenForLaunch,
         readDocument,
         shownName,
@@ -44,6 +47,17 @@
         type ZoomCommand,
     } from './editorcommands';
     import { listenForCloseRequest, listenForFileCommands } from './filecommands';
+    import {
+        branchLabel,
+        loadGitStatus,
+        readGitBaseline,
+        readGitDiff,
+        repoForPath,
+        type GitChange,
+        type GitRepo,
+        type GitStatusKind,
+        type SidebarView,
+    } from './git';
     import type { PaletteItem } from './palette';
     import { previewKindFor, type PreviewKind } from './preview';
     import {
@@ -139,6 +153,12 @@
     let notice = $state('');
     let busy = $state(false);
 
+    // Git is read-only. The sidebar shows the status marks from gitChanges,
+    // while the status bar shows the active file's branch.
+    let sidebarView = $state<SidebarView>('explorer');
+    let gitRepos = $state<GitRepo[]>([]);
+    let gitChanges = $state<GitChange[]>([]);
+
     let editorSettings = $state<EditorSettings>({ ...defaultEditorSettings });
     let preview = $state<PreviewState | null>(null);
 
@@ -190,7 +210,13 @@
     // text tab keeps its viewport.
     let viewerActive = $derived(imageActive || previewActive);
     let paneReplaced = $derived(viewerActive || searchActive);
-    let language = $derived(imageActive ? 'Image' : languageLabel(active?.path ?? ''));
+    let language = $derived(
+        imageActive
+            ? 'Image'
+            : active?.kind === 'diff'
+              ? 'Diff'
+              : languageLabel(active?.path ?? ''),
+    );
     // Monaco keeps its buffers while an image tab is showing, so switching back
     // to a text tab preserves edits. The welcome buffer keeps the hidden editor
     // from creating a model for an image path.
@@ -199,6 +225,19 @@
     let openIds = $derived(tabs.map((tab) => tab.id));
     let unsaved = $derived(tabs.some((tab) => tab.dirty));
     let folderLabel = $derived(sidebarLabel(folders));
+    // The tree looks statuses up by path; the changes list keeps the ordered
+    // records. Both come from the same snapshot.
+    let gitStatuses = $derived.by(() => {
+        const statuses: Record<string, GitStatusKind> = {};
+        for (const change of gitChanges) {
+            statuses[change.path] = change.status;
+        }
+        return statuses;
+    });
+    let activeRepo = $derived(
+        repoForPath(gitRepos, active?.path || active?.sourcePath || ''),
+    );
+    let branch = $derived(branchLabel(activeRepo));
     let imageSizeLabel = $derived(
         imageSize !== null && imageSize.id === activeId
             ? `${imageSize.width} × ${imageSize.height}`
@@ -210,9 +249,13 @@
     );
     let recentItems = $derived(toRecentItems(recentFiles));
     // The session records file-backed tabs only: an untitled buffer has no
-    // text on disk, and restoring it empty would look like lost work.
-    let sessionFiles = $derived(tabs.filter((tab) => tab.path !== '').map((tab) => tab.path));
-    let sessionActive = $derived(active?.path ?? '');
+    // text on disk, and a diff is a view of a file that is already recorded.
+    let sessionFiles = $derived(
+        tabs.filter((tab) => tab.kind === 'text' && tab.path !== '').map((tab) => tab.path),
+    );
+    // A diff tab records the file it shows, so a relaunch restores the file
+    // itself as the active tab.
+    let sessionActive = $derived(active?.path || active?.sourcePath || '');
     let watchedPaths = $derived(Array.from(new Set([...sessionFiles, ...expandedPaths])));
     let quickOpenEmpty = $derived(
         quickOpenLoading
@@ -237,6 +280,9 @@
         if (record && document.path !== '') {
             void recordRecent(document.path);
         }
+        if (document.kind === 'text' && document.path !== '') {
+            void loadBaseline(document.id, document.path);
+        }
     }
 
     // addFolders saves each root from a launch request and adopts the result.
@@ -255,6 +301,7 @@
             }
         }
         folders = latest;
+        void refreshGitStatus();
         return failure;
     }
 
@@ -300,6 +347,108 @@
         showDocument(opened);
         notice = '';
     }
+
+    // refreshGitStatus rereads the repositories behind the sidebar roots. It
+    // runs when the workspace changes and after Kova writes a file; a folder
+    // outside git simply contributes nothing. A newer request wins, so adding
+    // a root while an older read is still running cannot roll the result back.
+    let gitRequest = 0;
+    async function refreshGitStatus(): Promise<void> {
+        const request = ++gitRequest;
+        try {
+            const state = await loadGitStatus(folders);
+            if (request !== gitRequest) {
+                return;
+            }
+            gitRepos = state.repos;
+            gitChanges = state.changes;
+        } catch (error) {
+            console.error('Failed to read git status.', error);
+        }
+    }
+
+    // loadBaseline gives one buffer its HEAD text so the gutter can mark the
+    // lines that differ while the user types. An untracked file's baseline is
+    // empty, which makes every line read as added.
+    async function loadBaseline(id: string, path: string): Promise<void> {
+        if (path === '') {
+            return;
+        }
+        try {
+            const baseline = await readGitBaseline(path);
+            if (!baseline.inRepo) {
+                editorPane?.clearBaseline(id);
+                return;
+            }
+            editorPane?.setBaseline(id, baseline.content);
+        } catch (error) {
+            console.error('Failed to read the file baseline.', error);
+            editorPane?.clearBaseline(id);
+        }
+    }
+
+    // openDiff shows one file's changes against HEAD in a read-only tab. A
+    // diff that is already open is focused instead of rebuilt.
+    async function openDiff(path: string): Promise<void> {
+        const id = diffTabId(path);
+        if (tabs.some((tab) => tab.id === id)) {
+            activeId = id;
+            searchActive = false;
+            return;
+        }
+        try {
+            const diff = await readGitDiff(path);
+            showDocument(createDiffDocument(path, diff), false);
+            notice = '';
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
+    // reloadDiffTab replaces a diff's snapshot with a fresh one. The model is
+    // read-only, so this is the only way its text changes.
+    async function reloadDiffTab(id: string, path: string): Promise<void> {
+        try {
+            const document = createDiffDocument(path, await readGitDiff(path));
+            tabs = updateDocument(tabs, id, { content: document.content });
+            editorPane?.reload(id, document.content);
+        } catch (error) {
+            console.error('Failed to refresh the diff.', error);
+        }
+    }
+
+    async function refreshDiffTabs(): Promise<void> {
+        for (const tab of tabs) {
+            if (tab.kind === 'diff' && tab.sourcePath !== undefined) {
+                await reloadDiffTab(tab.id, tab.sourcePath);
+            }
+        }
+    }
+
+    // refreshGitAfterSave updates the marks and any diff of the file that was
+    // just written, so the sidebar does not describe the previous content.
+    async function refreshGitAfterSave(path: string): Promise<void> {
+        await refreshGitStatus();
+        for (const tab of tabs) {
+            if (tab.kind === 'diff' && tab.sourcePath === path) {
+                await reloadDiffTab(tab.id, path);
+            }
+        }
+    }
+
+    // switchSidebarView moves between the explorer and the changes list. The
+    // switch lives in the status bar, which stays visible when the sidebar does
+    // not, so choosing a view brings the sidebar back.
+    function switchSidebarView(view: SidebarView): void {
+        sidebarView = view;
+        if (!sidebarVisible) {
+            sidebarVisible = true;
+            void saveSidebarVisible(true).catch((error) =>
+                console.error('Failed to save the sidebar state.', error),
+            );
+        }
+    }
+
 
     // newFile opens an empty buffer with no path yet. Save turns it into a
     // Save As, which is how most editors treat an untitled document.
@@ -379,6 +528,7 @@
     }
 
     function applySaved(id: string, result: SaveResult, content: string): void {
+        const previousPath = findTab(id)?.path ?? '';
         // The editor decides whether the buffer is clean: typing during the
         // write leaves newer text in the model than the file now holds.
         const clean = editorPane?.markSaved(id, content) ?? true;
@@ -392,6 +542,12 @@
         // Save As can give an untitled buffer a real path, and with it a
         // language the model should start highlighting.
         editorPane?.setLanguage(id, result.path);
+        if (previousPath !== result.path) {
+            void loadBaseline(id, result.path);
+        }
+        void refreshGitAfterSave(result.path).catch((error) =>
+            console.error('Failed to refresh the git status.', error),
+        );
         notice = '';
     }
 
@@ -401,8 +557,9 @@
     // written: a cancelled dialog, a conflict the user declined, or an error.
     async function saveDocument(id: string, saveAs = false): Promise<boolean> {
         const tab = findTab(id);
-        // Pictures are read-only in Kova, so there is nothing to write back.
-        if (tab === undefined || tab.kind === 'image') {
+        // Pictures are read-only in Kova, and a diff is a generated view, so
+        // there is nothing to write back for either.
+        if (tab === undefined || tab.kind !== 'text') {
             return true;
         }
 
@@ -745,6 +902,12 @@
             case 'toggle-preview':
                 togglePreview();
                 break;
+            case 'show-explorer':
+                switchSidebarView('explorer');
+                break;
+            case 'show-changes':
+                switchSidebarView('changes');
+                break;
             case 'zoom-in':
                 zoom('in');
                 break;
@@ -825,6 +988,7 @@
                 return;
             }
             folders = await addSidebarFolder(path);
+            void refreshGitStatus();
             notice = '';
         } catch (error) {
             notice = errorMessage(error);
@@ -838,6 +1002,7 @@
     async function removeFolder(path: string): Promise<void> {
         try {
             folders = await removeSidebarFolder(path);
+            void refreshGitStatus();
             notice = '';
         } catch (error) {
             notice = errorMessage(error);
@@ -875,7 +1040,7 @@
         // An untitled buffer lives only in memory, so its text comes from the
         // stack. A file that disappeared falls back to the same snapshot.
         let restored = saved;
-        if (saved.path === '' && tabs.some((tab) => tab.id === saved.id)) {
+        if (saved.kind === 'text' && saved.path === '' && tabs.some((tab) => tab.id === saved.id)) {
             // A New File made since the close may already own this name; give
             // the restored buffer a fresh id so the two do not share a model.
             const replacement = createUntitledDocument(tabs);
@@ -884,7 +1049,9 @@
         showDocument({
             ...restored,
             content: closed.content,
-            dirty: restored.dirty || (restored.path === '' && closed.content !== ''),
+            dirty:
+                restored.kind === 'text' &&
+                (restored.dirty || (restored.path === '' && closed.content !== '')),
         });
         notice = '';
     }
@@ -973,6 +1140,7 @@
         try {
             folders = await closeAllSidebarFolders();
             expandedPaths = [];
+            void refreshGitStatus();
             notice = '';
         } catch (error) {
             notice = errorMessage(error);
@@ -996,7 +1164,7 @@
 
     async function refreshOpenDocuments(): Promise<void> {
         for (const tab of tabs) {
-            if (tab.path === '') {
+            if (tab.kind !== 'text' || tab.path === '') {
                 continue;
             }
             // External changes never overwrite edits the user has not saved;
@@ -1015,6 +1183,15 @@
     async function refreshWorkspace(): Promise<void> {
         treeRefreshToken++;
         await refreshOpenDocuments();
+        await refreshDiffTabs();
+        await refreshGitStatus();
+        // HEAD may have moved since the buffers were opened, so the gutter
+        // baselines are reread too.
+        for (const tab of tabs) {
+            if (tab.kind === 'text' && tab.path !== '') {
+                void loadBaseline(tab.id, tab.path);
+            }
+        }
         notice = '';
     }
 
@@ -1023,7 +1200,7 @@
     async function handleWatchedChanges(paths: string[]): Promise<void> {
         let refreshTree = false;
         for (const path of paths) {
-            const tab = tabs.find((entry) => entry.path === path);
+            const tab = tabs.find((entry) => entry.kind === 'text' && entry.path === path);
             if (tab === undefined) {
                 refreshTree = true;
                 continue;
@@ -1041,6 +1218,10 @@
         if (refreshTree) {
             treeRefreshToken++;
         }
+        // A file that changed on disk is exactly what the marks and an open
+        // diff describe, so both follow the same reread.
+        void refreshGitStatus();
+        void refreshDiffTabs();
     }
 
     function showFindInFiles(): void {
@@ -1105,6 +1286,8 @@
             });
             await refreshOpenDocuments();
             treeRefreshToken++;
+            await refreshGitStatus();
+            await refreshDiffTabs();
             notice = `Replaced ${result.matches} in ${result.files} files.`;
             await runSearch();
         } catch (error) {
@@ -1237,6 +1420,9 @@
             sidebarVisible = workspace.sidebarVisible;
             recentFiles = workspace.recentFiles;
             folders = await loadSidebarFolders();
+            // Git status may walk a large repository; the session restore does
+            // not wait for it, and the branch appears when the read lands.
+            void refreshGitStatus();
             await restoreSession(workspace.session);
             // From here on tab changes are saved as the session; before this
             // point an empty list is just startup, not the user closing tabs.
@@ -1320,16 +1506,26 @@
     <TitleBar appName={APP_NAME} fileName={shownName(active)} folderLabel={folderLabel} />
     <div class="app__body">
         <div class="app__sidebar" class:app__sidebar--hidden={!sidebarVisible}>
-            <Sidebar
-                {folders}
-                selectedPath={active?.path ?? ''}
-                {busy}
-                refreshToken={treeRefreshToken}
-                onAddFolder={() => void addFolderFromDialog()}
-                onRemoveFolder={(path) => void removeFolder(path)}
-                onOpenFile={(path) => void openFile(path)}
-                onExpandedChange={setExpanded}
-            />
+            {#if sidebarView === 'changes'}
+                <ChangesView
+                    changes={gitChanges}
+                    {busy}
+                    onOpenDiff={(path) => void openDiff(path)}
+                    onRefresh={() => void refreshWorkspace()}
+                />
+            {:else}
+                <Sidebar
+                    {folders}
+                    selectedPath={active?.path ?? ''}
+                    {busy}
+                    refreshToken={treeRefreshToken}
+                    statuses={gitStatuses}
+                    onAddFolder={() => void addFolderFromDialog()}
+                    onRemoveFolder={(path) => void removeFolder(path)}
+                    onOpenFile={(path) => void openFile(path)}
+                    onExpandedChange={setExpanded}
+                />
+            {/if}
         </div>
         <div class="app__editor">
             <TabBar
@@ -1361,6 +1557,7 @@
                         content={editorContent}
                         {openIds}
                         settings={editorSettings}
+                        readOnly={active?.kind === 'diff'}
                         onDirtyChange={(id, dirty) => {
                             tabs = setDocumentDirty(tabs, id, dirty);
                         }}
@@ -1408,7 +1605,18 @@
             </div>
         </div>
     </div>
-    <StatusBar {line} {column} {language} {notice} {folderLabel} imageSize={imageSizeLabel} />
+    <StatusBar
+        {line}
+        {column}
+        {language}
+        {notice}
+        {folderLabel}
+        imageSize={imageSizeLabel}
+        branch={branch}
+        sidebarView={sidebarView}
+        changesCount={gitChanges.length}
+        onSwitchView={switchSidebarView}
+    />
     {#if quickOpen}
         <Palette
             title="Quick Open"

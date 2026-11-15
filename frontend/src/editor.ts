@@ -1,6 +1,10 @@
 import * as monaco from 'monaco-editor';
-import { UNTITLED_PREFIX } from './document';
+import { DIFF_PREFIX, UNTITLED_PREFIX } from './document';
 import type { EditorSettings } from './settings';
+
+// DIFF_LANGUAGE is Monaco's built-in diff syntax, used by the read-only diff
+// tabs. It is not chosen from a file extension.
+const DIFF_LANGUAGE = 'diff';
 
 // WELCOME_TEXT is what the editor shows when no file was opened.
 export const WELCOME_TEXT = `Hello, world!
@@ -23,6 +27,11 @@ const WELCOME_URI = 'inmemory://model/welcome.txt';
 function modelURI(key: string): monaco.Uri {
     if (key === WELCOME_KEY) {
         return monaco.Uri.parse(WELCOME_URI);
+    }
+    if (key.startsWith(DIFF_PREFIX)) {
+        return monaco.Uri.parse(
+            `inmemory://model/diff/${encodeURIComponent(key.slice(DIFF_PREFIX.length))}`,
+        );
     }
     if (key.startsWith(UNTITLED_PREFIX)) {
         return monaco.Uri.parse(`inmemory://model/${key.slice(UNTITLED_PREFIX.length)}`);
@@ -105,10 +114,11 @@ export function languageLabel(path: string): string {
 // document is what lets switching tabs preserve edits instead of rewriting the
 // active buffer.
 export function createModel(key: string, content: string): monaco.editor.ITextModel {
-    const language =
-        key === WELCOME_KEY || key.startsWith(UNTITLED_PREFIX)
-            ? PLAIN_TEXT_LANGUAGE
-            : languageForPath(key);
+    const language = key.startsWith(DIFF_PREFIX)
+        ? DIFF_LANGUAGE
+        : key === WELCOME_KEY || key.startsWith(UNTITLED_PREFIX)
+          ? PLAIN_TEXT_LANGUAGE
+          : languageForPath(key);
     return monaco.editor.createModel(content, language, modelURI(key));
 }
 

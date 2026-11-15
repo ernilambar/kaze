@@ -2,6 +2,8 @@
     import * as monaco from 'monaco-editor';
     import { onMount } from 'svelte';
     import { transformCase, type CaseTransform } from './case';
+    import { changedLines } from './diff';
+    import { DIFF_PREFIX } from './document';
     import {
         createEditor,
         createModel,
@@ -28,6 +30,8 @@
         // settings is the editor configuration from settings.json. Changing it
         // re-applies the options to the live editor and its buffers.
         settings: EditorSettings;
+        // readOnly is set for diff tabs, whose text is a generated snapshot.
+        readOnly?: boolean;
         onCursorMove?: (line: number, column: number) => void;
         // onDirtyChange reports when a buffer stops or starts matching the file
         // it came from, so its tab can be marked.
@@ -39,6 +43,7 @@
         content = WELCOME_TEXT,
         openIds = [],
         settings,
+        readOnly = false,
         onCursorMove,
         onDirtyChange,
     }: Props = $props();
@@ -59,7 +64,85 @@
     // savedTexts holds the text each model had when it was loaded or saved: a
     // buffer is clean exactly while its text still matches.
     const savedTexts = new Map<string, string>();
+    // baselines holds each buffer's committed text. A key is present only when
+    // the file belongs to a repository, so files outside git show no gutter
+    // marks instead of looking entirely new.
+    const baselines = new Map<string, string>();
+    const decorations = new Map<string, string[]>();
+    const decorationTimers = new Map<string, ReturnType<typeof setTimeout>>();
     let activeKey = WELCOME_KEY;
+
+    // setBaseline starts comparing a buffer with the text HEAD has for it. It
+    // is called when a file is opened and after Save As gives a buffer a path.
+    export function setBaseline(key: string, text: string): void {
+        baselines.set(key, text);
+        updateDecorations(key);
+    }
+
+    // clearBaseline removes the gutter marks for a buffer outside a repository.
+    export function clearBaseline(key: string): void {
+        baselines.delete(key);
+        updateDecorations(key);
+    }
+
+    function clearDecorations(key: string): void {
+        const model = models.get(key);
+        const current = decorations.get(key);
+        if (model === undefined || current === undefined || current.length === 0) {
+            return;
+        }
+        decorations.set(key, model.deltaDecorations(current, []));
+    }
+
+    // updateDecorations recomputes the changed-line bars for one model. The
+    // model owns its decorations, so switching tabs keeps every buffer's marks
+    // and only the visible one is painted.
+    function updateDecorations(key: string): void {
+        const model = models.get(key);
+        if (model === undefined) {
+            return;
+        }
+        const baseline = baselines.get(key);
+        if (baseline === undefined || key === WELCOME_KEY || key.startsWith(DIFF_PREFIX)) {
+            clearDecorations(key);
+            return;
+        }
+
+        const changed = changedLines(baseline, model.getValue());
+        const next = changed.map<monaco.editor.IModelDeltaDecoration>((entry) => ({
+            range: {
+                startLineNumber: entry.line,
+                startColumn: 1,
+                endLineNumber: entry.line,
+                endColumn: 1,
+            },
+            options: {
+                isWholeLine: true,
+                linesDecorationsClassName: `kova-gutter-${entry.kind}`,
+                overviewRuler: {
+                    color: entry.kind === 'added' ? '#2ea043' : '#1f6feb',
+                    position: monaco.editor.OverviewRulerLane.Left,
+                },
+            },
+        }));
+        decorations.set(key, model.deltaDecorations(decorations.get(key) ?? [], next));
+    }
+
+    // scheduleDecorations coalesces keystrokes into one diff. Typing a word is
+    // several changes, and only the line numbers after the last one matter.
+    function scheduleDecorations(key: string): void {
+        const pending = decorationTimers.get(key);
+        if (pending !== undefined) {
+            clearTimeout(pending);
+        }
+        decorationTimers.set(
+            key,
+            setTimeout(() => {
+                decorationTimers.delete(key);
+                updateDecorations(key);
+            }, 120),
+        );
+    }
 
     // value is a buffer's current text. The caller saves this rather than the
     // tab's loaded content, so an unsaved edit is what reaches the file.
@@ -96,6 +179,7 @@
             model.setValue(text);
         }
         savedTexts.set(key, text);
+        scheduleDecorations(key);
         onDirtyChange?.(key, false);
     }
 
@@ -220,6 +304,8 @@
             model.updateOptions(modelOptions(settings));
             models.set(key, model);
             savedTexts.set(key, text);
+            // A baseline may have arrived before the tab was first shown.
+            updateDecorations(key);
         }
         return model;
     }
@@ -277,6 +363,13 @@
                 models.delete(key);
                 viewStates.delete(key);
                 savedTexts.delete(key);
+                baselines.delete(key);
+                decorations.delete(key);
+                const pending = decorationTimers.get(key);
+                if (pending !== undefined) {
+                    clearTimeout(pending);
+                    decorationTimers.delete(key);
+                }
             }
         }
     }
@@ -299,6 +392,12 @@
         }
     });
 
+    // Diff tabs are snapshots: Monaco refuses edits, so the model cannot drift
+    // from what git printed.
+    $effect(() => {
+        editor?.updateOptions({ readOnly });
+    });
+
     onMount(() => {
         const created = createEditor(container, settings, modelFor(modelKey, content));
         editor = created;
@@ -306,7 +405,10 @@
         const cursorSubscription = created.onDidChangeCursorPosition((event) => {
             onCursorMove?.(event.position.lineNumber, event.position.column);
         });
-        const contentSubscription = created.onDidChangeModelContent(() => reportDirty(activeKey));
+        const contentSubscription = created.onDidChangeModelContent(() => {
+            reportDirty(activeKey);
+            scheduleDecorations(activeKey);
+        });
 
         return () => {
             cursorSubscription.dispose();
@@ -315,9 +417,15 @@
             for (const model of models.values()) {
                 model.dispose();
             }
+            for (const pending of decorationTimers.values()) {
+                clearTimeout(pending);
+            }
             models.clear();
             viewStates.clear();
             savedTexts.clear();
+            baselines.clear();
+            decorations.clear();
+            decorationTimers.clear();
         };
     });
 </script>

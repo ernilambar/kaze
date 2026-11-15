@@ -26,6 +26,9 @@
     }: Props = $props();
 
     function label(tab: OpenDocument): string {
+        if (tab.kind === 'diff') {
+            return tab.sourcePath ?? tab.name;
+        }
         return tab.path !== '' ? tab.path : `${tab.name} (unsaved)`;
     }
 </script>

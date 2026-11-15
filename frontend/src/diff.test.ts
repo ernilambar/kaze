@@ -1,0 +1,46 @@
+import { describe, expect, it } from 'vitest';
+import { changedLines } from './diff';
+
+describe('changedLines', () => {
+    it('reports nothing for identical text', () => {
+        expect(changedLines('a\nb\n', 'a\nb\n')).toEqual([]);
+    });
+
+    it('ignores line ending differences', () => {
+        expect(changedLines('a\nb\n', 'a\r\nb\r\n')).toEqual([]);
+    });
+
+    it('marks an inserted line as added', () => {
+        expect(changedLines('a\nc\n', 'a\nb\nc\n')).toEqual([{ line: 2, kind: 'added' }]);
+    });
+
+    it('marks a replaced line as modified', () => {
+        expect(changedLines('a\nb\nc\n', 'a\nB\nc\n')).toEqual([{ line: 2, kind: 'modified' }]);
+    });
+
+    it('marks several changed regions', () => {
+        expect(changedLines('a\nb\nc\nd\ne\n', 'a\nB\nc\nD\ne\n')).toEqual([
+            { line: 2, kind: 'modified' },
+            { line: 4, kind: 'modified' },
+        ]);
+    });
+
+    it('reports no line for a deleted line', () => {
+        expect(changedLines('a\nb\nc\n', 'a\nc\n')).toEqual([]);
+    });
+
+    it('treats every line as added when the baseline is empty', () => {
+        expect(changedLines('', 'a\nb\n')).toEqual([
+            { line: 1, kind: 'added' },
+            { line: 2, kind: 'added' },
+        ]);
+    });
+
+    it('marks a replaced block as modified and an inserted block as added', () => {
+        expect(changedLines('a\nb\nc\n', 'a\nx\ny\nc\nd\n')).toEqual([
+            { line: 2, kind: 'modified' },
+            { line: 3, kind: 'modified' },
+            { line: 5, kind: 'added' },
+        ]);
+    });
+});

@@ -103,6 +103,15 @@ introduce one unprompted.
   (with a notice), and refreshes the tree; `SaveDocument` rebaselines the path
   it wrote so Kova's own save is not echoed back. **View → Refresh** forces the
   same reread on demand.
+- **Git is read-only.** `git.go` runs `git --no-optional-locks status
+  --porcelain=v2`, `git diff HEAD` and `git show HEAD:<path>`; it never stages,
+  commits or checks out. `GetGitStatus` supplies the explorer's status marks,
+  the Changes view and the status bar's branch/ahead-behind label;
+  `GetGitBaseline` gives the editor the committed text it diffs the buffer
+  against for changed-line gutter bars; `GetGitDiff` fills read-only diff tabs
+  (the frontend's `diff` document kind) opened from the Changes view. The
+  Explorer/Changes switch lives in the status bar, and `Diff` tabs are excluded
+  from the saved session.
 - **Printing is native.** `PrintDocument` in `print.go` chooses text or image
   and calls `print_darwin.go`, whose cgo AppKit code (`print_darwin.m`) runs the
   standard print panel as a sheet on the main thread. `print_unsupported.go`

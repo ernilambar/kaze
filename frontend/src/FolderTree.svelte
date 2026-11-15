@@ -2,6 +2,7 @@
     import { onMount, untrack } from 'svelte';
     import Self from './FolderTree.svelte';
     import { fileIcon } from './fileIcons';
+    import { statusLabel, statusMark, type GitStatusKind } from './git';
     import { errorMessage, isWithin, readFolder, type FolderEntry } from './sidebar';
 
     interface Props {
@@ -10,6 +11,7 @@
         depth?: number;
         selectedPath?: string;
         refreshToken?: number;
+        statuses?: Record<string, GitStatusKind>;
         expanded?: boolean;
         removable?: boolean;
         onOpenFile: (path: string) => void;
@@ -23,6 +25,7 @@
         depth = 0,
         selectedPath = '',
         refreshToken = 0,
+        statuses = {},
         expanded = false,
         removable = false,
         onOpenFile,
@@ -156,11 +159,13 @@
                             path={entry.path}
                             {selectedPath}
                             {refreshToken}
+                            {statuses}
                             {onOpenFile}
                             {onExpandedChange}
                         />
                     {:else}
                         {@const icon = fileIcon(entry.name)}
+                        {@const status = statuses[entry.path]}
                         <li class="node">
                             <div
                                 class="row"
@@ -179,6 +184,13 @@
                                         style:left={`${icon.left}px`}
                                     >{icon.glyph}</span>
                                     <span class="row__name">{entry.name}</span>
+                                    {#if status !== undefined}
+                                        <span
+                                            class="row__status row__status--{status}"
+                                            title={statusLabel(status)}
+                                            aria-label={statusLabel(status)}
+                                        >{statusMark(status)}</span>
+                                    {/if}
                                 </button>
                             </div>
                         </li>
@@ -268,6 +280,37 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+
+    .row__status {
+        flex: 0 0 auto;
+        margin-left: auto;
+        padding: 0 4px;
+        font-family: Menlo, monospace;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .row__status--modified {
+        color: var(--git-modified);
+    }
+
+    .row__status--added,
+    .row__status--untracked {
+        color: var(--git-added);
+    }
+
+    .row__status--deleted {
+        color: var(--git-deleted);
+    }
+
+    .row__status--conflicted {
+        color: var(--git-conflicted);
+    }
+
+    .row__status--renamed,
+    .row__status--copied {
+        color: var(--fg-muted);
     }
 
     .row__remove {

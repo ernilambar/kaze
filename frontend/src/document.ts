@@ -23,9 +23,10 @@ export function toLaunchRequest(request: models.LaunchRequest): LaunchRequest {
     };
 }
 
-// DocumentKind selects the tab's surface: Monaco for text, the image viewer for
-// pictures. Mirrors the Kind field in document.go.
-export type DocumentKind = 'text' | 'image';
+// DocumentKind selects the tab's surface: Monaco for text and diffs, the image
+// viewer for pictures. Mirrors the Kind field in document.go, plus the
+// frontend-only diff tab.
+export type DocumentKind = 'text' | 'image' | 'diff';
 
 // OpenDocument is one tab's buffer. It lives in the frontend because the editor
 // owns the text; Go only reads it from disk and writes it back.
@@ -34,7 +35,8 @@ export interface OpenDocument {
     // An untitled buffer uses a name that is not a path, so Save As can give it
     // one without the editor switching to a different model.
     id: string;
-    // path is empty until an untitled buffer is saved.
+    // path is empty until an untitled buffer is saved, and for a diff tab,
+    // which is a snapshot rather than a file.
     path: string;
     name: string;
     kind: DocumentKind;
@@ -48,12 +50,46 @@ export interface OpenDocument {
     modified: number;
     // dirty marks edits that are not on disk yet.
     dirty: boolean;
+    // sourcePath is the file a diff tab is showing. It is empty for every other
+    // kind, and kept apart from path so a diff never looks saveable.
+    sourcePath?: string;
 }
 
 // UNTITLED_PREFIX starts the id of a buffer that has no file yet. Its id is not
 // a path, so the editor model knows to live in memory, and Save As can attach a
 // real path without the buffer changing identity.
 export const UNTITLED_PREFIX = 'untitled:';
+
+// DIFF_PREFIX starts the id of a diff tab. The editor gives these models their
+// own language and read-only mode instead of treating them as files.
+export const DIFF_PREFIX = 'diff:';
+
+export function diffTabId(path: string): string {
+    return `${DIFF_PREFIX}${path}`;
+}
+
+function baseName(path: string): string {
+    const parts = path.split(/[\\/]/).filter((part) => part !== '');
+    return parts.length === 0 ? path : parts[parts.length - 1];
+}
+
+// createDiffDocument is the read-only view of a file against HEAD. The diff is
+// a snapshot: it is refreshed by the app when the workspace refreshes or the
+// file is saved.
+export function createDiffDocument(path: string, diff: string): OpenDocument {
+    const name = baseName(path);
+    return {
+        id: diffTabId(path),
+        path: '',
+        name: `${name} (Diff)`,
+        kind: 'diff',
+        content: diff === '' ? `No changes against HEAD for ${name}.\n` : diff,
+        src: '',
+        modified: 0,
+        dirty: false,
+        sourcePath: path,
+    };
+}
 
 const UNTITLED_NAME = /^Untitled-(\d+)$/;
 
