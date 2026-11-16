@@ -4,7 +4,7 @@ import {
     emptyLaunchRequest,
     nextUntitledName,
     normalizeEol,
-    shownName,
+    shownPath,
     toBufferDocument,
     toOpenDocument,
     type OpenDocument,
@@ -36,13 +36,33 @@ describe('normalizeEol', () => {
     });
 });
 
-describe('shownName', () => {
+describe('shownPath', () => {
     it('falls back to an untitled label before a file is opened', () => {
-        expect(shownName(undefined)).toBe('Untitled');
+        expect(shownPath(undefined)).toBe('Untitled');
     });
 
-    it('uses the document name once one is open', () => {
-        expect(shownName(document())).toBe('notes.txt');
+    it('uses the full path once a file is open', () => {
+        expect(shownPath(document())).toBe('/tmp/notes.txt');
+    });
+
+    it('keeps an untitled buffer name because it has no path', () => {
+        expect(shownPath(document({ path: '', realPath: '', name: 'Untitled-1' }))).toBe(
+            'Untitled-1',
+        );
+    });
+
+    it('points a diff tab at the file it shows', () => {
+        expect(
+            shownPath(
+                document({
+                    path: '',
+                    realPath: '',
+                    name: 'notes.txt (Diff)',
+                    kind: 'diff',
+                    sourcePath: '/tmp/notes.txt',
+                }),
+            ),
+        ).toBe('/tmp/notes.txt (Diff)');
     });
 });
 

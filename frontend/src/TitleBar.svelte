@@ -3,11 +3,11 @@
 
     interface Props {
         appName: string;
-        fileName: string;
+        filePath: string;
         folderLabel?: string;
     }
 
-    let { appName, fileName, folderLabel = '' }: Props = $props();
+    let { appName, filePath, folderLabel = '' }: Props = $props();
 
     // macOS hides its native title bar and floats the traffic lights over the
     // content, so this bar leaves room for them. Elsewhere the native bar stays
@@ -17,7 +17,7 @@
 
 <header class="titlebar" class:titlebar--mac={mac}>
     <span class="titlebar__app">{appName}</span>
-    <span class="titlebar__file">{fileName}</span>
+    <span class="titlebar__file" title={filePath}>{filePath}</span>
     {#if folderLabel !== ''}
         <span class="titlebar__folder">{folderLabel}</span>
     {/if}
@@ -54,6 +54,13 @@
 
     .titlebar__file {
         color: var(--fg-muted);
+        /* A full path is longer than a name, so it truncates to fit instead of
+           pushing the workspace label off the bar. The title attribute keeps
+           the whole path one hover away. */
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .titlebar__file::before {

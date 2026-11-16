@@ -214,9 +214,19 @@ export function createUntitledDocument(tabs: readonly OpenDocument[]): OpenDocum
     };
 }
 
-// shownName is what the title bar prints for a document.
-export function shownName(document: OpenDocument | undefined): string {
-    return document?.name ?? 'Untitled';
+// shownPath is what the title bar prints for a document: the full path, not
+// just the file name, so two open files with the same name stay distinguishable.
+// A diff tab points at the file it shows, and an untitled buffer has no path
+// and keeps its name.
+export function shownPath(document: OpenDocument | undefined): string {
+    if (document === undefined) {
+        return 'Untitled';
+    }
+    if (document.kind === 'diff') {
+        const source = document.sourcePath ?? '';
+        return source === '' ? document.name : `${source} (Diff)`;
+    }
+    return document.path !== '' ? document.path : document.name;
 }
 
 export function toOpenDocument(document: models.Document): OpenDocument {

@@ -58,7 +58,7 @@
         listenForLaunch,
         normalizeEol,
         readDocument,
-        shownName,
+        shownPath,
         toBufferDocument,
         type DocumentEOL,
         type LaunchBuffer,
@@ -3042,7 +3042,7 @@
 </script>
 
 <div class="app" data-file-drop-target>
-    <TitleBar {appName} fileName={shownName(active)} folderLabel={folderLabel} />
+    <TitleBar {appName} filePath={shownPath(active)} folderLabel={folderLabel} />
     <div class="app__body" class:app__body--sidebar-right={uiSettings.sidebarPosition === 'right'}>
         <div class="app__sidebar" class:app__sidebar--hidden={!sidebarVisible}>
             {#if sidebarView === 'changes'}
