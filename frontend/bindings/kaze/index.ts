@@ -38,5 +38,6 @@ export type {
     ThemeSettings,
     ThemeSummary,
     UISettings,
+    WindowSettings,
     WorkspaceInfo
 } from "./models.js";

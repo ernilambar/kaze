@@ -33,6 +33,15 @@ type windowSession struct {
 	unsaved        atomic.Bool
 	confirmed      atomic.Bool
 	closeRequested atomic.Bool
+
+	// restoreGeometry marks the first window of a launch: it adopts the frame
+	// saved in settings.json, while later windows cascade from the first.
+	// savedFrame is that stored frame, read once when the window is created.
+	restoreGeometry bool
+	savedFrame      WindowSettings
+	// placed makes the move/size-once before the window is shown idempotent;
+	// the runtime may report readiness more than once.
+	placed atomic.Bool
 }
 
 // emit sends an event to this window. Wails stamps the sender's name, which the
@@ -103,7 +112,11 @@ func (a *App) registerWindow(name string, request LaunchRequest) *windowSession 
 			a.pending = emptyLaunchRequest()
 		}
 	}
-	session := &windowSession{name: name, pending: request.normalized()}
+	session := &windowSession{
+		name:            name,
+		pending:         request.normalized(),
+		restoreGeometry: len(a.windows) == 0,
+	}
 	a.windows[name] = session
 	a.order = append(a.order, name)
 	a.windowsMu.Unlock()
@@ -213,13 +226,28 @@ func (a *App) openWindow(request LaunchRequest) error {
 	name := a.nextWindowName()
 	session := a.registerWindow(name, request)
 
+	// The first window of a launch restores the saved frame; later windows
+	// cascade from the window that spawned them. Both decisions need the
+	// screens, which Wails only enumerates once the app is running, so the
+	// window is created hidden and shown by placeWindow after the frontend is
+	// alive. Showing it first would paint it at the fallback size and then
+	// jump it to the real one.
+	width, height := defaultWindowWidth, defaultWindowHeight
+	if session.restoreGeometry {
+		session.savedFrame = a.savedWindowGeometry()
+		if session.savedFrame.Width >= minWindowWidth && session.savedFrame.Height >= minWindowHeight {
+			width, height = session.savedFrame.Width, session.savedFrame.Height
+		}
+	}
+
 	window := a.wails.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:             name,
 		Title:            a.meta.ProductName,
-		Width:            1200,
-		Height:           800,
-		MinWidth:         600,
-		MinHeight:        400,
+		Width:            width,
+		Height:           height,
+		MinWidth:         minWindowWidth,
+		MinHeight:        minWindowHeight,
+		Hidden:           true,
 		BackgroundColour: application.NewRGB(30, 30, 30),
 		URL:              "/",
 		// Files dragged in from Finder arrive through AppKit, not the webview;
@@ -245,6 +273,12 @@ func (a *App) openWindow(request LaunchRequest) error {
 	window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
 		a.windowClosing(session, event)
 	})
+	// The runtime reports ready once the page is loaded and its JavaScript is
+	// running; only then do the screens and a stable window size exist, so the
+	// window is sized, positioned and shown here.
+	window.OnWindowEvent(events.Common.WindowRuntimeReady, func(*application.WindowEvent) {
+		a.placeWindow(session)
+	})
 	// Finder reports the paths to this window after the webview has confirmed
 	// the point is on a drop target. Option is read from AppKit at drop time
 	// because the drag never becomes a DOM event.
@@ -254,9 +288,146 @@ func (a *App) openWindow(request LaunchRequest) error {
 	return nil
 }
 
+// placeWindow sizes and positions a window once its frontend is running, then
+// shows it. The screens exist by then, so a restored frame can be checked
+// against today's display layout before it is trusted.
+func (a *App) placeWindow(session *windowSession) {
+	session.mu.Lock()
+	window := session.window
+	session.mu.Unlock()
+	if window == nil || a.wails == nil || !session.placed.CompareAndSwap(false, true) {
+		return
+	}
+
+	// GetPrimary lazily enumerates the screens; GetAll alone would be empty on
+	// the first call.
+	if a.wails.Screen.GetPrimary() == nil {
+		window.Show()
+		return
+	}
+	screens := a.wails.Screen.GetAll()
+
+	var frame windowGeometry
+	if session.restoreGeometry {
+		frame = resolveWindowGeometry(session.savedFrame, screens)
+	} else {
+		frame = cascadeWindowGeometry(a.cascadeOriginGeometry(), screens)
+	}
+	window.SetSize(frame.Width, frame.Height)
+	window.SetPosition(frame.X, frame.Y)
+	window.Show()
+
+	// The zoom state is applied after the window is on screen: macOS ignores
+	// zoom on a hidden window, and doing it now means the frame underneath is
+	// the normal one, so turning the zoom off lands where the user left it.
+	if session.restoreGeometry {
+		if session.savedFrame.Fullscreen {
+			window.Fullscreen()
+		} else if session.savedFrame.Maximised {
+			window.Maximise()
+		}
+	}
+}
+
+// cascadeOriginGeometry is the frame a New Window steps down and right from:
+// the oldest open window's, unless it is zoomed, in which case the default is
+// the only size that means anything.
+func (a *App) cascadeOriginGeometry() windowGeometry {
+	primary := a.primarySession()
+	if primary == nil {
+		return windowGeometry{}
+	}
+	primary.mu.Lock()
+	window := primary.window
+	primary.mu.Unlock()
+	if window == nil || window.IsMaximised() || window.IsFullscreen() {
+		return windowGeometry{}
+	}
+	width, height := window.Size()
+	x, y := window.Position()
+	return windowGeometry{X: x, Y: y, Width: width, Height: height}
+}
+
+// savedWindowGeometry reads the frame stored for the last launch. A missing or
+// broken settings file is not fatal: the caller falls back to the default.
+func (a *App) savedWindowGeometry() WindowSettings {
+	path, err := settingsFilePath()
+	if err != nil {
+		return WindowSettings{}
+	}
+	settings, err := loadSettings(path)
+	if err != nil {
+		return WindowSettings{}
+	}
+	return settings.Window
+}
+
+// saveWindowGeometry records the frame a window is leaving with. Only the
+// first open window of the launch owns the saved frame, so closing a later
+// window does not replace where the user's main window was.
+func (a *App) saveWindowGeometry(session *windowSession) {
+	if session == nil || a.wails == nil {
+		return
+	}
+	session.mu.Lock()
+	window := session.window
+	session.mu.Unlock()
+	if window == nil {
+		return
+	}
+	if primary := a.primarySession(); primary != nil && primary != session {
+		return
+	}
+
+	saved := WindowSettings{
+		Maximised:  window.IsMaximised(),
+		Fullscreen: window.IsFullscreen(),
+	}
+	// A zoomed window's size is the screen's, not the frame the user sized by
+	// hand; keep the stored one so un-zooming after a relaunch restores it.
+	if !saved.Maximised && !saved.Fullscreen {
+		saved.Width, saved.Height = window.Size()
+		saved.X, saved.Y = window.Position()
+	}
+	a.storeWindowGeometry(saved)
+}
+
+// storeWindowGeometry writes the window section alone, through the same
+// surgical path as the other settings sections, so a hand-edited file keeps
+// its unknown keys and formatting. Geometry loss is cosmetic, so a failed
+// write is not reported to the user.
+func (a *App) storeWindowGeometry(windowSettings WindowSettings) {
+	path, err := settingsFilePath()
+	if err != nil {
+		return
+	}
+
+	a.settingsMu.Lock()
+	defer a.settingsMu.Unlock()
+
+	settings, err := loadSettings(path)
+	if err != nil {
+		return
+	}
+	before := settings.Window
+	if windowSettings.Width > 0 && windowSettings.Height > 0 {
+		settings.Window.Width = windowSettings.Width
+		settings.Window.Height = windowSettings.Height
+		settings.Window.X = windowSettings.X
+		settings.Window.Y = windowSettings.Y
+	}
+	settings.Window.Maximised = windowSettings.Maximised
+	settings.Window.Fullscreen = windowSettings.Fullscreen
+	settings.normalize()
+	_ = writeSettingsSections(path, settings, settingsSection{"window", before, settings.Window})
+}
+
 // windowClosing gives a window the same unsaved-buffer guard as quitting. A
 // cancelled event keeps it open and hands the decision to its frontend.
 func (a *App) windowClosing(session *windowSession, event *application.WindowEvent) {
+	// Record the frame before the window goes away. A cancelled close leaves
+	// it saved at its current place, which is where it still is.
+	a.saveWindowGeometry(session)
 	if session.allowClose() {
 		a.forgetWindow(session)
 		return
@@ -305,14 +476,25 @@ func (a *App) SetUnsavedChanges(window string, unsaved bool) {
 // quit; the windows are asked one at a time, and the last answer terminates.
 func (a *App) shouldQuit() bool {
 	if a.allowQuit.Load() {
+		a.savePrimaryWindowGeometry()
 		return true
 	}
 	if len(a.dirtySessions()) == 0 {
+		a.savePrimaryWindowGeometry()
 		return true
 	}
 	a.quitInProgress.Store(true)
 	a.askNextQuit()
 	return false
+}
+
+// savePrimaryWindowGeometry records the frame of the window that owns the
+// saved geometry. Closing a window saves it too, but a quit can terminate the
+// process without a WindowClosing hook for the last window.
+func (a *App) savePrimaryWindowGeometry() {
+	if primary := a.primarySession(); primary != nil {
+		a.saveWindowGeometry(primary)
+	}
 }
 
 // askNextQuit prompts the next dirty window. A prompt already on screen blocks
@@ -380,6 +562,7 @@ func (a *App) ResolveClose(window string, quit bool) {
 // quit shuts the app down so its shutdown path runs.
 func (a *App) quit() {
 	if a.wails != nil {
+		a.savePrimaryWindowGeometry()
 		a.wails.Quit()
 	}
 }

@@ -35,6 +35,26 @@ type Settings struct {
 	Session SessionSettings `json:"session"`
 	Theme   ThemeSettings   `json:"theme"`
 	UI      UISettings      `json:"ui"`
+	// Window is the frame the last window of a launch left behind. It is
+	// written by the backend, not by the settings overlay, and it is state
+	// rather than a user preference, like the session.
+	Window WindowSettings `json:"window"`
+}
+
+// WindowSettings is the saved frame of the main window. An empty struct means
+// no frame has been saved yet, so the next launch starts from the screen-sized
+// default. The size and position are in DIPs, the units Wails reports.
+//
+// A maximised or fullscreen window stores the state here but keeps the normal
+// frame in width/height/x/y, so turning the zoom off after a relaunch returns
+// the window the user last sized by hand.
+type WindowSettings struct {
+	Width      int  `json:"width"`
+	Height     int  `json:"height"`
+	X          int  `json:"x"`
+	Y          int  `json:"y"`
+	Maximised  bool `json:"maximised"`
+	Fullscreen bool `json:"fullscreen"`
 }
 
 // EditorSettings tunes the Monaco editor instance. Booleans that default to
@@ -180,6 +200,7 @@ func defaultSettings() Settings {
 			IconStyle:       defaultUIIconStyle,
 			SidebarPosition: defaultSidebarPlace,
 		},
+		Window: WindowSettings{},
 	}
 }
 
@@ -251,6 +272,13 @@ func (s *Settings) normalize() {
 		s.UI.SidebarPosition = defaultSidebarPlace
 	} else {
 		s.UI.SidebarPosition = "right"
+	}
+
+	// A frame too small to hold the window, or one whose size was cleared by
+	// hand, is not a frame: drop it whole (including the state flags) so the
+	// next launch falls back to the screen-sized default.
+	if s.Window.Width < minWindowWidth || s.Window.Height < minWindowHeight {
+		s.Window = WindowSettings{}
 	}
 }
 
