@@ -110,6 +110,24 @@
         });
     }
 
+    // revealSelected scrolls the active row into view once the tree has
+    // expanded to it, so a deep file does not stay below the fold.
+    function revealSelected(
+        node: HTMLElement,
+        selected: boolean,
+    ): { update(selected: boolean): void } {
+        if (selected) {
+            node.scrollIntoView({ block: 'nearest' });
+        }
+        return {
+            update(next: boolean) {
+                if (next) {
+                    node.scrollIntoView({ block: 'nearest' });
+                }
+            },
+        };
+    }
+
     onMount(() => {
         onExpandedChange?.(path, open);
         if (open) {
@@ -183,6 +201,7 @@
                                 class="row"
                                 class:row--selected={selectedPath === entry.path}
                                 style:padding-left={`${8 + (depth + 1) * 14}px`}
+                                use:revealSelected={selectedPath === entry.path}
                             >
                                 <button
                                     class="row__main"

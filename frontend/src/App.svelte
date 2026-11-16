@@ -161,6 +161,7 @@
         openWorkspaceDialog,
         rememberRecentFile,
         saveSession,
+        saveSidebarAutoReveal,
         saveSidebarVisible,
         saveWorkspaceAs,
         watchPaths,
@@ -255,6 +256,10 @@
     // Workspace state that outlives a window.
     let recentFiles = $state<string[]>([]);
     let sidebarVisible = $state(true);
+    let sidebarAutoReveal = $state(true);
+    // revealedPath is the row the tree expands to. It follows the active tab
+    // only while auto-reveal is on.
+    let revealedPath = $state('');
     let expandedPaths = $state<string[]>([]);
     let treeRefreshToken = $state(0);
     let sessionReady = $state(false);
@@ -1659,6 +1664,26 @@
         }
     }
 
+    // revealActiveFileInTree selects and expands to the active file's row. A
+    // diff tab names the file it was made from, which is the row to show.
+    $effect(() => {
+        if (!sidebarAutoReveal) {
+            return;
+        }
+        revealedPath = active?.path || active?.sourcePath || '';
+    });
+
+    // setSidebarAutoReveal records the choice so the next launch keeps it.
+    function setSidebarAutoReveal(autoReveal: boolean): void {
+        if (sidebarAutoReveal === autoReveal) {
+            return;
+        }
+        sidebarAutoReveal = autoReveal;
+        void saveSidebarAutoReveal(autoReveal).catch((error) =>
+            console.error('Failed to save the auto-reveal setting.', error),
+        );
+    }
+
     // setSidebarVisible records the choice so the next launch keeps the layout.
     // Toggle Sidebar and the settings overlay both go through it.
     function setSidebarVisible(visible: boolean): void {
@@ -2033,6 +2058,7 @@
 
             const workspace = await loadWorkspaceState();
             sidebarVisible = workspace.sidebarVisible;
+            sidebarAutoReveal = workspace.autoReveal;
             recentFiles = workspace.recentFiles;
             folders = await loadSidebarFolders();
             // Git status may walk a large repository; the session restore does
@@ -2177,7 +2203,7 @@
             {:else}
                 <Sidebar
                     {folders}
-                    selectedPath={active?.path ?? ''}
+                    selectedPath={revealedPath}
                     {busy}
                     refreshToken={treeRefreshToken}
                     statuses={gitStatuses}
@@ -2374,6 +2400,7 @@
             searchExclude={searchExclude}
             {folders}
             {sidebarVisible}
+            autoReveal={sidebarAutoReveal}
             warning={settingsWarning}
             onEditor={changeEditorSettings}
             onTheme={(next) => void changeThemeSettings(next)}
@@ -2381,6 +2408,7 @@
             onFilesExclude={(next) => void changeFilesExclude(next)}
             onSearchExclude={(next) => void changeSearchExclude(next)}
             onSidebarVisible={setSidebarVisible}
+            onAutoReveal={setSidebarAutoReveal}
             onAddFolder={() => void addFolderFromDialog()}
             onRemoveFolder={(path) => void removeFolder(path)}
             onOpenSettings={() => void openSettings()}

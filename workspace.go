@@ -106,6 +106,26 @@ func (a *App) SetSidebarVisible(visible bool) error {
 	return writeSettingsSections(path, settings, settingsSection{"sidebar", before, settings.Sidebar})
 }
 
+// SetSidebarAutoReveal records whether switching tabs should expand the tree
+// to the active file.
+func (a *App) SetSidebarAutoReveal(autoReveal bool) error {
+	path, err := settingsFilePath()
+	if err != nil {
+		return err
+	}
+
+	a.settingsMu.Lock()
+	defer a.settingsMu.Unlock()
+
+	settings, err := loadSettings(path)
+	if err != nil {
+		return err
+	}
+	before := settings.Sidebar
+	settings.Sidebar.AutoReveal = autoReveal
+	return writeSettingsSections(path, settings, settingsSection{"sidebar", before, settings.Sidebar})
+}
+
 // RemoveAllSidebarFolders drops every root from the sidebar and returns the
 // empty list. Open tabs stay open: they hold their own buffers.
 func (a *App) RemoveAllSidebarFolders() ([]string, error) {

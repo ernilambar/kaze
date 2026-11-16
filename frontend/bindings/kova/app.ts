@@ -383,6 +383,14 @@ export function SetSession(session: $models.SessionState): $CancellablePromise<v
 }
 
 /**
+ * SetSidebarAutoReveal records whether switching tabs should expand the tree
+ * to the active file.
+ */
+export function SetSidebarAutoReveal(autoReveal: boolean): $CancellablePromise<void> {
+    return $Call.ByID(1149408827, autoReveal);
+}
+
+/**
  * SetSidebarFolders replaces the sidebar roots in one write. Opening a
  * workspace uses it so a half-applied list never survives a failed folder.
  */

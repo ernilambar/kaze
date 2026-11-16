@@ -75,6 +75,8 @@ type SidebarSettings struct {
 	// Visible is whether the sidebar is shown. It survives a relaunch, so
 	// Cmd+B keeps the layout the user left behind.
 	Visible bool `json:"visible"`
+	// AutoReveal makes a tab change expand the tree to the active file.
+	AutoReveal bool `json:"auto_reveal"`
 }
 
 // FilesSettings configures which entries the explorer and Quick Open hide.
@@ -161,7 +163,7 @@ func defaultSettings() Settings {
 			AutoCloseBrackets:   true,
 			SmartIndent:         true,
 		},
-		Sidebar: SidebarSettings{Folders: []string{}, Visible: true},
+		Sidebar: SidebarSettings{Folders: []string{}, Visible: true, AutoReveal: true},
 		Files:   FilesSettings{Exclude: defaultExcludePatterns()},
 		Search:  SearchSettings{Exclude: defaultExcludePatterns()},
 		Recent:  RecentSettings{Files: []string{}},

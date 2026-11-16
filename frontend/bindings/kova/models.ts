@@ -392,6 +392,11 @@ export interface SidebarSettings {
      * Cmd+B keeps the layout the user left behind.
      */
     "visible": boolean;
+
+    /**
+     * AutoReveal makes a tab change expand the tree to the active file.
+     */
+    "auto_reveal": boolean;
 }
 
 /**

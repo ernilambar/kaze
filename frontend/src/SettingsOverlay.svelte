@@ -26,6 +26,7 @@
         searchExclude: string[];
         folders: string[];
         sidebarVisible: boolean;
+        autoReveal: boolean;
         warning?: string;
         onEditor: (next: EditorSettings) => void;
         onTheme: (next: ThemeSettings) => void;
@@ -33,6 +34,7 @@
         onFilesExclude: (next: string[]) => void;
         onSearchExclude: (next: string[]) => void;
         onSidebarVisible: (visible: boolean) => void;
+        onAutoReveal: (autoReveal: boolean) => void;
         onAddFolder: () => void;
         onRemoveFolder: (path: string) => void;
         onOpenSettings: () => void;
@@ -51,6 +53,7 @@
         searchExclude,
         folders,
         sidebarVisible,
+        autoReveal,
         warning = '',
         onEditor,
         onTheme,
@@ -58,6 +61,7 @@
         onFilesExclude,
         onSearchExclude,
         onSidebarVisible,
+        onAutoReveal,
         onAddFolder,
         onRemoveFolder,
         onOpenSettings,
@@ -507,6 +511,15 @@
                                 checked={sidebarVisible}
                                 onchange={(event) =>
                                     onSidebarVisible(event.currentTarget.checked)}
+                            />
+                        </label>
+                        <label class="settings__row">
+                            <span>Reveal the active file</span>
+                            <input
+                                type="checkbox"
+                                checked={autoReveal}
+                                onchange={(event) =>
+                                    onAutoReveal(event.currentTarget.checked)}
                             />
                         </label>
                     </section>

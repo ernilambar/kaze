@@ -198,6 +198,32 @@ func TestLoadSettingsReadsSidebarFolders(t *testing.T) {
 	}
 }
 
+func TestLoadSettingsDefaultsToAutoReveal(t *testing.T) {
+	settings, err := loadSettings(filepath.Join(t.TempDir(), "settings.json"))
+	if err != nil {
+		t.Fatalf("loadSettings() error = %v", err)
+	}
+	if !settings.Sidebar.AutoReveal {
+		t.Fatal("Sidebar.AutoReveal = false, want true by default")
+	}
+}
+
+func TestLoadSettingsReadsAutoReveal(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	content := `{"sidebar":{"auto_reveal":false}}`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	settings, err := loadSettings(path)
+	if err != nil {
+		t.Fatalf("loadSettings() error = %v", err)
+	}
+	if settings.Sidebar.AutoReveal {
+		t.Fatal("Sidebar.AutoReveal = true, want the saved false")
+	}
+}
+
 func TestNormalizeFolderListRepairsUserContent(t *testing.T) {
 	got := normalizeFolderList([]string{" /one ", "", "/two", "/one", "   "})
 

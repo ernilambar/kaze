@@ -6,15 +6,18 @@ import {
     OpenWorkspaceDialog,
     SaveWorkspaceAs,
     SetSession,
+    SetSidebarAutoReveal,
     SetSidebarVisible,
     WatchPaths,
 } from '../bindings/kova/app';
 import { onWindowEvent } from './windowstate';
 
 // WorkspaceState is the part of settings.json that outlives a window: the
-// sidebar's visibility, the Open Recent list and the tabs to restore.
+// sidebar's visibility and reveal behavior, the Open Recent list and the tabs
+// to restore.
 export interface WorkspaceState {
     sidebarVisible: boolean;
+    autoReveal: boolean;
     recentFiles: string[];
     session: {
         openFiles: string[];
@@ -27,6 +30,7 @@ export async function loadWorkspaceState(): Promise<WorkspaceState> {
         const settings = await GetSettings();
         return {
             sidebarVisible: settings?.sidebar?.visible ?? true,
+            autoReveal: settings?.sidebar?.auto_reveal ?? true,
             recentFiles: settings?.recent?.files ?? [],
             session: {
                 openFiles: settings?.session?.open_files ?? [],
@@ -37,6 +41,7 @@ export async function loadWorkspaceState(): Promise<WorkspaceState> {
         console.error('Failed to load workspace state.', error);
         return {
             sidebarVisible: true,
+            autoReveal: true,
             recentFiles: [],
             session: { openFiles: [], active: '' },
         };
@@ -62,6 +67,10 @@ export async function saveSession(openFiles: readonly string[], active: string):
 
 export async function saveSidebarVisible(visible: boolean): Promise<void> {
     await SetSidebarVisible(visible);
+}
+
+export async function saveSidebarAutoReveal(autoReveal: boolean): Promise<void> {
+    await SetSidebarAutoReveal(autoReveal);
 }
 
 // openWorkspaceDialog asks for a workspace file and returns its resolved

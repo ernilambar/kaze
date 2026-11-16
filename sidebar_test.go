@@ -83,6 +83,30 @@ func TestAddSidebarFolderRejectsBlankPath(t *testing.T) {
 	}
 }
 
+func TestSetSidebarAutoRevealSavesChoice(t *testing.T) {
+	useTempSettingsDir(t)
+	app := NewApp()
+
+	if err := app.SetSidebarAutoReveal(false); err != nil {
+		t.Fatalf("SetSidebarAutoReveal(false) error = %v", err)
+	}
+
+	path, err := settingsFilePath()
+	if err != nil {
+		t.Fatalf("settingsFilePath() error = %v", err)
+	}
+	settings, err := loadSettings(path)
+	if err != nil {
+		t.Fatalf("loadSettings() error = %v", err)
+	}
+	if settings.Sidebar.AutoReveal {
+		t.Fatal("Sidebar.AutoReveal = true, want the saved false")
+	}
+	if !settings.Sidebar.Visible {
+		t.Fatal("Sidebar.Visible = false, want the unrelated setting untouched")
+	}
+}
+
 func TestRemoveSidebarFolderDropsOneRoot(t *testing.T) {
 	useTempSettingsDir(t)
 	first := t.TempDir()

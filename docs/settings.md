@@ -38,7 +38,8 @@ loaded (at app startup), so no manual setup is required.
     "folders": [
       "/Users/me/projects/kova"
     ],
-    "visible": true
+    "visible": true,
+    "auto_reveal": true
   },
   "files": {
     "exclude": [".git", ".hg", ".svn", "node_modules", ".DS_Store"]
@@ -78,6 +79,7 @@ loaded (at app startup), so no manual setup is required.
 | --- | --- | --- | --- |
 | `sidebar.folders` | string[] | `[]` | Absolute paths of the folders shown in the sidebar, in display order. |
 | `sidebar.visible` | boolean | `true` | Show the folder tree. **View → Toggle Sidebar** (<kbd>Cmd</kbd>+<kbd>B</kbd>) writes it. |
+| `sidebar.auto_reveal` | boolean | `true` | Expand the tree to the active file whenever the active tab changes. |
 
 Kova writes `sidebar.folders` itself when you add a folder from the sidebar's
 `+` button, the **File → Add Folder to Sidebar…** menu item
@@ -134,7 +136,7 @@ booleans above, not as a separate UI state.
 - Unknown keys are ignored.
 - Malformed JSON is reported in the developer console; Kova runs with defaults
   and leaves the file untouched so it can be fixed.
-- Editor values, `sidebar.visible`, the recent list and the session are read
+- Editor values, `sidebar.visible`, `sidebar.auto_reveal`, the recent list and the session are read
   at startup; excludes are read when a folder level is opened and when a
   search runs. The settings panel applies changes immediately; after editing
   the file by hand, restart Kova to reread the editor values or the sidebar.
@@ -142,9 +144,9 @@ booleans above, not as a separate UI state.
 The settings panel (**Settings…**, <kbd>Cmd</kbd>+<kbd>,</kbd>) edits every
 configurable value in the file: editor typography, indentation, cursor, view
 toggles and final-newline handling; appearance; interface; explorer and search
-excludes; and the sidebar's visibility and folders. Values are saved to
-`settings.json` as they change, and the View menu checkmarks follow the panel's
-toggles. The panel's **Advanced** section links to the JSON file, the default
+excludes; and the sidebar's visibility, reveal behavior and folders. Values are
+saved to `settings.json` as they change, and the View menu checkmarks follow the
+panel's toggles. The panel's **Advanced** section links to the JSON file, the default
 settings, the themes folder and the keybindings.
 
 `recent.files` and `session.*` are managed by the app: the Open Recent menu and
