@@ -18,6 +18,13 @@
     } from './editorcommands';
     import type { EditorSettings } from './settings';
     import { appendFinalNewline, trimTrailingWhitespace as trimLineEnd } from './text';
+    import type { CopyPathKind } from './workspacecommands';
+
+    // FILE_MENU_GROUP is the trailing section of the editor's right-click menu.
+    // Monaco sorts groups lexically with 'navigation' pinned first, so a group
+    // that starts with 9_ and sorts after 9_cutcopypaste follows every built-in
+    // item: the file commands come last, as they do in other editors.
+    const FILE_MENU_GROUP = '9_kova';
 
     interface Props {
         // modelKey identifies the active buffer: a document tab's id, or
@@ -48,6 +55,9 @@
         // onRevealFile asks the app to show the active file in the platform's
         // file manager; it is wired to the editor's context menu.
         onRevealFile?: () => void;
+        // onCopyPath asks the app to copy the active file's path to the
+        // clipboard. It is wired to the editor's context menu as well.
+        onCopyPath?: (kind: CopyPathKind) => void;
         // onDirtyChange reports when a buffer stops or starts matching the file
         // it came from, so its tab can be marked.
         onDirtyChange?: (id: string, dirty: boolean) => void;
@@ -64,6 +74,7 @@
         onCursorMove,
         onSelectionChange,
         onRevealFile,
+        onCopyPath,
         onDirtyChange,
     }: Props = $props();
 
@@ -557,9 +568,23 @@
         const revealAction = created.addAction({
             id: 'reveal-in-finder',
             label: 'Reveal in Finder',
-            contextMenuGroupId: 'navigation',
+            contextMenuGroupId: FILE_MENU_GROUP,
             contextMenuOrder: 1,
             run: () => onRevealFile?.(),
+        });
+        const copyPathAction = created.addAction({
+            id: 'copy-path',
+            label: 'Copy Path',
+            contextMenuGroupId: FILE_MENU_GROUP,
+            contextMenuOrder: 2,
+            run: () => onCopyPath?.('file'),
+        });
+        const copyRelativePathAction = created.addAction({
+            id: 'copy-relative-path',
+            label: 'Copy Relative Path',
+            contextMenuGroupId: FILE_MENU_GROUP,
+            contextMenuOrder: 3,
+            run: () => onCopyPath?.('relative'),
         });
 
         return () => {
@@ -567,6 +592,8 @@
             selectionSubscription.dispose();
             contentSubscription.dispose();
             revealAction.dispose();
+            copyPathAction.dispose();
+            copyRelativePathAction.dispose();
             created.dispose();
             for (const model of models.values()) {
                 model.dispose();

@@ -2927,16 +2927,21 @@
 
     async function copyActivePath(kind: CopyPathKind): Promise<void> {
         const tab = active;
-        if (tab === undefined || tab.path === '') {
+        // A diff tab has no path of its own, but it names the file it was made
+        // from, which is the path worth copying.
+        const path = tab?.path || tab?.sourcePath || '';
+        if (tab === undefined || path === '') {
             notice = 'Open a saved file to copy its path.';
             return;
         }
         const text =
             kind === 'file'
-                ? tab.path
+                ? path
                 : kind === 'relative'
-                  ? relativePath(tab.path, folders)
-                  : tab.name;
+                  ? relativePath(path, folders)
+                  : tab.path === ''
+                    ? entryName(path)
+                    : tab.name;
         try {
             await CopyText(text);
             notice = `Copied ${text}`;
@@ -3273,6 +3278,7 @@
                         settings={editorSettings}
                         readOnly={active?.kind === 'diff'}
                         onRevealFile={() => void revealActiveFile()}
+                        onCopyPath={(kind) => void copyActivePath(kind)}
                         onDirtyChange={(id, dirty) => {
                             tabs = setDocumentDirty(tabs, id, dirty);
                         }}
