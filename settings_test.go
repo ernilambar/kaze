@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -403,6 +404,83 @@ func TestNormalizeThemeAndUI(t *testing.T) {
 	}
 }
 
+func TestUpdateSettingsKeepsUnknownKeysAndFormatting(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	path, err := settingsFilePath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Unknown keys and hand-picked spacing are what an edited file looks like;
+	// a view toggle must neither drop the first nor reformat the second.
+	content := "{\n" +
+		"  \"editor\": {\n" +
+		"    \"font_size\": 12,\n" +
+		"    \"cursor_shape\": \"block\"\n" +
+		"  },\n" +
+		"  \"sidebar\":   { \"folders\": [\"/tmp\"], \"visible\": true, \"pinned\": [\"notes\"] },\n" +
+		"  \"custom\":{\"keep\":true}\n" +
+		"}\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	editor := defaultSettings().Editor
+	editor.FontSize = 15
+	app := NewApp()
+	if _, err := app.UpdateEditorSettings(editor); err != nil {
+		t.Fatalf("UpdateEditorSettings() error = %v", err)
+	}
+
+	// The file has no ui section; the write must add it without disturbing the
+	// sections the user kept.
+	if _, err := app.UpdateUISettings(UISettings{
+		FontFamily:      "Inter",
+		FontSize:        14,
+		TabIcons:        true,
+		IconStyle:       "monochrome",
+		SidebarPosition: "right",
+	}); err != nil {
+		t.Fatalf("UpdateUISettings() error = %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var document map[string]json.RawMessage
+	if err := json.Unmarshal(data, &document); err != nil {
+		t.Fatalf("settings file is not valid JSON: %v\n%s", err, data)
+	}
+	var stored EditorSettings
+	if err := json.Unmarshal(document["editor"], &stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored.FontSize != 15 {
+		t.Errorf("editor font_size = %v, want 15", stored.FontSize)
+	}
+	var storedUI UISettings
+	if err := json.Unmarshal(document["ui"], &storedUI); err != nil {
+		t.Fatalf("ui section was not added: %v", err)
+	}
+	if storedUI.FontFamily != "Inter" || storedUI.FontSize != 14 {
+		t.Errorf("ui section = %+v, want the new values", storedUI)
+	}
+	if !bytes.Contains(document["editor"], []byte(`"cursor_shape": "block"`)) {
+		t.Errorf("editor = %s, want the unknown key kept with its formatting", document["editor"])
+	}
+	if _, ok := document["custom"]; !ok {
+		t.Error("the custom section was dropped")
+	}
+	if !bytes.Contains(data, []byte(`"sidebar":   { "folders": ["/tmp"], "visible": true, "pinned": ["notes"] }`)) {
+		t.Errorf("an untouched section was reformatted:\n%s", data)
+	}
+}
+
 func TestUpdateThemeSettingsPersistsNormalizedValues(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	app := NewApp()
@@ -447,5 +525,44 @@ func TestUpdateUISettingsPersistsNormalizedValues(t *testing.T) {
 	}
 	if got.IconStyle != "monochrome" || got.SidebarPosition != "right" {
 		t.Fatalf("UpdateUISettings() = %+v, want the selected layout", got)
+	}
+}
+
+func TestUpdateSettingsFillsEmptySection(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	path, err := settingsFilePath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := "{\n  \"editor\": {\n    \"font_size\": 12\n  },\n  \"session\": {},\n  \"custom\": { \"keep\": true }\n}\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := NewApp().SetSession(SessionState{OpenFiles: []string{"/a"}, Active: "/a"}); err != nil {
+		t.Fatalf("SetSession() error = %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]json.RawMessage
+	if err := json.Unmarshal(data, &document); err != nil {
+		t.Fatalf("settings file is not valid JSON: %v\n%s", err, data)
+	}
+	var session SessionSettings
+	if err := json.Unmarshal(document["session"], &session); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(session.OpenFiles, []string{"/a"}) || session.Active != "/a" {
+		t.Errorf("session = %+v, want the written tabs", session)
+	}
+	if _, ok := document["custom"]; !ok {
+		t.Error("the custom section was dropped")
 	}
 }

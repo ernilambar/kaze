@@ -121,9 +121,10 @@ func (a *App) UpdateEditorSettings(editor EditorSettings) (EditorSettings, error
 	if err != nil {
 		return editor, err
 	}
+	before := settings.Editor
 	settings.Editor = editor
 	settings.normalize()
-	if err := writeSettings(path, settings); err != nil {
+	if err := writeSettingsSections(path, settings, settingsSection{"editor", before, settings.Editor}); err != nil {
 		return settings.Editor, err
 	}
 	return settings.Editor, nil
@@ -145,9 +146,10 @@ func (a *App) UpdateThemeSettings(theme ThemeSettings) (ThemeSettings, error) {
 	if err != nil {
 		return theme, err
 	}
+	before := settings.Theme
 	settings.Theme = theme
 	settings.normalize()
-	if err := writeSettings(path, settings); err != nil {
+	if err := writeSettingsSections(path, settings, settingsSection{"theme", before, settings.Theme}); err != nil {
 		return settings.Theme, err
 	}
 	return settings.Theme, nil
@@ -169,9 +171,10 @@ func (a *App) UpdateUISettings(ui UISettings) (UISettings, error) {
 	if err != nil {
 		return ui, err
 	}
+	before := settings.UI
 	settings.UI = ui
 	settings.normalize()
-	if err := writeSettings(path, settings); err != nil {
+	if err := writeSettingsSections(path, settings, settingsSection{"ui", before, settings.UI}); err != nil {
 		return settings.UI, err
 	}
 	return settings.UI, nil
@@ -193,9 +196,10 @@ func (a *App) UpdateFilesSettings(files FilesSettings) (FilesSettings, error) {
 	if err != nil {
 		return files, err
 	}
+	before := settings.Files
 	settings.Files = files
 	settings.normalize()
-	if err := writeSettings(path, settings); err != nil {
+	if err := writeSettingsSections(path, settings, settingsSection{"files", before, settings.Files}); err != nil {
 		return settings.Files, err
 	}
 	return settings.Files, nil
@@ -217,9 +221,10 @@ func (a *App) UpdateSearchSettings(search SearchSettings) (SearchSettings, error
 	if err != nil {
 		return search, err
 	}
+	before := settings.Search
 	settings.Search = search
 	settings.normalize()
-	if err := writeSettings(path, settings); err != nil {
+	if err := writeSettingsSections(path, settings, settingsSection{"search", before, settings.Search}); err != nil {
 		return settings.Search, err
 	}
 	return settings.Search, nil
@@ -314,8 +319,9 @@ func (a *App) updateSidebarFolders(change func([]string) []string) ([]string, er
 		return settings.Sidebar.Folders, err
 	}
 
+	before := settings.Sidebar
 	settings.Sidebar.Folders = normalizeFolderList(change(settings.Sidebar.Folders))
-	if err := writeSettings(path, settings); err != nil {
+	if err := writeSettingsSections(path, settings, settingsSection{"sidebar", before, settings.Sidebar}); err != nil {
 		return settings.Sidebar.Folders, err
 	}
 	return settings.Sidebar.Folders, nil

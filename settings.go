@@ -364,19 +364,22 @@ func ensureSettingsFile(path string) error {
 }
 
 func writeSettings(path string, settings Settings) error {
+	data, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode settings: %w", err)
+	}
+	return writeSettingsFile(path, append(data, '\n'))
+}
+
+// writeSettingsFile replaces path with data through a temporary file in the
+// same directory, so a concurrent read never sees a half-written settings
+// file and a failed write leaves the old one intact.
+func writeSettingsFile(path string, data []byte) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("create settings directory: %w", err)
 	}
 
-	data, err := json.MarshalIndent(settings, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encode settings: %w", err)
-	}
-	data = append(data, '\n')
-
-	// Write through a temporary file and rename, so a concurrent read never sees
-	// a half-written settings file.
 	tmp, err := os.CreateTemp(dir, "settings-*.json")
 	if err != nil {
 		return fmt.Errorf("write settings file: %w", err)

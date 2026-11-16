@@ -172,7 +172,10 @@ introduce one unprompted.
   `UpdateThemeSettings`, `UpdateUISettings`, `UpdateFilesSettings` and
   `UpdateSearchSettings` are the write paths; the recent files and session are
   written by `workspace.go` (`AddRecentFile`, `ClearRecentFiles`, `SetSession`,
-  `SetSidebarVisible`) behind the same `settingsMu`. Every configurable section
+  `SetSidebarVisible`) behind the same `settingsMu`. Those paths are surgical:
+  `settingswrite.go` re-reads the document and rewrites only the keys of the
+  section the command owns, so unknown keys and a hand-edited file's formatting
+  survive a toggle. Every configurable section
   is editable from the settings overlay; recent files and the session are
   state, managed by Open Recent and the tab bar.
 - **Appearance is a Zed theme family.** `themes.go` embeds

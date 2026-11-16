@@ -55,9 +55,10 @@ func (a *App) updateRecentFiles(change func([]string) []string) ([]string, error
 	if err != nil {
 		return settings.Recent.Files, err
 	}
+	before := settings.Recent
 	settings.Recent.Files = change(settings.Recent.Files)
 	settings.normalize()
-	if err := writeSettings(path, settings); err != nil {
+	if err := writeSettingsSections(path, settings, settingsSection{"recent", before, settings.Recent}); err != nil {
 		return settings.Recent.Files, err
 	}
 	return settings.Recent.Files, nil
@@ -78,10 +79,11 @@ func (a *App) SetSession(session SessionState) error {
 	if err != nil {
 		return err
 	}
+	before := settings.Session
 	settings.Session.OpenFiles = session.OpenFiles
 	settings.Session.Active = session.Active
 	settings.normalize()
-	return writeSettings(path, settings)
+	return writeSettingsSections(path, settings, settingsSection{"session", before, settings.Session})
 }
 
 // SetSidebarVisible records whether the folder tree is showing, so Cmd+B keeps
@@ -99,8 +101,9 @@ func (a *App) SetSidebarVisible(visible bool) error {
 	if err != nil {
 		return err
 	}
+	before := settings.Sidebar
 	settings.Sidebar.Visible = visible
-	return writeSettings(path, settings)
+	return writeSettingsSections(path, settings, settingsSection{"sidebar", before, settings.Sidebar})
 }
 
 // RemoveAllSidebarFolders drops every root from the sidebar and returns the
