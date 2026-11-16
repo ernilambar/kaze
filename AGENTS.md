@@ -79,10 +79,14 @@ introduce one unprompted.
   baseline and any diff of it, because HEAD still knows the old name. Cutting is
   cleared when the moved entry was the thing the clipboard held.
 - **The row menu is the tree's only file manager UI.** `FolderTree.svelte`
-  reports `isDir`/`inTree` through `onContextMenu`, so `ContextMenu.svelte`
+  reports `isDir` through `onContextMenu`, so `ContextMenu.svelte`
   (which now draws separators and disabled rows) offers New File, New Folder,
-  Cut/Copy/Paste, Duplicate, Rename and Move to Trash for a tree row and only
-  Reveal in Finder for a tab. A folder row, and the empty space under its
+  Cut/Copy/Paste, Duplicate, Rename and Move to Trash for a tree row. A tab's
+  menu offers Close Tab, Move to New Window, Close Other Tabs, Close Tabs to
+  Right, Close Tabs with Deleted Files, Close All and, for a file-backed tab,
+  Reveal in Finder: `tabsToClose` in `tabs.ts` picks the group from the
+  right-clicked tab, and `closeTabsInOrder` in `App.svelte` closes it through
+  the normal dirty-buffer prompt. A folder row, and the empty space under its
   children, is the drop target: drag state lives in `filetree.ts` (a drag spans
   components), a drop reads either the tree payload or the local path of the
   file dragged in from Finder, and a folder cannot be dropped into its own

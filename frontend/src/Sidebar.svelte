@@ -21,7 +21,7 @@
         onContextMenu?: (
             event: MouseEvent,
             path: string,
-            options: { isDir?: boolean; inTree?: boolean },
+            options: { isDir?: boolean },
         ) => void;
         // onEmptyAreaMenu opens the same menu for the folder behind an empty
         // area of the tree.

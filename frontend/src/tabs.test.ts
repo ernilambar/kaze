@@ -10,6 +10,7 @@ import {
     setDocumentDirty,
     stepTabId,
     tabIdAt,
+    tabsToClose,
     updateDocument,
 } from './tabs';
 import type { OpenDocument } from './document';
@@ -154,6 +155,31 @@ describe('closeDocumentTab', () => {
 
         expect(result.tabs).toEqual([notes]);
         expect(result.activeId).toBe(notes.id);
+    });
+});
+
+describe('tabsToClose', () => {
+    const tabs = [notes, readme, todo];
+
+    it('closes every tab except the target', () => {
+        expect(tabsToClose(tabs, readme.id, 'others')).toEqual([notes, todo]);
+    });
+
+    it('closes the tabs to the right of the target', () => {
+        expect(tabsToClose(tabs, notes.id, 'right')).toEqual([readme, todo]);
+        expect(tabsToClose(tabs, todo.id, 'right')).toEqual([]);
+    });
+
+    it('closes every tab and every deleted tab', () => {
+        const gone: OpenDocument = { ...readme, deleted: true };
+
+        expect(tabsToClose([notes, gone, todo], '', 'all')).toEqual([notes, gone, todo]);
+        expect(tabsToClose([notes, gone, todo], '', 'deleted')).toEqual([gone]);
+    });
+
+    it('has nothing to close relative to a tab that is not open', () => {
+        expect(tabsToClose(tabs, document('/tmp/gone.txt').id, 'others')).toEqual([]);
+        expect(tabsToClose(tabs, document('/tmp/gone.txt').id, 'right')).toEqual([]);
     });
 });
 

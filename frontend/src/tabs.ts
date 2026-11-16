@@ -55,6 +55,32 @@ export function closeDocumentTab(
     return { tabs: remaining, activeId: next?.id ?? '' };
 }
 
+// TabCloseScope names the group a tab context menu closes. "others" and
+// "right" are relative to the right-clicked tab; "all" and "deleted" ignore
+// it, which is why the target id is unused for those scopes.
+export type TabCloseScope = 'others' | 'right' | 'all' | 'deleted';
+
+// tabsToClose returns the tabs a context menu command closes, in their current
+// order. An unknown target means there is nothing to close for the scopes that
+// depend on it, while "all" and "deleted" still describe the tab set.
+export function tabsToClose(
+    tabs: readonly OpenDocument[],
+    id: string,
+    scope: TabCloseScope,
+): OpenDocument[] {
+    const index = tabs.findIndex((tab) => tab.id === id);
+    switch (scope) {
+        case 'others':
+            return index === -1 ? [] : tabs.filter((_, position) => position !== index);
+        case 'right':
+            return index === -1 ? [] : tabs.slice(index + 1);
+        case 'all':
+            return tabs.slice();
+        case 'deleted':
+            return tabs.filter((tab) => tab.deleted);
+    }
+}
+
 // moveDocumentTab drags id next to targetId, before it or after it. The array
 // comes back unchanged (same identity) when the drop would not move anything,
 // so callers can skip the session write a no-op reorder would cause.

@@ -185,6 +185,7 @@
         retargetDocumentPaths,
         stepTabId,
         tabIdAt,
+        tabsToClose,
         updateDocument,
     } from './tabs';
     import { appendFinalNewline } from './text';
@@ -340,15 +341,14 @@
     let unsavedPrompt = $state<UnsavedPrompt | null>(null);
     let confirmPrompt = $state<ConfirmPrompt | null>(null);
     // contextMenu is the right-click menu in the tab bar or the tree, anchored
-    // where the pointer was and acting on the path under it. isDir decides which
-    // items the tree offers, and inTree marks a row of the explorer rather than
-    // a tab, whose menu is shorter.
+    // where the pointer was. tabId marks a tab; otherwise path is the tree entry
+    // under the pointer. isDir decides which items the tree offers.
     let contextMenu = $state<{
         x: number;
         y: number;
         path: string;
         isDir: boolean;
-        inTree: boolean;
+        tabId?: string;
     } | null>(null);
 
     // NamePromptState is the one-line dialog that asks for a name: a new file, a
@@ -1003,11 +1003,12 @@
     }
 
     // closeTab drops a buffer. A modified buffer asks first, because closing it
-    // is also what discards its undo stack.
-    async function closeTab(id: string): Promise<void> {
+    // is also what discards its undo stack. The result is false when the user
+    // cancelled or the save failed, so a group command can stop there.
+    async function closeTab(id: string): Promise<boolean> {
         const tab = findTab(id);
         if (tab === undefined) {
-            return;
+            return false;
         }
         if (tab.dirty) {
             const answer = await askUnsaved({
@@ -1017,14 +1018,27 @@
                 confirmLabel: 'Save',
             });
             if (answer === 'cancel') {
-                return;
+                return false;
             }
             if (answer === 'save' && !(await saveDocument(id))) {
-                return;
+                return false;
             }
         }
         rememberClosedTab(tab);
         removeTab(id);
+        return true;
+    }
+
+    // closeTabsInOrder closes a group one tab at a time, stopping at the first
+    // cancelled prompt or failed save so the remaining tabs stay exactly as
+    // they were.
+    async function closeTabsInOrder(candidates: readonly OpenDocument[]): Promise<boolean> {
+        for (const tab of candidates) {
+            if (!(await closeTab(tab.id))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     async function resolveClose(quit: boolean): Promise<void> {
@@ -1503,11 +1517,12 @@
         });
     }
 
-    // moveTabToNewWindow hands the active tab to a new window and drops it from
-    // this one. The buffer text travels with the request, so unsaved edits are
-    // not lost; the new window removes the tab only after the call succeeds.
-    async function moveTabToNewWindow(): Promise<void> {
-        const tab = active;
+    // moveTabToNewWindow hands one tab to a new window and drops it from this
+    // one. The buffer text travels with the request, so unsaved edits are not
+    // lost; the tab is removed only after the call succeeds. Without an id the
+    // active tab is moved, which is what the menu command does.
+    async function moveTabToNewWindow(id: string = activeId): Promise<void> {
+        const tab = findTab(id);
         if (tab === undefined) {
             notice = 'Open a tab to move to a new window.';
             return;
@@ -2225,27 +2240,24 @@
         treeRefreshToken++;
     }
 
-    // startRenameFromMenu opens the rename dialog for the entry the context menu
-    // is acting on.
-    function contextTarget(): { path: string; isDir: boolean } {
-        return { path: contextMenu?.path ?? '', isDir: contextMenu?.isDir ?? false };
-    }
-
     // contextMenuItems builds the row menu. A tree row that is a file creates in
     // the folder it lives in, which is why it offers the same items; a tab row
-    // only gets Reveal in Finder. A separator is an item with an empty id, which
+    // offers the tab commands. A separator is an item with an empty id, which
     // the menu draws as a line.
     function contextMenuItems(): Array<{
         id: string;
         label: string;
         disabled?: boolean;
     }> {
-        const items = [{ id: 'reveal', label: 'Reveal in Finder' }];
-        if (!contextMenu?.inTree) {
-            return items;
+        const target = contextMenu;
+        if (target === null) {
+            return [];
+        }
+        if (target.tabId !== undefined) {
+            return tabContextMenuItems(target.tabId);
         }
         return [
-            ...items,
+            { id: 'reveal', label: 'Reveal in Finder' },
             { id: '', label: '' },
             { id: 'new-file', label: 'New File…' },
             { id: 'new-folder', label: 'New Folder…' },
@@ -2260,12 +2272,142 @@
         ];
     }
 
+    // tabContextMenuItems is the menu for the tab under the pointer. Commands
+    // are relative to that tab, not to whichever tab happens to be active.
+    function tabContextMenuItems(tabId: string): Array<{
+        id: string;
+        label: string;
+        disabled?: boolean;
+    }> {
+        const tab = findTab(tabId);
+        if (tab === undefined) {
+            return [];
+        }
+        const reveal = tab.path || tab.sourcePath || '';
+        const index = tabs.findIndex((entry) => entry.id === tabId);
+        const items: Array<{ id: string; label: string; disabled?: boolean }> = [
+            { id: 'close-tab', label: 'Close Tab' },
+            { id: 'move-tab-new-window', label: 'Move to New Window' },
+            { id: '', label: '' },
+            {
+                id: 'close-other-tabs',
+                label: 'Close Other Tabs',
+                disabled: tabs.length === 1 && !searchOpen,
+            },
+            {
+                id: 'close-right-tabs',
+                label: 'Close Tabs to Right',
+                disabled: index === -1 || (index === tabs.length - 1 && !searchOpen),
+            },
+            {
+                id: 'close-deleted-tabs',
+                label: 'Close Tabs with Deleted Files',
+                disabled: !tabs.some((entry) => entry.deleted),
+            },
+            { id: '', label: '' },
+            {
+                id: 'close-all-tabs',
+                label: 'Close All',
+                disabled: tabs.length === 0 && !searchOpen,
+            },
+        ];
+        if (reveal !== '') {
+            items.push(
+                { id: '', label: '' },
+                { id: 'reveal', label: 'Reveal in Finder' },
+            );
+        }
+        return items;
+    }
+
     // runContextMenu runs the item the row menu picked against the entry it was
-    // opened on.
+    // opened on: a tab command for a tab, a file-tree command for a tree row.
     function runContextMenu(id: string): void {
-        const entry = contextTarget();
+        const target = contextMenu;
         closeContextMenu();
-        void runTreeCommand(id, entry.path, entry.isDir);
+        if (target === null) {
+            return;
+        }
+        if (target.tabId !== undefined) {
+            void runTabContextCommand(id, target.tabId);
+            return;
+        }
+        void runTreeCommand(id, target.path, target.isDir);
+    }
+
+    // runTabContextCommand runs a tab menu item against the right-clicked tab.
+    async function runTabContextCommand(id: string, tabId: string): Promise<void> {
+        const tab = findTab(tabId);
+        if (tab === undefined) {
+            return;
+        }
+        switch (id) {
+            case 'reveal':
+                await revealPath(tab.path || tab.sourcePath || '');
+                break;
+            case 'close-tab':
+                await closeTab(tabId);
+                break;
+            case 'move-tab-new-window':
+                await moveTabToNewWindow(tabId);
+                break;
+            case 'close-other-tabs':
+                await closeOtherTabs(tabId);
+                break;
+            case 'close-right-tabs':
+                await closeTabsToRight(tabId);
+                break;
+            case 'close-all-tabs':
+                await closeAllTabs();
+                break;
+            case 'close-deleted-tabs':
+                await closeDeletedTabs();
+                break;
+        }
+    }
+
+    // closeOtherTabs leaves only the right-clicked tab, which becomes active.
+    // The Find in Files tab counts as another tab, so it closes too.
+    async function closeOtherTabs(id: string): Promise<void> {
+        if (!(await closeTabsInOrder(tabsToClose(tabs, id, 'others')))) {
+            return;
+        }
+        if (searchOpen) {
+            closeSearchTab();
+        }
+        activeId = id;
+    }
+
+    // closeTabsToRight closes every tab after the right-clicked one, including
+    // the Find in Files tab, which is always rendered after the documents.
+    async function closeTabsToRight(id: string): Promise<void> {
+        if (findTab(id) === undefined) {
+            return;
+        }
+        if (!(await closeTabsInOrder(tabsToClose(tabs, id, 'right')))) {
+            return;
+        }
+        if (searchOpen) {
+            closeSearchTab();
+        }
+    }
+
+    // closeAllTabs closes every document tab and the Find in Files tab. Dirty
+    // buffers are asked about one at a time, and a cancelled prompt stops the
+    // run with the remaining tabs still open.
+    async function closeAllTabs(): Promise<void> {
+        if (!(await closeTabsInOrder(tabsToClose(tabs, '', 'all')))) {
+            return;
+        }
+        if (searchOpen) {
+            closeSearchTab();
+        }
+    }
+
+    // closeDeletedTabs closes the buffers whose files are gone. A dirty one
+    // still asks, because closing it discards text that could recreate the file.
+    async function closeDeletedTabs(): Promise<void> {
+        await closeTabsInOrder(tabsToClose(tabs, '', 'deleted'));
     }
 
     async function runTreeCommand(id: string, path: string, isDir: boolean): Promise<void> {
@@ -2743,7 +2885,7 @@
     function showContextMenu(
         event: MouseEvent,
         path: string,
-        options: { isDir?: boolean; inTree?: boolean } = {},
+        options: { isDir?: boolean } = {},
     ): void {
         event.preventDefault();
         event.stopPropagation();
@@ -2755,7 +2897,20 @@
             y: event.clientY,
             path,
             isDir: options.isDir ?? false,
-            inTree: options.inTree ?? false,
+        };
+    }
+
+    // showTabContextMenu opens the tab's right-click menu. The tab id, not the
+    // path, is the target because an untitled buffer has no path to identify it.
+    function showTabContextMenu(event: MouseEvent, tab: OpenDocument): void {
+        event.preventDefault();
+        event.stopPropagation();
+        contextMenu = {
+            x: event.clientX,
+            y: event.clientY,
+            path: tab.path || tab.sourcePath || '',
+            isDir: false,
+            tabId: tab.id,
         };
     }
 
@@ -2763,7 +2918,7 @@
     // the folder itself: New File and New Folder need somewhere to land, so the
     // menu is the one a folder row would offer.
     function showEmptyAreaMenu(event: MouseEvent, folder: string): void {
-        showContextMenu(event, folder, { isDir: true, inTree: true });
+        showContextMenu(event, folder, { isDir: true });
     }
 
     function closeContextMenu(): void {
@@ -3084,8 +3239,7 @@
                     searchActive = false;
                 }}
                 onClose={(id) => void closeTab(id)}
-                onContextMenu={(event, tab) =>
-                    showContextMenu(event, tab.path || tab.sourcePath || '')}
+                onContextMenu={(event, tab) => showTabContextMenu(event, tab)}
                 onReorder={reorderTab}
                 onSelectSearch={() => {
                     searchOpen = true;

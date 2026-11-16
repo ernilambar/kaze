@@ -28,7 +28,7 @@
         onContextMenu?: (
             event: MouseEvent,
             path: string,
-            options: { isDir?: boolean; inTree?: boolean },
+            options: { isDir?: boolean },
         ) => void;
         onRemove?: (path: string) => void;
         onExpandedChange?: (path: string, open: boolean) => void;
@@ -249,7 +249,7 @@
             class="row__main"
             onclick={toggle}
             title={path}
-            oncontextmenu={(event) => onContextMenu?.(event, path, { isDir: true, inTree: true })}
+            oncontextmenu={(event) => onContextMenu?.(event, path, { isDir: true })}
         >
             <span class="row__chevron" class:row__chevron--open={open}>
                 <svg aria-hidden="true" height="10" viewBox="0 0 10 10" width="10">
@@ -332,7 +332,6 @@
                                     oncontextmenu={(event) =>
                                         onContextMenu?.(event, entry.path, {
                                             isDir: false,
-                                            inTree: true,
                                         })}
                                 >
                                     <span class="row__spacer"></span>

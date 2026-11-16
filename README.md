@@ -6,7 +6,9 @@ A minimal text editor for macOS.
 
 - **Tabs** — one tab per open file, each with its own buffer and undo history;
   a dot marks unsaved edits, and closing the last tab returns to the welcome
-  screen.
+  screen. Right-click a tab to close it, move it to a new window, close the
+  other tabs, the tabs to its right, the tabs whose files were deleted, or all
+  tabs.
 - **Welcome screen** — with no open tab, the editor shows the Kova icon over
   three actions and their shortcuts: New File, Open File and Add Folder.
 - **Workspaces** — Open, Save As and Close; the workspace file keeps folders
