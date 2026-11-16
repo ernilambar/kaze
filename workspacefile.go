@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,9 +28,20 @@ type workspaceFile struct {
 	Folders []string `json:"folders"`
 }
 
+// codeWorkspaceFile is the part of a VS Code .code-workspace file Kaze reads.
+// Only folders are imported; settings, extensions, launch and tasks are
+// ignored, and the file is never written back.
+type codeWorkspaceFile struct {
+	Folders []struct {
+		Path string `json:"path"`
+		URI  string `json:"uri"`
+	} `json:"folders"`
+}
+
 const (
-	workspaceExtension = ".kaze-workspace"
-	defaultWorkspace   = "workspace"
+	workspaceExtension     = ".kaze-workspace"
+	codeWorkspaceExtension = ".code-workspace"
+	defaultWorkspace       = "workspace"
 )
 
 // OpenWorkspaceDialog asks for a workspace file and loads its folders. An empty
@@ -40,7 +52,7 @@ func (a *App) OpenWorkspaceDialog() (WorkspaceInfo, error) {
 	}
 	path, err := a.wails.Dialog.OpenFile().
 		SetTitle("Open Workspace").
-		AddFilter(appMeta.ProductName+" Workspace", "*"+workspaceExtension).
+		AddFilter("Workspace", "*"+workspaceExtension+";*"+codeWorkspaceExtension).
 		PromptForSingleSelection()
 	if err != nil || path == "" {
 		return WorkspaceInfo{}, err
@@ -82,14 +94,21 @@ func loadWorkspaceFile(path string) (WorkspaceInfo, error) {
 		return WorkspaceInfo{}, fmt.Errorf("read workspace file: %w", err)
 	}
 
-	var file workspaceFile
-	if err := json.Unmarshal(data, &file); err != nil {
+	var entries []string
+	if strings.EqualFold(filepath.Ext(path), codeWorkspaceExtension) {
+		entries, err = parseCodeWorkspace(data)
+	} else {
+		var file workspaceFile
+		err = json.Unmarshal(data, &file)
+		entries = file.Folders
+	}
+	if err != nil {
 		return WorkspaceInfo{}, fmt.Errorf("parse %s: %w", filepath.Base(path), err)
 	}
 
 	dir := filepath.Dir(path)
-	folders := make([]string, 0, len(file.Folders))
-	for _, entry := range file.Folders {
+	folders := make([]string, 0, len(entries))
+	for _, entry := range entries {
 		entry = strings.TrimSpace(entry)
 		if entry == "" {
 			continue
@@ -118,6 +137,67 @@ func loadWorkspaceFile(path string) (WorkspaceInfo, error) {
 		Name:    workspaceName(path),
 		Folders: folders,
 	}, nil
+}
+
+// parseCodeWorkspace returns the folder entries of a VS Code workspace file.
+// The file is JSONC, so comments and trailing commas are removed first. A
+// file:// uri becomes its local path; any other scheme names a remote folder
+// Kaze cannot open.
+func parseCodeWorkspace(data []byte) ([]string, error) {
+	var file codeWorkspaceFile
+	if err := json.Unmarshal(stripTrailingCommas(stripJSONComments(data)), &file); err != nil {
+		return nil, err
+	}
+	entries := make([]string, 0, len(file.Folders))
+	for _, folder := range file.Folders {
+		if folder.Path != "" {
+			entries = append(entries, folder.Path)
+			continue
+		}
+		if folder.URI == "" {
+			continue
+		}
+		u, err := url.Parse(folder.URI)
+		if err != nil || u.Scheme != "file" || (u.Host != "" && u.Host != "localhost") {
+			return nil, fmt.Errorf("folder %q is not a local folder", folder.URI)
+		}
+		entries = append(entries, u.Path)
+	}
+	return entries, nil
+}
+
+// stripTrailingCommas drops a comma that is followed only by whitespace and a
+// closing bracket, leaving string contents alone. Run it after comments are
+// stripped so a comment between the comma and the bracket does not hide it.
+func stripTrailingCommas(data []byte) []byte {
+	out := make([]byte, 0, len(data))
+	inString := false
+	escaped := false
+	for i := 0; i < len(data); i++ {
+		c := data[i]
+		if inString {
+			switch {
+			case escaped:
+				escaped = false
+			case c == '\\':
+				escaped = true
+			case c == '"':
+				inString = false
+			}
+		} else if c == '"' {
+			inString = true
+		} else if c == ',' {
+			j := i + 1
+			for j < len(data) && strings.IndexByte(" \t\r\n", data[j]) >= 0 {
+				j++
+			}
+			if j < len(data) && (data[j] == ']' || data[j] == '}') {
+				continue
+			}
+		}
+		out = append(out, c)
+	}
+	return out
 }
 
 // writeWorkspaceFile validates folders, encodes them relative to path's

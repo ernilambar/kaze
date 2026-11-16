@@ -114,7 +114,9 @@ introduce one unprompted.
   Opening one resolves and validates every folder before `SetSidebarFolders`
   replaces `sidebar.folders` in one write; the workspace name comes from the
   file name and is session state. Open, Save As and Close are in the File menu,
-  the command palette and `workspacecommands.ts`.
+  the command palette and `workspacecommands.ts`. Open also accepts a VS Code
+  `.code-workspace` (JSONC): only `folders` (`path`, or a `file://` `uri`) is
+  read, everything else is ignored, and Save As always writes `.kaze-workspace`.
 - **Excludes are configurable globs.** `exclude.go` matches `files.exclude`
   and `search.exclude` for the tree, Quick Open and Find in Files: a bare name
   matches at any depth, a leading slash anchors it, `**` spans directories and

@@ -94,3 +94,59 @@ func writeWorkspaceTestFile(t *testing.T, path, content string) {
 		t.Fatal(err)
 	}
 }
+
+func TestCodeWorkspaceReadsFoldersOnly(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"app", "lib dir"} {
+		if err := os.Mkdir(filepath.Join(dir, name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	outside := t.TempDir()
+	path := filepath.Join(dir, "project"+codeWorkspaceExtension)
+	data := `{
+	// VS Code writes JSONC.
+	"folders": [
+		{ "path": "app", "name": "Application" },
+		{ "uri": "file://` + filepath.ToSlash(filepath.Join(dir, "lib%20dir")) + `" },
+		/* absolute */ { "path": "` + filepath.ToSlash(outside) + `", },
+	],
+	"settings": { "files.exclude": { "**/,]": true, }, },
+	"extensions": { "recommendations": [] },
+}
+`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := loadWorkspaceFile(path)
+	if err != nil {
+		t.Fatalf("loadWorkspaceFile() error = %v", err)
+	}
+	want := []string{filepath.Join(dir, "app"), filepath.Join(dir, "lib dir"), outside}
+	if !reflect.DeepEqual(info.Folders, want) {
+		t.Fatalf("folders = %q, want %q", info.Folders, want)
+	}
+	if info.Name != "project" {
+		t.Fatalf("workspace name = %q, want project", info.Name)
+	}
+}
+
+func TestCodeWorkspaceRejectsRemoteFolder(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "remote"+codeWorkspaceExtension)
+	data := `{"folders": [{"uri": "vscode-remote://ssh-remote+host/home/me/app"}]}`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadWorkspaceFile(path); err == nil {
+		t.Fatal("loadWorkspaceFile() error = nil, want a remote folder error")
+	}
+}
+
+func TestStripTrailingCommasKeepsStrings(t *testing.T) {
+	got := string(stripTrailingCommas([]byte(`{"a": [1, 2, ], "b": "x, ]", "c": "\", }",}`)))
+	want := `{"a": [1, 2 ], "b": "x, ]", "c": "\", }"}`
+	if got != want {
+		t.Fatalf("stripTrailingCommas() = %s, want %s", got, want)
+	}
+}
