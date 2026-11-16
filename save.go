@@ -87,7 +87,7 @@ func saveDocument(request SaveRequest) (SaveResult, error) {
 	if request.BOM {
 		text = byteOrderMark + text
 	}
-	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+	if err := atomicWriteFile(path, []byte(text)); err != nil {
 		return SaveResult{}, fmt.Errorf("save %s: %w", filepath.Base(path), err)
 	}
 
@@ -103,6 +103,68 @@ func saveDocument(request SaveRequest) (SaveResult, error) {
 		Name:     filepath.Base(path),
 		Modified: info.ModTime().UnixMilli(),
 	}, nil
+}
+
+// atomicWriteFile replaces path with data without ever exposing a half-written
+// file: the bytes land in a temp file in the same directory, are synced, and
+// renamed over the target in one step. The target keeps its permissions; a new
+// file gets the usual 0644.
+func atomicWriteFile(path string, data []byte) error {
+	// A direct symlink is the file's alias, not its identity. Resolve it first
+	// so the rename replaces the target and the link keeps pointing at it.
+	if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		target, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			return err
+		}
+		path = target
+	}
+
+	mode := os.FileMode(0o644)
+	if info, err := os.Stat(path); err == nil {
+		mode = info.Mode()
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	dir := filepath.Dir(path)
+	temp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tempPath := temp.Name()
+	renamed := false
+	defer func() {
+		if !renamed {
+			temp.Close()
+			os.Remove(tempPath)
+		}
+	}()
+
+	if _, err := temp.Write(data); err != nil {
+		return err
+	}
+	if err := temp.Chmod(mode); err != nil {
+		return err
+	}
+	if err := temp.Sync(); err != nil {
+		return err
+	}
+	if err := temp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tempPath, path); err != nil {
+		return err
+	}
+	renamed = true
+
+	// The rename itself is a directory entry; sync it so a crash cannot leave
+	// the new name unwritten. Best effort: the file's contents are already safe.
+	if dirFile, err := os.Open(dir); err == nil {
+		dirFile.Sync()
+		dirFile.Close()
+	}
+	return nil
 }
 
 // normalizeEOL rewrites every line ending to the file's chosen sequence. The

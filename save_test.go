@@ -30,6 +30,73 @@ func TestSaveDocumentWritesContent(t *testing.T) {
 	}
 }
 
+// A save replaces the file in one step, so it keeps the target's permissions
+// and leaves no temp file behind for the tree or the watcher to notice.
+func TestSaveDocumentKeepsModeAndCleansUp(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "script.sh")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	if err := os.Chmod(path, 0o755); err != nil {
+		t.Fatalf("set mode: %v", err)
+	}
+
+	if _, err := saveDocument(SaveRequest{Path: path, Content: "#!/bin/sh\necho hi\n"}); err != nil {
+		t.Fatalf("saveDocument() error = %v", err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat saved file: %v", err)
+	}
+	if info.Mode().Perm() != 0o755 {
+		t.Fatalf("saved mode = %o, want 755", info.Mode().Perm())
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read directory: %v", err)
+	}
+	for _, entry := range entries {
+		if entry.Name() != "script.sh" {
+			t.Fatalf("save left behind %q", entry.Name())
+		}
+	}
+}
+
+// A file opened through a symlink is saved through it: the link stays a link
+// and the file it names gets the new text.
+func TestSaveDocumentWritesThroughSymlink(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "real.txt")
+	link := filepath.Join(dir, "link.txt")
+	if err := os.WriteFile(target, []byte("old"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	if err := os.Symlink("real.txt", link); err != nil {
+		t.Skipf("cannot create a symlink: %v", err)
+	}
+
+	if _, err := saveDocument(SaveRequest{Path: link, Content: "new"}); err != nil {
+		t.Fatalf("saveDocument() error = %v", err)
+	}
+
+	info, err := os.Lstat(link)
+	if err != nil {
+		t.Fatalf("lstat link: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatal("save replaced the symlink with a regular file")
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("read target: %v", err)
+	}
+	if string(data) != "new" {
+		t.Fatalf("target content = %q, want %q", data, "new")
+	}
+}
+
 // Saving through a symlinked directory must report the real path, so the
 // frontend recognises the file it wrote as the tab it already has.
 func TestSaveDocumentReportsResolvedPath(t *testing.T) {
