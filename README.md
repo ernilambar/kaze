@@ -17,7 +17,9 @@ A minimal text editor for macOS.
   has its own tabs and sidebar; settings and themes are shared.
 - **File handling** — New File, New Folder, New Buffer, Open, Save, Save As and
   Save All. Closing a dirty tab, window or quit prompts to save, and saving over
-  a file another program changed warns first.
+  a file another program changed warns first. Drag files or folders in from
+  Finder; files open as tabs, folders join the sidebar, and holding
+  <kbd>Option</kbd> opens the drop in a new window.
 - **Folder sidebar** — several folders as roots, children read only on
   expansion, [File Icons](https://github.com/file-icons/icons) glyphs matched
   by name, and the list persisted in `settings.json`. **Toggle Sidebar**

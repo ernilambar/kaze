@@ -638,10 +638,17 @@ func (a *App) GetLaunchRequest(window string) LaunchRequest {
 }
 
 // queueLaunch records what a command line asked to open and, when the focused
-// window is already listening, hands it over immediately. A request marked
-// NewWindow opens a window of its own instead of reusing the focused one; the
-// flag is consumed here, so no frontend has to know about it.
+// window is already listening, hands it over immediately.
 func (a *App) queueLaunch(request LaunchRequest) {
+	a.queueLaunchTo(a.targetSession(), request)
+}
+
+// queueLaunchTo records a request for one window. The launch path picks the
+// focused window; a file drop passes the window it happened in, so dropping on
+// a background window does not open the files somewhere else. A request marked
+// NewWindow opens a window of its own instead of reusing the target; the flag
+// is consumed here, so no frontend has to know about it.
+func (a *App) queueLaunchTo(session *windowSession, request LaunchRequest) {
 	if request.NewWindow {
 		request.NewWindow = false
 		// Before the runtime is attached there is nothing to open a window in:
@@ -657,7 +664,6 @@ func (a *App) queueLaunch(request LaunchRequest) {
 		return
 	}
 
-	session := a.targetSession()
 	if session == nil {
 		a.windowsMu.Lock()
 		a.pending.Merge(request)

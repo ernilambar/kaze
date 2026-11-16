@@ -120,7 +120,13 @@ introduce one unprompted.
 - **Every folder entry point shares one code path.** The `+` button,
   **File → Add Folder to Sidebar…**, and `kova <folder>` all funnel through
   `addFolderFromDialog`/`applyLaunch` in `App.svelte`, so they share one busy
-  flag and one error notice.
+  flag and one error notice. Finder drops do too: `openWindow` enables
+  `EnableFileDrop` and listens for `WindowFilesDropped`, the frontend marks the
+  window root with `data-file-drop-target`, and `handleFileDrop` turns the
+  paths into a `LaunchRequest` for that window through `queueLaunchTo`.
+  `drop.go` classifies files as tabs and folders as roots; Option, read from
+  AppKit in `modifier_darwin.go`, opens the drop in a new window and makes a
+  dropped folder its only root.
 - **Open files are tabs held in frontend state.** `App.svelte` keeps the tab
   list and the active tab id; `tabs.ts` has the pure open/close rules (one tab
   per file, activate the right neighbour when the active tab closes).

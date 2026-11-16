@@ -59,6 +59,14 @@
     box-sizing: border-box;
 }
 
+/* Wails adds this class to the element under a native file drag while it can
+   accept the drop. The window root is the target, so a Finder drag is welcome
+   anywhere outside the tree's own row targets. */
+.app.file-drop-target-active {
+    outline: 2px dashed var(--fg-muted);
+    outline-offset: -2px;
+}
+
 html,
 body {
     height: 100%;

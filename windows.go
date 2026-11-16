@@ -214,14 +214,18 @@ func (a *App) openWindow(request LaunchRequest) error {
 	session := a.registerWindow(name, request)
 
 	window := a.wails.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:               name,
-		Title:              a.meta.ProductName,
-		Width:              1200,
-		Height:             800,
-		MinWidth:           600,
-		MinHeight:          400,
-		BackgroundColour:   application.NewRGB(30, 30, 30),
-		URL:                "/",
+		Name:             name,
+		Title:            a.meta.ProductName,
+		Width:            1200,
+		Height:           800,
+		MinWidth:         600,
+		MinHeight:        400,
+		BackgroundColour: application.NewRGB(30, 30, 30),
+		URL:              "/",
+		// Files dragged in from Finder arrive through AppKit, not the webview;
+		// the frontend marks the whole window as the drop target and this
+		// listener on each window receives the paths.
+		EnableFileDrop:     true,
 		UseApplicationMenu: true,
 		// The frontend draws the window's only title bar. The native macOS bar
 		// turns transparent with its title hidden and the web content extends
@@ -240,6 +244,12 @@ func (a *App) openWindow(request LaunchRequest) error {
 
 	window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
 		a.windowClosing(session, event)
+	})
+	// Finder reports the paths to this window after the webview has confirmed
+	// the point is on a drop target. Option is read from AppKit at drop time
+	// because the drag never becomes a DOM event.
+	window.OnWindowEvent(events.Common.WindowFilesDropped, func(event *application.WindowEvent) {
+		a.handleFileDrop(session, event.Context().DroppedFiles(), optionKeyHeld())
 	})
 	return nil
 }

@@ -250,6 +250,12 @@ export interface LaunchRequest {
      * the session with its own empty or moved tab list.
      */
     "restore_session": boolean;
+
+    /**
+     * NewWindow asks for a window of its own instead of the focused one. It is
+     * consumed by queueLaunch, so a window's frontend never sees it set.
+     */
+    "new_window": boolean;
 }
 
 /**
