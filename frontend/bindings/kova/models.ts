@@ -283,11 +283,14 @@ export interface RecentSettings {
 }
 
 /**
- * ReplaceResult reports how much Replace All changed.
+ * ReplaceResult reports how much Replace All changed. Skipped lists the files
+ * whose mtime moved since the search, so the frontend can report them instead
+ * of silently leaving a stale replacement behind.
  */
 export interface ReplaceResult {
     "files": number;
     "matches": number;
+    "skipped": string[] | null;
 }
 
 /**
@@ -344,6 +347,8 @@ export interface SaveResult {
 
 /**
  * SearchMatch is one hit: where it is and the trimmed line it was found on.
+ * Modified is the file's mtime in Unix milliseconds when the search read it.
+ * Replace All hands it back so a file changed since the search is skipped.
  */
 export interface SearchMatch {
     "path": string;
@@ -351,12 +356,17 @@ export interface SearchMatch {
     "line": number;
     "column": number;
     "text": string;
+    "modified": number;
 }
 
 /**
  * SearchRequest is one Find in Files query. The literal/regular-expression
  * switch, the case option and the include and exclude globs mirror what the
- * results panel shows.
+ * results panel shows. ExpectedModified maps a path to the mtime the search
+ * read it at, in Unix milliseconds; a file that moved since is not rewritten.
+ * OpenPaths names files open in a tab in the calling window: Replace All edits
+ * those in the editor's buffer instead of writing them here, so they stay
+ * unsaved and undoable.
  */
 export interface SearchRequest {
     "query": string;
@@ -365,6 +375,8 @@ export interface SearchRequest {
     "include": string;
     "exclude": string;
     "replacement": string;
+    "expected_modified": { [_ in string]?: number } | null;
+    "open_paths": string[] | null;
 }
 
 /**

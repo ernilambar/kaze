@@ -114,7 +114,15 @@
         toQuickOpenFiles,
         type QuickOpenFile,
     } from './quickOpen';
-    import { groupSearchMatches, searchSummary } from './search';
+    import {
+        expectedModified,
+        groupSearchMatches,
+        replaceConfirmMessage,
+        replaceNotice,
+        replaceText,
+        searchExpression,
+        searchSummary,
+    } from './search';
     import {
         defaultEditorSettings,
         defaultThemeSettings,
@@ -310,6 +318,10 @@
     let searchCaseSensitive = $state(false);
     let searchMatches = $state<SearchMatch[]>([]);
     let searchTruncated = $state(false);
+    // searchedParams records the query that produced searchMatches. Replace
+    // All uses these rather than the live fields, so changing the query without
+    // searching again cannot replace text the results do not describe.
+    let searchedParams = $state({ query: '', regex: false, caseSensitive: false, include: '' });
     let searchBusy = $state(false);
     let searchError = $state('');
     let searchFocusToken = $state(0);
@@ -2492,6 +2504,7 @@
         if (query === '') {
             searchMatches = [];
             searchError = '';
+            searchedParams = { query: '', regex: false, caseSensitive: false, include: '' };
             return;
         }
         searchBusy = true;
@@ -2504,9 +2517,17 @@
                 include: searchInclude,
                 exclude: '',
                 replacement: '',
+                expected_modified: null,
+                open_paths: null,
             });
             searchMatches = result.matches ?? [];
             searchTruncated = result.truncated;
+            searchedParams = {
+                query,
+                regex: searchRegex,
+                caseSensitive: searchCaseSensitive,
+                include: searchInclude,
+            };
         } catch (error) {
             searchMatches = [];
             searchError = errorMessage(error);
@@ -2515,27 +2536,98 @@
         }
     }
 
+    // replaceInFiles is the safe Replace All. It confirms the scope first, then
+    // lets Go write the files whose mtime still matches the search; files that
+    // changed since are skipped and named in the result. Open buffers get the
+    // same edit through Monaco so it stays unsaved and undoable, and the app
+    // never reloads a buffer out from under the user's undo stack.
     async function replaceInFiles(): Promise<void> {
-        const query = searchQuery.trim();
-        if (query === '') {
+        const query = searchedParams.query;
+        if (query === '' || searchMatches.length === 0) {
             return;
         }
+        const files = searchGroups.length;
+        const matches = searchMatches.length;
+        const confirmed = await askConfirm(
+            'Replace All in Files',
+            replaceConfirmMessage(matches, files, searchTruncated),
+            'Replace All',
+        );
+        if (!confirmed) {
+            return;
+        }
+
         searchBusy = true;
         searchError = '';
         try {
+            const expected = expectedModified(searchMatches);
+            const expression = searchExpression(
+                query,
+                searchedParams.regex,
+                searchedParams.caseSensitive,
+            );
+            // Files open in this window are edited in their Monaco buffers,
+            // so tell Go to leave them on disk. They stay unsaved and undoable.
+            // openPaths uses the search's spelling so it matches the path Go
+            // walks, even when the tab was opened through a symlink.
+            const openPaths: string[] = [];
+            const openTabs: OpenDocument[] = [];
+            const seenTabs = new Set<string>();
+            for (const group of searchGroups) {
+                const tab = findDocumentByPath(tabs, group.path);
+                if (tab !== undefined && tab.kind === 'text' && tab.path !== '') {
+                    openPaths.push(group.path);
+                    // Two roots can name the same file, and both would map to
+                    // one tab; edit its buffer once.
+                    if (!seenTabs.has(tab.id)) {
+                        seenTabs.add(tab.id);
+                        openTabs.push(tab);
+                    }
+                }
+            }
             const result = await ReplaceInProject({
                 query,
-                regex: searchRegex,
-                case_sensitive: searchCaseSensitive,
-                include: searchInclude,
+                regex: searchedParams.regex,
+                case_sensitive: searchedParams.caseSensitive,
+                include: searchedParams.include,
                 exclude: '',
                 replacement: searchReplacement,
+                expected_modified: expected,
+                open_paths: openPaths,
             });
-            await refreshOpenDocuments();
+
+            // Apply the same edit to each open buffer. A dirty buffer's model
+            // may hold unsaved text the search never saw, so replace in the
+            // buffer's current text; Monaco keeps the undo history and marks
+            // the tab dirty through onDirtyChange.
+            for (const tab of openTabs) {
+                const current = editorPane?.value(tab.id) ?? tab.content;
+                const replaced = replaceText(
+                    current,
+                    expression,
+                    searchReplacement,
+                    searchedParams.regex,
+                );
+                if (replaced === current) {
+                    continue;
+                }
+                const updated = editorPane?.replaceInBuffer(tab.id, replaced);
+                if (updated === undefined) {
+                    // A tab restored from the session may never have been
+                    // displayed, so it has no Monaco model yet. Store the new
+                    // text on the tab so the model is created already dirty.
+                    tabs = updateDocument(tabs, tab.id, {
+                        content: replaced,
+                        savedContent: tab.savedContent ?? tab.content,
+                        dirty: true,
+                    });
+                }
+            }
+
             treeRefreshToken++;
             await refreshGitStatus();
             await refreshDiffTabs();
-            notice = `Replaced ${result.matches} in ${result.files} files.`;
+            notice = replaceNotice(result.matches, result.files, result.skipped ?? []);
             await runSearch();
         } catch (error) {
             searchError = errorMessage(error);

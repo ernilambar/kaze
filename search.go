@@ -29,12 +29,15 @@ const (
 var vcsDirectories = map[string]bool{".git": true, ".hg": true, ".svn": true}
 
 // SearchMatch is one hit: where it is and the trimmed line it was found on.
+// Modified is the file's mtime in Unix milliseconds when the search read it.
+// Replace All hands it back so a file changed since the search is skipped.
 type SearchMatch struct {
-	Path   string `json:"path"`
-	Name   string `json:"name"`
-	Line   int    `json:"line"`
-	Column int    `json:"column"`
-	Text   string `json:"text"`
+	Path     string `json:"path"`
+	Name     string `json:"name"`
+	Line     int    `json:"line"`
+	Column   int    `json:"column"`
+	Text     string `json:"text"`
+	Modified int64  `json:"modified"`
 }
 
 // SearchResult is every hit a project search found, plus whether the cap cut
@@ -47,20 +50,29 @@ type SearchResult struct {
 
 // SearchRequest is one Find in Files query. The literal/regular-expression
 // switch, the case option and the include and exclude globs mirror what the
-// results panel shows.
+// results panel shows. ExpectedModified maps a path to the mtime the search
+// read it at, in Unix milliseconds; a file that moved since is not rewritten.
+// OpenPaths names files open in a tab in the calling window: Replace All edits
+// those in the editor's buffer instead of writing them here, so they stay
+// unsaved and undoable.
 type SearchRequest struct {
-	Query         string `json:"query"`
-	Regex         bool   `json:"regex"`
-	CaseSensitive bool   `json:"case_sensitive"`
-	Include       string `json:"include"`
-	Exclude       string `json:"exclude"`
-	Replacement   string `json:"replacement"`
+	Query            string           `json:"query"`
+	Regex            bool             `json:"regex"`
+	CaseSensitive    bool             `json:"case_sensitive"`
+	Include          string           `json:"include"`
+	Exclude          string           `json:"exclude"`
+	Replacement      string           `json:"replacement"`
+	ExpectedModified map[string]int64 `json:"expected_modified"`
+	OpenPaths        []string         `json:"open_paths"`
 }
 
-// ReplaceResult reports how much Replace All changed.
+// ReplaceResult reports how much Replace All changed. Skipped lists the files
+// whose mtime moved since the search, so the frontend can report them instead
+// of silently leaving a stale replacement behind.
 type ReplaceResult struct {
-	Files   int `json:"files"`
-	Matches int `json:"matches"`
+	Files   int      `json:"files"`
+	Matches int      `json:"matches"`
+	Skipped []string `json:"skipped"`
 }
 
 // SearchProject finds query across the sidebar roots. files.exclude and
@@ -94,7 +106,9 @@ func (a *App) SearchProject(request SearchRequest) (SearchResult, error) {
 
 // ReplaceInProject rewrites every match in every searched file. It searches
 // the same file set first, so a file with no match is never opened for
-// writing.
+// writing. A file whose mtime moved since the search is skipped rather than
+// overwritten: someone may have edited it, and Replace All must not discard
+// that change. Skipped paths are reported so the frontend can say so.
 func (a *App) ReplaceInProject(request SearchRequest) (ReplaceResult, error) {
 	request.Query = strings.TrimSpace(request.Query)
 	if request.Query == "" {
@@ -110,14 +124,50 @@ func (a *App) ReplaceInProject(request SearchRequest) (ReplaceResult, error) {
 		return ReplaceResult{}, err
 	}
 
-	result := ReplaceResult{}
+	open := make(map[string]bool, len(request.OpenPaths))
+	for _, path := range request.OpenPaths {
+		open[path] = true
+	}
+	result := ReplaceResult{Skipped: make([]string, 0)}
 	for _, path := range collectSearchFiles(settings, request) {
-		changed, matches, err := replaceInFile(path, expression, request)
+		// Only files the search reported are candidates. Without an expected
+		// mtime the frontend did not offer this file for replacement, so a
+		// search run earlier cannot turn into a write here.
+		expected, searched := request.ExpectedModified[path]
+		if !searched {
+			continue
+		}
+		// An open file is edited in the editor's buffer instead. Go still
+		// counts its matches so the result describes everything replaced, but
+		// it leaves the file on disk untouched for the user to save.
+		if open[path] {
+			changed, matches, err := replaceInFile(path, expression, request, false)
+			if err != nil {
+				return result, err
+			}
+			if changed {
+				result.Files++
+			}
+			result.Matches += matches
+			continue
+		}
+		conflict, err := changedOnDisk(path, expected)
+		if err != nil {
+			return result, err
+		}
+		if conflict {
+			result.Skipped = append(result.Skipped, path)
+			continue
+		}
+		changed, matches, err := replaceInFile(path, expression, request, true)
 		if err != nil {
 			return result, err
 		}
 		if changed {
 			result.Files++
+			// The watcher sees this write too; treat it as the new baseline so
+			// Kova's own change is not reported back to the window.
+			a.watcher.rebaseline(path)
 		}
 		result.Matches += matches
 	}
@@ -244,11 +294,13 @@ func walkSearchRoot(
 // files are skipped silently: they are not source, and reporting them would
 // bury the hits the user wants.
 func searchFile(path string, expression *regexp.Regexp, result *SearchResult) {
-	data, ok := readSearchFile(path)
+	data, modified, ok := readSearchFile(path)
 	if !ok {
 		return
 	}
-
+	// modified is the mtime of the bytes just read: Replace All uses it to
+	// detect a file that changed after this search, so a stale hit never
+	// overwrites newer work on disk.
 	name := filepath.Base(path)
 	for index, line := range bytes.Split(data, []byte("\n")) {
 		line = bytes.TrimSuffix(line, []byte("\r"))
@@ -258,11 +310,12 @@ func searchFile(path string, expression *regexp.Regexp, result *SearchResult) {
 				return
 			}
 			result.Matches = append(result.Matches, SearchMatch{
-				Path:   path,
-				Name:   name,
-				Line:   index + 1,
-				Column: utf16Column(line, location[0]),
-				Text:   previewLine(line),
+				Path:     path,
+				Name:     name,
+				Line:     index + 1,
+				Column:   utf16Column(line, location[0]),
+				Text:     previewLine(line),
+				Modified: modified,
 			})
 		}
 	}
@@ -278,18 +331,20 @@ func utf16Column(line []byte, byteIndex int) int {
 	return len(utf16.Encode([]rune(string(line[:byteIndex])))) + 1
 }
 
-// readSearchFile reads a file a search may look at. Zero bytes mark a binary
-// file, and invalid UTF-8 would make previews unreadable.
-func readSearchFile(path string) ([]byte, bool) {
+// readSearchFile reads a file a search may look at, returning its mtime in
+// Unix milliseconds so a later Replace All can detect a change. Zero bytes mark
+// a binary file, and invalid UTF-8 would make previews unreadable.
+func readSearchFile(path string) ([]byte, int64, bool) {
 	info, err := os.Stat(path)
 	if err != nil || info.Size() > maxSearchFileSize {
-		return nil, false
+		return nil, 0, false
 	}
+	modified := info.ModTime().UnixMilli()
 	data, err := os.ReadFile(path)
 	if err != nil || bytes.IndexByte(data, 0) >= 0 || !utf8.Valid(data) {
-		return nil, false
+		return nil, 0, false
 	}
-	return data, true
+	return data, modified, true
 }
 
 // previewLine is the line shown beside a match: leading indentation removed
@@ -305,8 +360,15 @@ func previewLine(line []byte) string {
 
 // replaceInFile rewrites one file's matches. It reports whether the file
 // changed and how many matches were replaced, so Replace All can summarize.
-func replaceInFile(path string, expression *regexp.Regexp, request SearchRequest) (bool, int, error) {
-	data, ok := readSearchFile(path)
+// When write is false it only counts: an open file is edited in the buffer
+// instead, so the bytes on disk stay as they are.
+func replaceInFile(
+	path string,
+	expression *regexp.Regexp,
+	request SearchRequest,
+	write bool,
+) (bool, int, error) {
+	data, _, ok := readSearchFile(path)
 	if !ok {
 		return false, 0, nil
 	}
@@ -326,6 +388,9 @@ func replaceInFile(path string, expression *regexp.Regexp, request SearchRequest
 	}
 	if bytes.Equal(replaced, data) {
 		return false, matches, nil
+	}
+	if !write {
+		return true, matches, nil
 	}
 	if err := os.WriteFile(path, replaced, 0o644); err != nil {
 		return false, 0, fmt.Errorf("replace in %s: %w", filepath.Base(path), err)

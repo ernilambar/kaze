@@ -35,3 +35,57 @@ export function searchSummary(groups: number, matches: number, truncated: boolea
     const hits = `${matches} ${matches === 1 ? 'match' : 'matches'}`;
     return truncated ? `${hits} in ${files} (limited)` : `${hits} in ${files}`;
 }
+
+// expectedModified maps each matched file to the mtime the search read it at.
+// Replace All hands this to Go so it can refuse to write a file that changed
+// after the results were produced.
+export function expectedModified(matches: readonly SearchMatch[]): Record<string, number> {
+    const map: Record<string, number> = {};
+    for (const match of matches) {
+        map[match.path] = match.modified;
+    }
+    return map;
+}
+
+// REGEX_SPECIAL is the set of characters a literal query must escape so the
+// frontend's buffer edit matches the backend's regexp.QuoteMeta behaviour.
+const REGEX_SPECIAL = /[.*+?^${}()|[\]\\]/g;
+
+// searchExpression builds the regular expression for one query: a literal
+// query is quoted so a period is a period, and the case option becomes a flag.
+// This mirrors searchExpression in search.go.
+export function searchExpression(query: string, regex: boolean, caseSensitive: boolean): RegExp {
+    const source = regex ? query : query.replace(REGEX_SPECIAL, '\\$&');
+    return new RegExp(source, caseSensitive ? 'g' : 'gi');
+}
+
+// escapeReplacement escapes a literal replacement so $ sequences stay text,
+// matching ReplaceAllLiteral in the backend. In regex mode the replacement is
+// used as-is, so $1 can insert a capture group.
+export function replaceText(
+    text: string,
+    expression: RegExp,
+    replacement: string,
+    regex: boolean,
+): string {
+    return regex ? text.replace(expression, replacement) : text.replace(expression, () => replacement);
+}
+
+// replaceConfirmMessage reports exactly what Replace All will touch, so the
+// user can confirm with the match and file counts in front of them.
+export function replaceConfirmMessage(matches: number, files: number, truncated: boolean): string {
+    const hits = `${matches} ${matches === 1 ? 'match' : 'matches'}`;
+    const targets = `${files} ${files === 1 ? 'file' : 'files'}`;
+    const limit = truncated ? ' Results were limited, so the counts shown are a minimum.' : '';
+    return `Replace ${hits} in ${targets}? Open files become unsaved edits you can undo.${limit}`;
+}
+
+// replaceNotice summarizes what Replace All did. Skipped files changed on disk
+// after the search and were left untouched, so they are named in the notice.
+export function replaceNotice(replaced: number, files: number, skipped: readonly string[]): string {
+    let text = `Replaced ${replaced} in ${files} ${files === 1 ? 'file' : 'files'}.`;
+    if (skipped.length > 0) {
+        text += ` Skipped ${skipped.length} ${skipped.length === 1 ? 'file' : 'files'} changed since the search: ${skipped.join(', ')}.`;
+    }
+    return text;
+}

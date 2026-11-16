@@ -369,7 +369,9 @@ export function RenamePath(path: string, name: string): $CancellablePromise<$mod
 /**
  * ReplaceInProject rewrites every match in every searched file. It searches
  * the same file set first, so a file with no match is never opened for
- * writing.
+ * writing. A file whose mtime moved since the search is skipped rather than
+ * overwritten: someone may have edited it, and Replace All must not discard
+ * that change. Skipped paths are reported so the frontend can say so.
  */
 export function ReplaceInProject(request: $models.SearchRequest): $CancellablePromise<$models.ReplaceResult> {
     return $Call.ByID(2481749581, request);

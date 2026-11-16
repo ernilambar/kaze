@@ -304,7 +304,11 @@ introduce one unprompted.
   return flat matches (capped) that the results tab groups; `SearchPanel.svelte`
   is the form and `search.ts` has the grouping and summary helpers. A literal
   query is quoted before it becomes a regexp, and Replace All uses literal
-  replacement unless regex mode is on.
+  replacement unless regex mode is on. **Replace All is safe:** it confirms the
+  match and file counts first, edits files open in a tab through Monaco (left
+  unsaved and undoable, and not written on disk), skips files whose mtime moved
+  since the search and names them in the result, and rebaselines the watcher for
+  the files it does write.
 - **Preview is dependency-free.** `markdown.ts` renders a Markdown subset from
   the buffer, escaping text and limiting link schemes before `{@html}`;
   SVG previews go through an `<img>` data URL so scripts never run. Transforms

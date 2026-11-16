@@ -178,6 +178,33 @@
         return models.get(key)?.getValue();
     }
 
+    // replaceInBuffer applies a full-text replacement to one open buffer as a
+    // single undoable operation. The tab stays dirty: Replace All never writes
+    // to disk itself, so the user keeps the edits and can undo them in Monaco.
+    // Returns the new text, or undefined when the buffer is not open.
+    export function replaceInBuffer(key: string, text: string): string | undefined {
+        const model = models.get(key);
+        if (model === undefined) {
+            return undefined;
+        }
+        const fullRange = model.getFullModelRange();
+        model.pushStackElement();
+        model.pushEditOperations(
+            [],
+            [{ range: fullRange, text, forceMoveMarkers: true }],
+            () => null,
+        );
+        model.pushStackElement();
+        scheduleDecorations(key);
+        // The editor's change subscription only sees the active model, so a
+        // buffer edited while a different tab is showing reports its own dirty
+        // state here.
+        reportDirty(key);
+        // The model's value is the source of truth: it normalizes EOL, so use
+        // what it holds rather than the text we handed it.
+        return model.getValue();
+    }
+
     // markSaved re-baselines a buffer after its text reached the disk. It
     // reports whether the buffer is now clean: one edited while the write was in
     // flight stays modified, because the file holds the earlier text.
