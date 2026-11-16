@@ -8,13 +8,13 @@
         AllowPromptForPassword="false">
     </Settings>
     <Installer
-        Path="kova"
+        Path="kaze"
         Arguments=""
-        InstallLocation="C:\Program Files\Nilambar Sharma\Kova">
+        InstallLocation="C:\Program Files\Nilambar Sharma\Kaze">
     </Installer>
     <PackageInformation
-        PackageName="Kova"
-        PackageDisplayName="Kova"
+        PackageName="Kaze"
+        PackageDisplayName="Kaze"
         PublisherName="CN=Nilambar Sharma"
         PublisherDisplayName="Nilambar Sharma"
         Version="0.1.0.0"
@@ -25,10 +25,10 @@
         </Capabilities>
         <Applications>
             <Application
-                Id="net.nilambar.kova"
+                Id="net.nilambar.kaze"
                 Description="A simple text editor."
-                DisplayName="Kova"
-                ExecutableName="kova"
+                DisplayName="Kaze"
+                ExecutableName="kaze"
                 EntryPoint="Windows.FullTrustApplication">
                 
             </Application>
@@ -41,13 +41,13 @@
         </Dependencies>
         <Properties>
             <Framework>false</Framework>
-            <DisplayName>Kova</DisplayName>
+            <DisplayName>Kaze</DisplayName>
             <PublisherDisplayName>Nilambar Sharma</PublisherDisplayName>
             <Description>A simple text editor.</Description>
             <Logo>Assets\AppIcon.png</Logo>
         </Properties>
     </PackageInformation>
-    <SaveLocation PackagePath="kova.msix" />
+    <SaveLocation PackagePath="kaze.msix" />
     <PackageIntegrity>
         <CertificatePath></CertificatePath>
     </PackageIntegrity>

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Kova is a desktop text editor built with Wails v3 (Go backend) and Monaco Editor
+Kaze is a desktop text editor built with Wails v3 (Go backend) and Monaco Editor
 (Svelte 5 + TypeScript frontend bundled by Vite). The Go binary embeds
 `frontend/dist` and serves it as the app's assets; exported `App` methods are
 exposed to the UI via generated Wails bindings.
@@ -22,7 +22,7 @@ ensure that directory is on `PATH`. No `.env` or other local config is needed.
 
 ```sh
 wails3 dev                             # dev mode with hot reload
-wails3 task darwin:package             # packaged app in bin/kova.app
+wails3 task darwin:package             # packaged app in bin/kaze.app
 wails3 generate bindings -ts -i        # regenerate frontend/bindings
 wails3 task --list                     # every build task
 go build ./...                         # compile Go only
@@ -109,7 +109,7 @@ introduce one unprompted.
   with the saved roots; **File → Open Folder in New Window…** saves the chosen
   folder as the window's only root and makes it the saved root set.
 - **Workspaces are committable files.** `workspacefile.go` reads and writes
-  `.kova-workspace` JSON files whose `folders` entries are relative to the file
+  `.kaze-workspace` JSON files whose `folders` entries are relative to the file
   when they sit inside its directory, so the file can live in the repository.
   Opening one resolves and validates every folder before `SetSidebarFolders`
   replaces `sidebar.folders` in one write; the workspace name comes from the
@@ -122,7 +122,7 @@ introduce one unprompted.
   rules a search honors; version control directories are never searched even
   when the user removes them from the list.
 - **Every folder entry point shares one code path.** The `+` button,
-  **File → Add Folder to Sidebar…**, and `kova <folder>` all funnel through
+  **File → Add Folder to Sidebar…**, and `kaze <folder>` all funnel through
   `addFolderFromDialog`/`applyLaunch` in `App.svelte`, so they share one busy
   flag and one error notice. Finder drops do too: `openWindow` enables
   `EnableFileDrop` and listens for `WindowFilesDropped`, the frontend marks the
@@ -196,7 +196,7 @@ introduce one unprompted.
   so a change reaches only those windows and closing one drops its
   registrations. `App.svelte` reloads clean buffers, keeps dirty ones
   (with a notice), and refreshes the tree; `SaveDocument` rebaselines the path
-  it wrote so Kova's own save is not echoed back. **View → Refresh** forces the
+  it wrote so Kaze's own save is not echoed back. **View → Refresh** forces the
   same reread on demand.
 - **Git is read-only.** `git.go` runs `git --no-optional-locks status
   --porcelain=v2`, `git diff HEAD` and `git show HEAD:<path>`; it never stages,
@@ -211,13 +211,13 @@ introduce one unprompted.
   and calls `print_darwin.go`, whose cgo AppKit code (`print_darwin.m`) runs the
   standard print panel as a sheet on the main thread. `print_unsupported.go`
   covers other platforms and `CGO_ENABLED=0` builds.
-- **`kova` is a shell launcher, not a second binary.** `install.go` writes a
-  script to `/usr/local/bin/kova` that execs the bundle's executable, escalating
+- **`kaze` is a shell launcher, not a second binary.** `install.go` writes a
+  script to `/usr/local/bin/kaze` that execs the bundle's executable, escalating
   through `osascript … with administrator privileges` when the directory is not
   writable. A single-instance lock forwards later invocations to the running
   window.
 - **User settings live in `settings.json`.** `settings.go` loads and validates
-  it from the platform config directory (`Kova/settings.json`), creating
+  it from the platform config directory (`Kaze/settings.json`), creating
   defaults on first run; `App.GetSettings` exposes it to the frontend, which
   applies the editor font values at startup and reads `sidebar.folders` for the
   tree roots. Keep `frontend/src/settings.ts`
@@ -238,10 +238,10 @@ introduce one unprompted.
   is editable from the settings overlay; recent files and the session are
   state, managed by Open Recent and the tab bar.
 - **Appearance is a Zed theme family.** `themes.go` embeds
-  `themes/kova.json` (Kova Dark and Kova Light) and reads user files from
-  `<config>/Kova/themes`, seeding `kova.json` when the folder has no JSON yet.
+  `themes/kaze.json` (Kaze Dark and Kaze Light) and reads user files from
+  `<config>/Kaze/themes`, seeding `kaze.json` when the folder has no JSON yet.
   Each file is a Zed family (`author`, `name`, `themes[]` with `appearance` and
-  `style`). Kova consumes a documented subset: UI keys become CSS variables
+  `style`). Kaze consumes a documented subset: UI keys become CSS variables
   (`--bg`, `--fg`, `--border`, `--git-*`, …), `editor.*` keys become Monaco
   color ids, and `syntax` captures map to Monaco token rules in
   `frontend/src/theme.ts`. Missing keys fall back to the matching built-in
@@ -252,7 +252,7 @@ introduce one unprompted.
 - **The first frame is painted from a cached palette.** Settings and theme files
   are read asynchronously after the window is already visible, and WKWebView
   paints white before any CSS arrives, so `applyThemePalette` caches the surface
-  colours in `localStorage` (`kova.theme.startup`, written by
+  colours in `localStorage` (`kaze.theme.startup`, written by
   `cacheStartupTheme`). An inline script in `frontend/index.html` and
   `main.ts` paint that cache before the module graph loads, and `main.ts` also
   selects a throwaway Monaco theme from it — otherwise Monaco's light `vs`
@@ -352,9 +352,9 @@ introduce one unprompted.
   source of truth for packaged metadata (macOS bundle, Windows exe, installer);
   bump it there, then run `wails3 task common:update:build-assets` to refresh
   the plists. `frontend/package.json`'s `version` is not the app version.
-  `about.go` embeds the same file so the app menu and `kova --version` read the
+  `about.go` embeds the same file so the app menu and `kaze --version` read the
   same values, and `scripts/config.sh` reads it from shell.
-- **macOS bundle ID is `net.nilambar.kova`.** It lives in `build/config.yml` as
+- **macOS bundle ID is `net.nilambar.kaze`.** It lives in `build/config.yml` as
   `info.productIdentifier`, and `wails3 update build-assets` writes it into
   `build/darwin/Info.plist` and `Info.dev.plist`. Changing it later resets
   macOS permissions and app preferences.

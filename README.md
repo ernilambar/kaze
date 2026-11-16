@@ -1,4 +1,4 @@
-# Kova
+# Kaze
 
 A minimal text editor for macOS.
 
@@ -9,7 +9,7 @@ A minimal text editor for macOS.
   screen. Right-click a tab to close it, move it to a new window, close the
   other tabs, the tabs to its right, the tabs whose files were deleted, or all
   tabs.
-- **Welcome screen** — with no open tab, the editor shows the Kova icon over
+- **Welcome screen** — with no open tab, the editor shows the Kaze icon over
   three actions and their shortcuts: New File, Open File and Add Folder.
 - **Workspaces** — Open, Save As and Close; the workspace file keeps folders
   relative to itself, so it can be committed with the project.
@@ -43,7 +43,7 @@ A minimal text editor for macOS.
   <kbd>Cmd</kbd>+<kbd>1</kbd>–<kbd>9</kbd>, Go to Line
   (<kbd>Ctrl</kbd>+<kbd>G</kbd>), Find/Replace from the Edit menu, and Reveal in
   Finder or copy the absolute, relative or file name from the File menu.
-- **Fresh state** — Kova watches the open buffers and expanded folders, so
+- **Fresh state** — Kaze watches the open buffers and expanded folders, so
   external edits reload clean tabs and the tree follows new files; **View →
   Refresh** rereads on demand. Restored tabs reopen on the next launch.
 - **Command palette** (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>) — run any
@@ -71,19 +71,19 @@ A minimal text editor for macOS.
 
 ## Command line
 
-Install the tool from **Kova → Install Command Line Tool…**, then:
+Install the tool from **Kaze → Install Command Line Tool…**, then:
 
 ```sh
-kova notes.txt  # open a file
-kova .          # add a folder to the sidebar
-kova --help     # usage without opening a window
+kaze notes.txt  # open a file
+kaze .          # add a folder to the sidebar
+kaze --help     # usage without opening a window
 ```
 
 Argument rules and current limitations: [docs/cli.md](docs/cli.md).
 
 ## Settings
 
-Kova creates `settings.json` in the platform config directory on first launch
+Kaze creates `settings.json` in the platform config directory on first launch
 and reads editor settings from it. See [docs/settings.md](docs/settings.md) for
 locations, supported fields and validation rules.
 

@@ -1,7 +1,7 @@
 import { onWindowEvent } from './windowstate';
 import type * as monaco from 'monaco-editor';
-import { ListThemes, LoadTheme } from '../bindings/kova/app';
-import type * as models from '../bindings/kova/models';
+import { ListThemes, LoadTheme } from '../bindings/kaze/app';
+import type * as models from '../bindings/kaze/models';
 import {
     DEFAULT_UI_FONT,
     type ThemeMode,
@@ -239,11 +239,11 @@ export interface StartupTheme {
 
 // STARTUP_THEME_KEY is read by an inline script in index.html as well, which is
 // why the stored shape stays this small.
-export const STARTUP_THEME_KEY = 'kova.theme.startup';
+export const STARTUP_THEME_KEY = 'kaze.theme.startup';
 
 // STARTUP_THEME_ID is the Monaco theme the cache paints before anything is
 // loaded. The real palette replaces it once its file has been read.
-export const STARTUP_THEME_ID = 'kova-startup';
+export const STARTUP_THEME_ID = 'kaze-startup';
 
 export function cacheStartupTheme(palette: ThemePalette): void {
     const background = palette.ui['bg'];

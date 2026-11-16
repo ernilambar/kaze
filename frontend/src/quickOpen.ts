@@ -1,4 +1,4 @@
-import { ListFiles } from '../bindings/kova/app';
+import { ListFiles } from '../bindings/kaze/app';
 import { onWindowEvent } from './windowstate';
 import { folderName, isWithin } from './sidebar';
 

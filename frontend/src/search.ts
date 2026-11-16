@@ -1,4 +1,4 @@
-import type { SearchMatch } from '../bindings/kova/models';
+import type { SearchMatch } from '../bindings/kaze/models';
 
 // SearchFileGroup is the results list's unit: one file and every match in it.
 // Grouping happens here so the panel and its tests share one shape.

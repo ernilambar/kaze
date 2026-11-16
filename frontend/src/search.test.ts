@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SearchMatch } from '../bindings/kova/models';
+import type { SearchMatch } from '../bindings/kaze/models';
 import {
     expectedModified,
     groupSearchMatches,

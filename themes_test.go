@@ -32,7 +32,7 @@ func TestEnsureThemesDirSeedsOnce(t *testing.T) {
 	if err := ensureThemesDir(dir); err != nil {
 		t.Fatalf("ensureThemesDir() error = %v", err)
 	}
-	path := filepath.Join(dir, "kova.json")
+	path := filepath.Join(dir, "kaze.json")
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("built-in theme was not written: %v", err)
 	}

@@ -1,4 +1,4 @@
-module kova
+module kaze
 
 go 1.26.0
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Keybinding } from '../bindings/kova/models';
+import type { Keybinding } from '../bindings/kaze/models';
 import {
     chordFromEvent,
     installKeybindings,

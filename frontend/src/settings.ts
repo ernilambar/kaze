@@ -1,4 +1,4 @@
-import type * as models from '../bindings/kova/models';
+import type * as models from '../bindings/kaze/models';
 import {
     GetSettings,
     UpdateEditorSettings,
@@ -6,7 +6,7 @@ import {
     UpdateSearchSettings,
     UpdateThemeSettings,
     UpdateUISettings,
-} from '../bindings/kova/app';
+} from '../bindings/kaze/app';
 
 export interface EditorSettings {
     fontFamily: string;
@@ -146,8 +146,8 @@ export const DEFAULT_UI_FONT =
 // left.
 export const defaultThemeSettings: ThemeSettings = {
     mode: 'dark',
-    light: 'Kova Light',
-    dark: 'Kova Dark',
+    light: 'Kaze Light',
+    dark: 'Kaze Dark',
 };
 
 export const defaultUISettings: UISettings = {

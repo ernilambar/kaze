@@ -1,13 +1,13 @@
 [Desktop Entry]
 Version=1.0
-Name=Kova
+Name=Kaze
 Comment=A simple text editor.
 # The Exec line includes %u to pass the URL to the application
-Exec=/usr/local/bin/kova %u
+Exec=/usr/local/bin/kaze %u
 Terminal=false
 Type=Application
-Icon=kova
+Icon=kaze
 Categories=Utility;
-StartupWMClass=kova
+StartupWMClass=kaze
 
  

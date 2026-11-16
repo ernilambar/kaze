@@ -1,10 +1,10 @@
 {
   "$schema": "https://zed.dev/schema/themes/v0.2.0.json",
-  "name": "Kova",
-  "author": "Kova",
+  "name": "Kaze",
+  "author": "Kaze",
   "themes": [
     {
-      "name": "Kova Dark",
+      "name": "Kaze Dark",
       "appearance": "dark",
       "style": {
         "background": "#1e1e1e",
@@ -105,7 +105,7 @@
       }
     },
     {
-      "name": "Kova Light",
+      "name": "Kaze Light",
       "appearance": "light",
       "style": {
         "background": "#ffffff",

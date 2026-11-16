@@ -6,8 +6,8 @@ version: '3'
 # This information is used to generate the build assets.
 info:
   companyName: "Nilambar Sharma" # The name of the company
-  productName: "Kova" # The name of the application
-  productIdentifier: "net.nilambar.kova" # The unique product identifier
+  productName: "Kaze" # The name of the application
+  productIdentifier: "net.nilambar.kaze" # The unique product identifier
   description: "A simple text editor." # The application description
   copyright: "Copyright © 2026 Nilambar Sharma" # Copyright text
   comments: "A simple text editor." # Comments

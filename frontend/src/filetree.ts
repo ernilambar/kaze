@@ -1,4 +1,4 @@
-import type * as models from '../bindings/kova/models';
+import type * as models from '../bindings/kaze/models';
 import {
     CopyPath,
     CreateFile,
@@ -7,7 +7,7 @@ import {
     MovePath,
     RenamePath,
     TrashPath,
-} from '../bindings/kova/app';
+} from '../bindings/kaze/app';
 
 // FileTreeResult mirrors FileTreeResult in filetree.go: the path a tree command
 // produced and the same path with symlinks resolved. A tab matches on the
@@ -84,7 +84,7 @@ export async function trashPath(path: string): Promise<void> {
 
 // DRAG_TYPE marks a drag that started on a tree row. A drop can then tell a move
 // inside the tree from files dragged in from another application.
-export const DRAG_TYPE = 'application/x-kova-tree-path';
+export const DRAG_TYPE = 'application/x-kaze-tree-path';
 
 // A drag spans several rows and every row is its own component, so what is
 // being dragged lives here rather than in one row's state. It is a plain value,

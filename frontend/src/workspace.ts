@@ -1,4 +1,4 @@
-import type * as models from '../bindings/kova/models';
+import type * as models from '../bindings/kaze/models';
 import {
     AddRecentFile,
     ClearRecentFiles,
@@ -9,7 +9,7 @@ import {
     SetSidebarAutoReveal,
     SetSidebarVisible,
     WatchPaths,
-} from '../bindings/kova/app';
+} from '../bindings/kaze/app';
 import { onWindowEvent } from './windowstate';
 
 // WorkspaceState is the part of settings.json that outlives a window: the

@@ -1,14 +1,14 @@
 # Settings
 
-Kova reads user settings from `settings.json` in the platform config
+Kaze reads user settings from `settings.json` in the platform config
 directory. The file is created with defaults the first time settings are
 loaded (at app startup), so no manual setup is required.
 
 | Platform | Path |
 | --- | --- |
-| macOS | `~/Library/Application Support/Kova/settings.json` |
-| Windows | `%AppData%\Kova\settings.json` |
-| Linux | `~/.config/Kova/settings.json` (`$XDG_CONFIG_HOME` is honored) |
+| macOS | `~/Library/Application Support/Kaze/settings.json` |
+| Windows | `%AppData%\Kaze\settings.json` |
+| Linux | `~/.config/Kaze/settings.json` (`$XDG_CONFIG_HOME` is honored) |
 
 ## Example
 
@@ -36,7 +36,7 @@ loaded (at app startup), so no manual setup is required.
   },
   "sidebar": {
     "folders": [
-      "/Users/me/projects/kova"
+      "/Users/me/projects/kaze"
     ],
     "visible": true,
     "auto_reveal": true
@@ -81,9 +81,9 @@ loaded (at app startup), so no manual setup is required.
 | `sidebar.visible` | boolean | `true` | Show the folder tree. **View → Toggle Sidebar** (<kbd>Cmd</kbd>+<kbd>B</kbd>) writes it. |
 | `sidebar.auto_reveal` | boolean | `true` | Expand the tree to the active file whenever the active tab changes. |
 
-Kova writes `sidebar.folders` itself when you add a folder from the sidebar's
+Kaze writes `sidebar.folders` itself when you add a folder from the sidebar's
 `+` button, the **File → Add Folder to Sidebar…** menu item
-(<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>), or `kova .`. Editing the list by
+(<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>), or `kaze .`. Editing the list by
 hand is supported: entries are trimmed, blank entries are dropped, and
 repeated paths are collapsed to the first occurrence. A folder that has since
 been moved or deleted still loads, and its row shows an error when expanded.
@@ -111,7 +111,7 @@ dropped and duplicates are removed.
 
 ## Recent files and session
 
-Kova maintains two lists that are normally read, not edited:
+Kaze maintains two lists that are normally read, not edited:
 
 | Key | Type | Description |
 | --- | --- | --- |
@@ -136,12 +136,12 @@ booleans above, not as a separate UI state.
   defaults; the same goes for `tab_size` and `cursor_width`, and a negative
   `cursor_surrounding_lines` becomes `0`.
 - Unknown keys are ignored.
-- Malformed JSON is reported in the developer console; Kova runs with defaults
+- Malformed JSON is reported in the developer console; Kaze runs with defaults
   and leaves the file untouched so it can be fixed.
 - Editor values, `sidebar.visible`, `sidebar.auto_reveal`, the recent list and the session are read
   at startup; excludes are read when a folder level is opened and when a
   search runs. The settings panel applies changes immediately; after editing
-  the file by hand, restart Kova to reread the editor values or the sidebar.
+  the file by hand, restart Kaze to reread the editor values or the sidebar.
 
 The settings panel (**Settings…**, <kbd>Cmd</kbd>+<kbd>,</kbd>) edits every
 configurable value in the file: editor typography, indentation, cursor, view
@@ -158,4 +158,4 @@ The shortcut launches `$VISUAL`, falling back to `$EDITOR`, and then to the
 platform's default file handler. The value may include arguments, e.g.
 `EDITOR="code -w"`, and paths containing spaces must be quoted. The editor is
 started detached, so use a graphical editor; terminal editors such as `vim`
-have no terminal to attach to when launched from Kova.
+have no terminal to attach to when launched from Kaze.

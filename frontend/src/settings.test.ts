@@ -8,7 +8,7 @@ const { getSettings, updateEditorSettings, updateFilesSettings, updateSearchSett
         updateSearchSettings: vi.fn(),
     }));
 
-vi.mock('../bindings/kova/app', () => ({
+vi.mock('../bindings/kaze/app', () => ({
     GetSettings: getSettings,
     UpdateEditorSettings: updateEditorSettings,
     UpdateFilesSettings: updateFilesSettings,
@@ -112,7 +112,7 @@ describe('loadPreferences', () => {
     it('maps the theme, interface and exclude sections together', async () => {
         getSettings.mockResolvedValue({
             editor: storedEditor,
-            theme: { mode: 'dark', light: 'Kova Light', dark: 'Kova Dark' },
+            theme: { mode: 'dark', light: 'Kaze Light', dark: 'Kaze Dark' },
             ui: {
                 font_family: 'Fira Sans',
                 font_size: 14,
@@ -125,7 +125,7 @@ describe('loadPreferences', () => {
         });
 
         await expect(loadPreferences()).resolves.toEqual({
-            theme: { mode: 'dark', light: 'Kova Light', dark: 'Kova Dark' },
+            theme: { mode: 'dark', light: 'Kaze Light', dark: 'Kaze Dark' },
             ui: {
                 fontFamily: 'Fira Sans',
                 fontSize: 14,

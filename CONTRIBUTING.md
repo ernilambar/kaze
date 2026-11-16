@@ -1,6 +1,6 @@
-# Contributing to Kova
+# Contributing to Kaze
 
-Thanks for your interest in improving Kova. This guide covers coding
+Thanks for your interest in improving Kaze. This guide covers coding
 conventions and the checks a change must pass before review.
 
 ## Setup and development
@@ -54,10 +54,10 @@ That value populates the macOS bundle version (`CFBundleShortVersionString`,
 `CFBundleVersion`), the Windows executable version, and the installer metadata.
 To release a new version, bump `info.version` there, run `wails3 task
 common:update:build-assets`, and tag the commit (for example `v0.2.0`).
-`about.go` embeds the same file, so `kova --version`, the app menu and the
+`about.go` embeds the same file, so `kaze --version`, the app menu and the
 bundle never disagree.
 
-The macOS bundle identifier is `info.productIdentifier` (`net.nilambar.kova`),
+The macOS bundle identifier is `info.productIdentifier` (`net.nilambar.kaze`),
 and `wails3 update build-assets` writes it into `build/darwin/Info.plist` and
 `build/darwin/Info.dev.plist`. Do not change it casually: macOS keys
 permissions, preferences, and update identity to it.

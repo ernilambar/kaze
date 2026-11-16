@@ -32,8 +32,8 @@
         ToggleFullScreen,
         WatchConfig,
         ZoomWindow,
-    } from '../bindings/kova/app';
-    import type { SaveResult, SearchMatch, WorkspaceInfo } from '../bindings/kova/models';
+    } from '../bindings/kaze/app';
+    import type { SaveResult, SearchMatch, WorkspaceInfo } from '../bindings/kaze/models';
     import { CASE_TRANSFORMS, type CaseTransform } from './case';
     import ChangesView from './ChangesView.svelte';
     import ContextMenu from './ContextMenu.svelte';

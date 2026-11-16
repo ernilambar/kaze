@@ -1,4 +1,4 @@
-import type * as models from '../bindings/kova/models';
+import type * as models from '../bindings/kaze/models';
 import {
     AddSidebarFolder,
     GetSettings,
@@ -7,7 +7,7 @@ import {
     RemoveAllSidebarFolders,
     RemoveSidebarFolder,
     SetSidebarFolders,
-} from '../bindings/kova/app';
+} from '../bindings/kaze/app';
 import { onWindowEvent } from './windowstate';
 
 // FolderEntry mirrors FolderEntry in folder.go: one child of a folder. The

@@ -1,5 +1,5 @@
-import type * as models from '../bindings/kova/models';
-import { GetLaunchRequest, LoadDocument } from '../bindings/kova/app';
+import type * as models from '../bindings/kaze/models';
+import { GetLaunchRequest, LoadDocument } from '../bindings/kaze/app';
 import { onWindowEvent } from './windowstate';
 
 // LaunchBuffer mirrors LaunchBuffer in cli.go: one tab handed to another

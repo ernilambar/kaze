@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	commandName = "kova"
+	commandName = "kaze"
 	// installDir is on the default macOS PATH, so installing here makes the
 	// command work in a fresh shell without touching the user's profile.
 	installDir = "/usr/local/bin"

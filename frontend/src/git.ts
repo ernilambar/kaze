@@ -1,5 +1,5 @@
-import type * as models from '../bindings/kova/models';
-import { GetGitBaseline, GetGitDiff, GetGitStatus } from '../bindings/kova/app';
+import type * as models from '../bindings/kaze/models';
+import { GetGitBaseline, GetGitDiff, GetGitStatus } from '../bindings/kaze/app';
 import { isWithin, relativePath } from './sidebar';
 
 // The status vocabulary mirrors git.go. `modified` covers staged and unstaged

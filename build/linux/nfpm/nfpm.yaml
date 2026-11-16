@@ -3,7 +3,7 @@
 #
 # The lines below are called `modelines`. See `:help modeline`
 
-name: "kova"
+name: "kaze"
 arch: ${GOARCH}
 platform: "linux"
 version: "0.1.0"
@@ -17,12 +17,12 @@ license: "MIT"
 release: "1"
 
 contents:
-  - src: "./bin/kova"
-    dst: "/usr/local/bin/kova"
+  - src: "./bin/kaze"
+    dst: "/usr/local/bin/kaze"
   - src: "./build/appicon.png"
-    dst: "/usr/share/icons/hicolor/128x128/apps/kova.png"
-  - src: "./build/linux/kova.desktop"
-    dst: "/usr/share/applications/kova.desktop"
+    dst: "/usr/share/icons/hicolor/128x128/apps/kaze.png"
+  - src: "./build/linux/kaze.desktop"
+    dst: "/usr/share/applications/kaze.desktop"
 
 # Default dependencies for the GTK4 + WebKitGTK 6.0 stack (Ubuntu 24.04+ / Debian 13+)
 depends:

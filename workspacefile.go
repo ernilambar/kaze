@@ -28,7 +28,7 @@ type workspaceFile struct {
 }
 
 const (
-	workspaceExtension = ".kova-workspace"
+	workspaceExtension = ".kaze-workspace"
 	defaultWorkspace   = "workspace"
 )
 

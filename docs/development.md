@@ -1,6 +1,6 @@
 # Development
 
-Building Kova from source, running it with hot reload, and cutting releases.
+Building Kaze from source, running it with hot reload, and cutting releases.
 
 ## Prerequisites
 
@@ -55,7 +55,7 @@ from the `.app` bundle, not from a bare binary.
 wails3 task darwin:package
 ```
 
-The packaged app is written to `bin/kova.app`. `frontend/dist` must exist before
+The packaged app is written to `bin/kaze.app`. `frontend/dist` must exist before
 a plain `go build` because `main.go` embeds it.
 
 ## Quality gate
@@ -92,7 +92,7 @@ generated bindings are verified by manual smoke testing.
 Releases are macOS on Apple silicon only; Intel Macs are not supported.
 
 ```sh
-./scripts/bundle.sh          # quality gate + verified bundle and dist/Kova-macos-arm64.zip
+./scripts/bundle.sh          # quality gate + verified bundle and dist/Kaze-macos-arm64.zip
 ./scripts/release.sh v0.1.0  # tag and push; GitHub Actions publishes the release
 ```
 
@@ -105,7 +105,7 @@ Releases are macOS on Apple silicon only; Intel Macs are not supported.
 `build/config.yml`, runs `scripts/bundle.sh` (quality gate plus `wails3 task
 darwin:package`), then tags and pushes. The tag triggers
 `.github/workflows/release.yml`, which rebuilds on an Apple silicon runner and
-attaches `Kova-macos-arm64.zip` and `SHA256SUMS` to the GitHub release.
+attaches `Kaze-macos-arm64.zip` and `SHA256SUMS` to the GitHub release.
 
 `bundle.sh` fails on non-macOS hosts and on Intel Macs, and verifies the built
 binary is `arm64`. The app is signed ad hoc; if Developer ID signing and

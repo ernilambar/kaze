@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>Kova</title>
+    <title>Kaze</title>
     <style>
         /* The window is on screen before the bundled stylesheet and the saved
            theme are applied, so the first frame must already be dark. The
@@ -23,7 +23,7 @@
         // colour test mirrors isHexColor.
         var HEX = /^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
         try {
-            var cached = JSON.parse(localStorage.getItem('kova.theme.startup') || 'null');
+            var cached = JSON.parse(localStorage.getItem('kaze.theme.startup') || 'null');
             if (cached && HEX.test(cached.background)) {
                 var root = document.documentElement;
                 root.style.setProperty('--bg', cached.background);

@@ -24,7 +24,7 @@
     // Monaco sorts groups lexically with 'navigation' pinned first, so a group
     // that starts with 9_ and sorts after 9_cutcopypaste follows every built-in
     // item: the file commands come last, as they do in other editors.
-    const FILE_MENU_GROUP = '9_kova';
+    const FILE_MENU_GROUP = '9_kaze';
 
     interface Props {
         // modelKey identifies the active buffer: a document tab's id, or

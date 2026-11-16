@@ -15,7 +15,7 @@ import (
 // builtinThemeJSON is the pair of palettes the app ships with. It is written to
 // the user's themes folder on first use so there is a file to copy and edit.
 //
-//go:embed themes/kova.json
+//go:embed themes/kaze.json
 var builtinThemeJSON []byte
 
 // themeFamily is the on-disk shape of a Zed theme family: one file carries the
@@ -146,7 +146,7 @@ func ensureThemesDir(dir string) error {
 			return nil
 		}
 	}
-	path := filepath.Join(dir, "kova.json")
+	path := filepath.Join(dir, "kaze.json")
 	if err := os.WriteFile(path, builtinThemeJSON, 0o644); err != nil {
 		return fmt.Errorf("write built-in theme: %w", err)
 	}

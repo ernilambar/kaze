@@ -22,7 +22,7 @@ func TestTrashPathMovesTheFileToTheTrash(t *testing.T) {
 		t.Skip("the Trash is only reachable from a running application")
 	}
 	dir := t.TempDir()
-	name := fmt.Sprintf("kova-trash-test-%d.txt", time.Now().UnixNano())
+	name := fmt.Sprintf("kaze-trash-test-%d.txt", time.Now().UnixNano())
 	path := writeTempFile(t, dir, name, "hello")
 
 	if err := NewApp().TrashPath(path); err != nil {

@@ -18,8 +18,8 @@ const (
 	defaultCursorWidth = 1
 
 	defaultThemeMode    = "dark"
-	defaultThemeLight   = "Kova Light"
-	defaultThemeDark    = "Kova Dark"
+	defaultThemeLight   = "Kaze Light"
+	defaultThemeDark    = "Kaze Dark"
 	defaultUIFontSize   = 13.0
 	defaultUIIconStyle  = "colorful"
 	defaultSidebarPlace = "left"

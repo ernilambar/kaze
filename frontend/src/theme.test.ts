@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
-import type * as models from '../bindings/kova/models';
+import type * as models from '../bindings/kaze/models';
 import { defaultThemeSettings } from './settings';
 import {
     applyStartupTheme,
@@ -166,9 +166,9 @@ describe('CSS application', () => {
 
 describe('monacoThemeName', () => {
     it('makes a stable id from the variant name', () => {
-        expect(monacoThemeName('Kova Dark')).toBe('theme-Kova-Dark');
+        expect(monacoThemeName('Kaze Dark')).toBe('theme-Kaze-Dark');
         expect(monacoThemeName('a/b:c')).toBe('theme-a-b-c');
-        expect(monacoThemeName('Kova Dark')).toBe(monacoThemeName('Kova Dark'));
+        expect(monacoThemeName('Kaze Dark')).toBe(monacoThemeName('Kaze Dark'));
     });
 });
 
