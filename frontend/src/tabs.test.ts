@@ -28,6 +28,7 @@ function document(path: string): OpenDocument {
         bom: false,
         eol: 'lf',
         invalidUTF8: false,
+        deleted: false,
     };
 }
 
@@ -52,6 +53,7 @@ function untitled(name: string): OpenDocument {
         bom: false,
         eol: 'lf',
         invalidUTF8: false,
+        deleted: false,
     };
 }
 

@@ -160,6 +160,7 @@
                 class="tab"
                 role="presentation"
                 class:tab--active={tab.id === activeId}
+                class:tab--deleted={tab.deleted}
                 class:tab--dragging={draggedId === tab.id}
                 class:tab--drop-before={dropTarget?.id === tab.id && !dropTarget.after}
                 class:tab--drop-after={dropTarget?.id === tab.id && dropTarget.after}
@@ -185,7 +186,7 @@
                     class="tab__label"
                     role="tab"
                     aria-selected={tab.id === activeId}
-                    title={label(tab)}
+                    title={tab.deleted ? `${label(tab)} (deleted)` : label(tab)}
                     onclick={() => onSelect(tab.id)}
                 >{tab.name}</button>
                 {#if tab.dirty}
@@ -273,6 +274,10 @@
 
     .tab--active:hover {
         background: var(--bg);
+    }
+
+    .tab--deleted .tab__label {
+        text-decoration: line-through;
     }
 
     .tab--dragging {

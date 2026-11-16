@@ -5,6 +5,7 @@
         BringAllToFront,
         CloseWindow,
         CopyText,
+        FileExists,
         GetKeybindings,
         GetProductName,
         InstallCommandLineTool,
@@ -836,6 +837,7 @@
             // The file on disk is valid UTF-8 now; the replacement characters
             // it holds are what the user agreed to write.
             invalidUTF8: false,
+            deleted: false,
         });
         // Save As can give an untitled buffer a real path, and with it a
         // language the model should start highlighting. An explicit override
@@ -2373,7 +2375,31 @@
             eol: opened.eol,
             invalidUTF8: opened.invalidUTF8,
             realPath: opened.realPath || opened.path,
+            deleted: false,
         });
+    }
+
+    // markDeletedIfGone flags a tab whose file no longer exists, keeping its
+    // buffer so a save writes it back. A read can fail for other reasons (a
+    // binary swapped in, lost permissions), so only a missing file marks the
+    // tab; anything else stays silent like before.
+    async function markDeletedIfGone(tab: OpenDocument): Promise<boolean> {
+        if (tab.deleted) {
+            return true;
+        }
+        let exists = true;
+        try {
+            exists = await FileExists(tab.path);
+        } catch (error) {
+            console.error(`Failed to check ${tab.path}.`, error);
+            return false;
+        }
+        if (!exists) {
+            tabs = updateDocument(tabs, tab.id, { deleted: true });
+            notice = `${tab.name} was deleted. Saving recreates it.`;
+            return true;
+        }
+        return false;
     }
 
     async function refreshOpenDocuments(): Promise<void> {
@@ -2381,16 +2407,18 @@
             if (tab.kind !== 'text' || tab.path === '') {
                 continue;
             }
-            // External changes never overwrite edits the user has not saved;
-            // the next save reports the conflict instead.
-            if (tab.dirty) {
-                continue;
+            if (!tab.dirty) {
+                // External changes never overwrite edits the user has not
+                // saved; the next save reports the conflict instead.
+                const opened = await readDocument(tab.path);
+                if (opened !== undefined) {
+                    applyReload(tab.id, opened);
+                    continue;
+                }
             }
-            const opened = await readDocument(tab.path);
-            if (opened === undefined) {
-                continue;
-            }
-            applyReload(tab.id, opened);
+            // The file could not be read, or the tab is dirty so reading was
+            // skipped: only a file that is really gone marks its tab.
+            await markDeletedIfGone(tab);
         }
     }
 
@@ -2410,7 +2438,8 @@
     }
 
     // handleWatchedChanges reloads clean buffers and refreshes the tree for
-    // anything else. A dirty buffer stays as it is and says why.
+    // anything else. A dirty buffer stays as it is and says why; a deleted
+    // file marks its tab either way, keeping the buffer for a save.
     async function handleWatchedChanges(paths: string[]): Promise<void> {
         let refreshTree = false;
         for (const path of paths) {
@@ -2420,11 +2449,14 @@
                 continue;
             }
             if (tab.dirty) {
-                notice = `${tab.name} changed on disk; your edits were kept.`;
+                if (!(await markDeletedIfGone(tab))) {
+                    notice = `${tab.name} changed on disk; your edits were kept.`;
+                }
                 continue;
             }
             const opened = await readDocument(path);
             if (opened === undefined) {
+                await markDeletedIfGone(tab);
                 continue;
             }
             applyReload(tab.id, opened);
@@ -2898,6 +2930,15 @@
                 }}
                 onCloseSearch={closeSearchTab}
             />
+            {#if active?.kind === 'text' && active.path !== '' && active.deleted}
+                <div class="deleted-banner" role="status">
+                    <span>{active.name} was deleted. Saving recreates it.</span>
+                    <button
+                        class="deleted-banner__action"
+                        onclick={() => void saveDocument(activeId)}
+                    >Save now</button>
+                </div>
+            {/if}
             <div class="app__pane">
                 <div
                     class="app__pane-layer"
@@ -3158,5 +3199,32 @@
     .app__pane-layer--hidden {
         visibility: hidden;
         pointer-events: none;
+    }
+
+    .deleted-banner {
+        display: flex;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 12px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-raised);
+        color: var(--fg-muted);
+        font-size: 12px;
+    }
+
+    .deleted-banner__action {
+        padding: 0 8px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: none;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .deleted-banner__action:hover {
+        border-color: var(--fg-muted);
+        color: var(--fg);
     }
 </style>

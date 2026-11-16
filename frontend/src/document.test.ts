@@ -24,6 +24,7 @@ function document(overrides: Partial<OpenDocument> = {}): OpenDocument {
         bom: false,
         eol: 'lf',
         invalidUTF8: false,
+        deleted: false,
         ...overrides,
     };
 }
@@ -73,6 +74,7 @@ describe('toOpenDocument', () => {
             bom: true,
             eol: 'crlf',
             invalidUTF8: false,
+            deleted: false,
         });
     });
 
@@ -155,6 +157,7 @@ describe('createUntitledDocument', () => {
             bom: false,
             eol: 'lf',
             invalidUTF8: false,
+            deleted: false,
         });
     });
 });
@@ -203,6 +206,7 @@ describe('toBufferDocument', () => {
             bom: true,
             eol: 'crlf',
             invalidUTF8: false,
+            deleted: false,
         });
     });
 

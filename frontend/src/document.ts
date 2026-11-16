@@ -130,6 +130,10 @@ export interface OpenDocument {
     // invalidUTF8 marks a buffer whose file was not valid UTF-8. Its original
     // bytes became U+FFFD, and a save asks before writing those back.
     invalidUTF8: boolean;
+    // deleted marks a buffer whose file no longer exists on disk. The text
+    // stays open, and saving writes it back; the flag clears on save or when
+    // the file reappears.
+    deleted: boolean;
 }
 
 // UNTITLED_PREFIX starts the id of a buffer that has no file yet. Its id is not
@@ -169,6 +173,7 @@ export function createDiffDocument(path: string, diff: string): OpenDocument {
         bom: false,
         eol: 'lf',
         invalidUTF8: false,
+        deleted: false,
     };
 }
 
@@ -205,6 +210,7 @@ export function createUntitledDocument(tabs: readonly OpenDocument[]): OpenDocum
         bom: false,
         eol: 'lf',
         invalidUTF8: false,
+        deleted: false,
     };
 }
 
@@ -227,6 +233,7 @@ export function toOpenDocument(document: models.Document): OpenDocument {
         bom: document.bom,
         eol: document.eol === 'crlf' ? 'crlf' : 'lf',
         invalidUTF8: document.invalid_utf8,
+        deleted: false,
     };
 }
 
@@ -249,6 +256,7 @@ export function toBufferDocument(buffer: LaunchBuffer): OpenDocument {
             bom: false,
             eol: 'lf',
             invalidUTF8: false,
+            deleted: false,
         };
     }
     return {
@@ -264,7 +272,8 @@ export function toBufferDocument(buffer: LaunchBuffer): OpenDocument {
         dirty: buffer.dirty,
         bom: buffer.bom,
         eol: buffer.eol === 'crlf' ? 'crlf' : 'lf',
-        invalidUTF8: buffer.invalid_utf8,
+            invalidUTF8: buffer.invalid_utf8,
+            deleted: false,
     };
 }
 

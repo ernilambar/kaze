@@ -96,6 +96,14 @@ func (a *App) LoadDocument(path string) (Document, error) {
 	return loadDocument(path)
 }
 
+// FileExists reports whether path still exists. A refresh that can no longer
+// read an open file uses it to tell a deletion from any other read failure,
+// so only a file that is really gone marks its tab.
+func (a *App) FileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
 func loadDocument(path string) (Document, error) {
 	info, err := os.Stat(path)
 	if err != nil {

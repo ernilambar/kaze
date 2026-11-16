@@ -104,6 +104,15 @@ export function DuplicatePath(path: string): $CancellablePromise<$models.FileTre
 }
 
 /**
+ * FileExists reports whether path still exists. A refresh that can no longer
+ * read an open file uses it to tell a deletion from any other read failure,
+ * so only a file that is really gone marks its tab.
+ */
+export function FileExists(path: string): $CancellablePromise<boolean> {
+    return $Call.ByID(2577714203, path);
+}
+
+/**
  * GetGitBaseline returns the committed text of path. A path outside a
  * repository, or one HEAD does not contain, reports that instead of an error:
  * the gutter only needs to know whether it has a baseline to compare against.
