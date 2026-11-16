@@ -555,14 +555,16 @@ func (a *App) emitPrint() { a.emitEvent(printEvent) }
 // window closes. The prompt is the frontend's, because only it can save them.
 const closeRequestEvent = "app:confirm-close"
 
-// The Edit and View menus are frontend state too: the transform, whitespace,
-// preview and zoom commands all act on Monaco buffers, so Go forwards each one.
+// The Edit, Selection and View menus are frontend state too: the transforms,
+// selection actions, preview and zoom all act on Monaco buffers, so Go forwards
+// each one.
 const (
-	transformCaseEvent  = "app:transform-case"
-	trimWhitespaceEvent = "app:trim-whitespace"
-	zoomEvent           = "app:zoom"
-	togglePreviewEvent  = "app:toggle-preview"
-	toggleViewEvent     = "app:toggle-view"
+	transformCaseEvent    = "app:transform-case"
+	trimWhitespaceEvent   = "app:trim-whitespace"
+	selectionCommandEvent = "app:selection-command"
+	zoomEvent             = "app:zoom"
+	togglePreviewEvent    = "app:toggle-preview"
+	toggleViewEvent       = "app:toggle-view"
 )
 
 // emitTransformCase tells the frontend to convert the selection to id's case.
@@ -571,6 +573,12 @@ func (a *App) emitTransformCase(id string) { a.emitEventWith(transformCaseEvent,
 // emitTrimWhitespace tells the frontend to trim the active buffer's trailing
 // whitespace.
 func (a *App) emitTrimWhitespace() { a.emitEvent(trimWhitespaceEvent) }
+
+// emitSelectionCommand tells the frontend to run one Selection menu command on
+// the active buffer.
+func (a *App) emitSelectionCommand(command string) {
+	a.emitEventWith(selectionCommandEvent, command)
+}
 
 // emitZoom tells the frontend to change the editor font size by command.
 func (a *App) emitZoom(command string) { a.emitEventWith(zoomEvent, command) }

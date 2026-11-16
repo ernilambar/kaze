@@ -14,6 +14,7 @@ func TestMenuCommandsBeforeAttachAreNoOps(t *testing.T) {
 	app.emitCommandPalette()
 	app.emitTransformCase("upper")
 	app.emitTrimWhitespace()
+	app.emitSelectionCommand("add-cursor-above")
 	app.emitZoom("in")
 	app.emitTogglePreview()
 	app.emitToggleView("wordWrap", false)

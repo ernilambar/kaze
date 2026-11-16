@@ -73,7 +73,9 @@
     } from './editor';
     import {
         listenForEditorCommands,
+        SELECTION_COMMANDS,
         VIEW_OPTIONS,
+        type SelectionCommand,
         type ViewOption,
         type ZoomCommand,
     } from './editorcommands';
@@ -1272,6 +1274,10 @@
         editorPane?.trimTrailingWhitespace();
     }
 
+    function runSelectionCommand(command: SelectionCommand): void {
+        editorPane?.runSelectionCommand(command);
+    }
+
     function zoom(command: ZoomCommand): void {
         editorPane?.zoom(command);
     }
@@ -1461,6 +1467,11 @@
         const viewOption = VIEW_OPTIONS.find((entry) => `toggle-${entry.id}` === id);
         if (viewOption !== undefined) {
             toggleViewOption(viewOption.id);
+            return;
+        }
+        const selectionCommand = SELECTION_COMMANDS.find((entry) => entry.id === id);
+        if (selectionCommand !== undefined) {
+            runSelectionCommand(selectionCommand.id);
             return;
         }
 
@@ -2717,6 +2728,7 @@
             unsubscribeEditorCommands = listenForEditorCommands({
                 transformSelection,
                 trimWhitespace,
+                selectionCommand: runSelectionCommand,
                 zoom,
                 togglePreview,
                 setViewOption,

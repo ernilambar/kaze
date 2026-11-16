@@ -11,7 +11,11 @@
         modelOptions,
         WELCOME_KEY,
     } from './editor';
-    import type { ZoomCommand } from './editorcommands';
+    import {
+        SELECTION_COMMANDS,
+        type SelectionCommand,
+        type ZoomCommand,
+    } from './editorcommands';
     import type { EditorSettings } from './settings';
     import { appendFinalNewline, trimTrailingWhitespace as trimLineEnd } from './text';
 
@@ -331,6 +335,28 @@
             [{ range: new monaco.Range(line, column, line, column), text: '\n' }],
             () => null,
         );
+    }
+
+    // runSelectionCommand runs Monaco's multi-cursor and line action for one
+    // Selection menu command. Column selection is an editor option rather than
+    // an action, so it toggles that option itself.
+    export function runSelectionCommand(command: SelectionCommand): void {
+        const current = editor;
+        if (current === undefined) {
+            return;
+        }
+        const spec = SELECTION_COMMANDS.find((entry) => entry.id === command);
+        if (spec === undefined) {
+            return;
+        }
+        current.focus();
+        if (spec.action !== undefined) {
+            void current.getAction(spec.action)?.run();
+            return;
+        }
+        current.updateOptions({
+            columnSelection: !current.getOption(monaco.editor.EditorOption.columnSelection),
+        });
     }
 
     // zoom changes the effective font size around the configured one.

@@ -24,6 +24,71 @@ export const VIEW_OPTIONS: readonly { id: ViewOption; label: string }[] = [
     { id: 'smartIndent', label: 'Smart Indent' },
 ];
 
+// SelectionCommand names one Selection menu command. The app:selection-command
+// event carries this id.
+export type SelectionCommand =
+    | 'add-cursor-above'
+    | 'add-cursor-below'
+    | 'add-next-occurrence'
+    | 'split-into-lines'
+    | 'toggle-column-selection'
+    | 'move-line-up'
+    | 'move-line-down'
+    | 'copy-line-up'
+    | 'copy-line-down'
+    | 'join-lines'
+    | 'delete-line'
+    | 'toggle-comment';
+
+export interface SelectionCommandSpec {
+    id: SelectionCommand;
+    label: string;
+    // action is Monaco's editor action. Column selection is an editor option
+    // instead, so it carries no action.
+    action?: string;
+}
+
+// SELECTION_COMMANDS is the Selection menu order, shared by the command
+// palette and the handler that runs it.
+export const SELECTION_COMMANDS: readonly SelectionCommandSpec[] = [
+    {
+        id: 'add-cursor-above',
+        label: 'Add Cursor Above',
+        action: 'editor.action.insertCursorAbove',
+    },
+    {
+        id: 'add-cursor-below',
+        label: 'Add Cursor Below',
+        action: 'editor.action.insertCursorBelow',
+    },
+    {
+        id: 'add-next-occurrence',
+        label: 'Add Next Occurrence',
+        action: 'editor.action.addSelectionToNextFindMatch',
+    },
+    {
+        id: 'split-into-lines',
+        label: 'Split Selection into Lines',
+        action: 'editor.action.insertCursorAtEndOfEachLineSelected',
+    },
+    { id: 'toggle-column-selection', label: 'Toggle Column Selection' },
+    { id: 'move-line-up', label: 'Move Line Up', action: 'editor.action.moveLinesUpAction' },
+    {
+        id: 'move-line-down',
+        label: 'Move Line Down',
+        action: 'editor.action.moveLinesDownAction',
+    },
+    { id: 'copy-line-up', label: 'Copy Line Up', action: 'editor.action.copyLinesUpAction' },
+    {
+        id: 'copy-line-down',
+        label: 'Copy Line Down',
+        action: 'editor.action.copyLinesDownAction',
+    },
+    { id: 'join-lines', label: 'Join Lines', action: 'editor.action.joinLines' },
+    { id: 'delete-line', label: 'Delete Line', action: 'editor.action.deleteLines' },
+    { id: 'toggle-comment', label: 'Toggle Line Comment', action: 'editor.action.commentLine' },
+];
+
 export type ZoomCommand = 'in' | 'out' | 'reset';
 
 // ViewToggle is the app:toggle-view payload: the option and the state the menu
@@ -36,13 +101,14 @@ export interface ViewToggle {
 export interface EditorCommandHandlers {
     transformSelection: (transform: CaseTransform) => void;
     trimWhitespace: () => void;
+    selectionCommand: (command: SelectionCommand) => void;
     zoom: (command: ZoomCommand) => void;
     togglePreview: () => void;
     setViewOption: (option: ViewOption, checked: boolean) => void;
 }
 
-// listenForEditorCommands runs the handler for each Edit or View menu command
-// and returns one function that unsubscribes from all of them.
+// listenForEditorCommands runs the handler for each Edit, Selection or View
+// menu command and returns one function that unsubscribes from all of them.
 export function listenForEditorCommands(
     handlers: Partial<EditorCommandHandlers>,
 ): () => void {
@@ -51,6 +117,9 @@ export function listenForEditorCommands(
             handlers.transformSelection?.(data as CaseTransform),
         ),
         onWindowEvent('app:trim-whitespace', () => handlers.trimWhitespace?.()),
+        onWindowEvent('app:selection-command', (data) =>
+            handlers.selectionCommand?.(data as SelectionCommand),
+        ),
         onWindowEvent('app:zoom', (data) => handlers.zoom?.(data as ZoomCommand)),
         onWindowEvent('app:toggle-preview', () => handlers.togglePreview?.()),
         onWindowEvent('app:toggle-view', (data) => {

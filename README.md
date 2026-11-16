@@ -51,6 +51,10 @@ A minimal text editor for macOS.
 - **Text transforms** — upper, lower, title, camel, pascal, snake, kebab and
   constant case for the selection (or the whole buffer), plus trim trailing
   whitespace.
+- **Selection menu** — multi-cursor (add cursor above/below, add the next
+  occurrence, split the selection into lines), column selection, move/copy/join
+  or delete lines, and toggle the line comment, from the menu or the command
+  palette.
 - **View toggles and zoom** — word wrap, invisible characters, line numbers,
   indent guides, folding, auto-close brackets and smart indent from the View
   menu; zoom in, out and back to actual size.

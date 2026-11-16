@@ -225,6 +225,39 @@ func editMenu(m *application.Menu, app *App, b *menuBuilder) {
 	})
 }
 
+// selectionCommands lists the Selection menu in display order. Every command
+// but column selection is a Monaco built-in, so the frontend maps its id to an
+// editor action.
+var selectionCommands = []struct{ label, id string }{
+	{"Add Cursor Above", "add-cursor-above"},
+	{"Add Cursor Below", "add-cursor-below"},
+	{"Add Next Occurrence", "add-next-occurrence"},
+	{"Split Selection into Lines", "split-into-lines"},
+	{"Toggle Column Selection", "toggle-column-selection"},
+	{"Move Line Up", "move-line-up"},
+	{"Move Line Down", "move-line-down"},
+	{"Copy Line Up", "copy-line-up"},
+	{"Copy Line Down", "copy-line-down"},
+	{"Join Lines", "join-lines"},
+	{"Delete Line", "delete-line"},
+	{"Toggle Line Comment", "toggle-comment"},
+}
+
+// selectionMenu holds Monaco's multi-cursor, line and comment commands. They
+// act on the focused editor's buffer, so each item forwards its id.
+func selectionMenu(m *application.Menu, app *App, b *menuBuilder) {
+	for index, entry := range selectionCommands {
+		// Multi-cursor commands, line edits and comments are three groups.
+		if index == 5 || index == 11 {
+			m.AddSeparator()
+		}
+		command := entry.id
+		b.item(m, command, entry.label, "", func(*application.Context) {
+			app.emitSelectionCommand(command)
+		})
+	}
+}
+
 // viewOption is one checkable View menu item. name is the editor settings field
 // the frontend applies; label is what the menu prints.
 type viewOption struct {
@@ -342,6 +375,7 @@ func buildMenu(
 	appMenu(menu.AddSubmenu(app.meta.ProductName), app.meta.ProductName, app, builder)
 	fileMenu(menu.AddSubmenu("File"), app, builder)
 	editMenu(menu.AddSubmenu("Edit"), app, builder)
+	selectionMenu(menu.AddSubmenu("Selection"), app, builder)
 	viewMenu(menu.AddSubmenu("View"), app, builder, editor, theme)
 	windowMenu(menu.AddSubmenu("Window"), app, builder)
 	return menu

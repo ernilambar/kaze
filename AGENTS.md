@@ -281,14 +281,16 @@ introduce one unprompted.
   for the focused window and the command palette reaches through the bindings.
   `windows.go` adds `NewWindow`, `CloseWindow`, `MoveTabToNewWindow`,
   `OpenFolderInNewWindow` and `BringAllToFront`.
-- **Editor commands forward from Go to the frontend.** `main.go` builds the
-  Edit menu (case transforms, trim trailing whitespace) and the View menu
-  (zoom, preview, appearance, checkable toggles) and emits `app:transform-case`,
-  `app:trim-whitespace`, `app:zoom`, `app:toggle-preview` and
-  `app:toggle-view`; `editorcommands.ts` listens. A menu checkbox flips
-  natively, so `App.SetViewOption` moves the same checkmark when the toggle
-  came from the command palette. Monaco options are built in `editor.ts`
-  (indentation lives on the model, so every buffer is updated too).
+- **Editor commands forward from Go to the frontend.** `menu.go` builds the
+  Edit menu (case transforms, trim trailing whitespace), the Selection menu
+  (Monaco's multi-cursor, line and comment actions) and the View menu (zoom,
+  preview, appearance, checkable toggles) and emits `app:transform-case`,
+  `app:trim-whitespace`, `app:selection-command`, `app:zoom`,
+  `app:toggle-preview` and `app:toggle-view`; `editorcommands.ts` listens and
+  `EditorPane.runSelectionCommand` maps a Selection id to its Monaco action. A
+  menu checkbox flips natively, so `App.SetViewOption` moves the same checkmark
+  when the toggle came from the command palette. Monaco options are built in
+  `editor.ts` (indentation lives on the model, so every buffer is updated too).
 - **Language and the status bar are frontend state.** `editor.ts` resolves a
   buffer's language: an explicit **Change Language Mode** override stored on the
   tab wins, otherwise the path decides, and a `#!` first line is used only when

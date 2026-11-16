@@ -1,6 +1,6 @@
 import { onWindowEvent } from './windowstate';
 import { CASE_TRANSFORMS } from './case';
-import { VIEW_OPTIONS } from './editorcommands';
+import { SELECTION_COMMANDS, VIEW_OPTIONS } from './editorcommands';
 import type { PaletteItem } from './palette';
 import { rankCandidates } from './quickOpen';
 
@@ -17,6 +17,12 @@ const EDIT_COMMANDS: readonly Command[] = [
     { id: 'trim-whitespace', name: 'Trim Trailing Whitespace', detail: 'Edit' },
     { id: 'change-language-mode', name: 'Change Language Mode', detail: 'Edit' },
 ];
+
+const SELECTION_PALETTE_COMMANDS: readonly Command[] = SELECTION_COMMANDS.map((entry) => ({
+    id: entry.id,
+    name: entry.label,
+    detail: 'Selection',
+}));
 
 const APPEARANCE_COMMANDS: readonly Command[] = [
     { id: 'appearance-system', name: 'Appearance: System', detail: 'View' },
@@ -84,6 +90,7 @@ export const COMMANDS: readonly Command[] = [
     { id: 'copy-relative-path', name: 'Copy Relative Path', detail: 'File' },
     { id: 'copy-file-name', name: 'Copy File Name', detail: 'File' },
     ...EDIT_COMMANDS,
+    ...SELECTION_PALETTE_COMMANDS,
     ...VIEW_COMMANDS,
     ...APPEARANCE_COMMANDS,
     { id: 'minimize-window', name: 'Minimize', detail: 'Window' },
