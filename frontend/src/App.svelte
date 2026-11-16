@@ -37,6 +37,7 @@
     import ChangesView from './ChangesView.svelte';
     import ContextMenu from './ContextMenu.svelte';
     import EditorPane from './EditorPane.svelte';
+    import NamePrompt from './NamePrompt.svelte';
     import ImageViewer from './ImageViewer.svelte';
     import Preview from './Preview.svelte';
     import Palette from './Palette.svelte';
@@ -77,6 +78,17 @@
         type ZoomCommand,
     } from './editorcommands';
     import { listenForCloseRequest, listenForFileCommands, type CloseReason } from './filecommands';
+    import {
+        copyPath,
+        createFile,
+        createFolder,
+        duplicatePath,
+        entryName,
+        movePath,
+        parentPath,
+        renamePath,
+        trashPath,
+    } from './filetree';
     import {
         branchLabel,
         loadGitStatus,
@@ -157,6 +169,8 @@
         moveDocumentTab,
         openDocumentTab,
         setDocumentDirty,
+        pathWithin,
+        retargetDocumentPaths,
         stepTabId,
         tabIdAt,
         updateDocument,
@@ -299,8 +313,42 @@
     let unsavedPrompt = $state<UnsavedPrompt | null>(null);
     let confirmPrompt = $state<ConfirmPrompt | null>(null);
     // contextMenu is the right-click menu in the tab bar or the tree, anchored
-    // where the pointer was and acting on the path under it.
-    let contextMenu = $state<{ x: number; y: number; path: string } | null>(null);
+    // where the pointer was and acting on the path under it. isDir decides which
+    // items the tree offers, and inTree marks a row of the explorer rather than
+    // a tab, whose menu is shorter.
+    let contextMenu = $state<{
+        x: number;
+        y: number;
+        path: string;
+        isDir: boolean;
+        inTree: boolean;
+    } | null>(null);
+
+    // NamePromptState is the one-line dialog that asks for a name: a new file, a
+    // new folder, a rename or a duplicate. answer resolves what the operation
+    // awaiting it needs, so each command reads top to bottom.
+    interface NamePromptState {
+        title: string;
+        label: string;
+        value: string;
+        selectStem: boolean;
+        submitLabel: string;
+        error: string;
+        answer: (value: string) => void;
+        cancel: () => void;
+    }
+
+    let namePrompt = $state<NamePromptState | null>(null);
+
+    // clipboardPath is the tree entry Cut or Copy put aside. The operating
+    // system clipboard is not used: moving a file is not the same thing as
+    // copying its path, and the tree only ever moves one entry.
+    let clipboardPath = $state('');
+    let clipboardCut = $state(false);
+
+    // busyPath is the entry a tree command is running on, so its row can show
+    // that something is happening instead of the command looking ignored.
+    let busyPath = $state('');
 
     let line = $state(1);
     let column = $state(1);
@@ -625,6 +673,46 @@
         tabs = [...tabs, document];
         activeId = document.id;
         notice = '';
+    }
+
+    // newFileFromMenu is File → New File: the file is created inside a sidebar
+    // folder, so it exists on disk from the start. The folder is the one the
+    // selected entry lives in; with no folders there is nowhere to create one,
+    // so the menu opens a buffer instead rather than doing nothing.
+    async function newFileFromMenu(): Promise<void> {
+        const folder = selectedFolder();
+        if (folder === '') {
+            notice = 'Add a folder to the sidebar to create a file.';
+            newFile();
+            return;
+        }
+        await newFileInFolder(folder);
+    }
+
+    // newFolderFromMenu is File → New Folder, in the selected entry's folder.
+    async function newFolderFromMenu(): Promise<void> {
+        const folder = selectedFolder();
+        if (folder === '') {
+            notice = 'Add a folder to the sidebar to create a folder.';
+            return;
+        }
+        await newFolderInFolder(folder);
+    }
+
+    // selectedFolder is the folder a menu command acts on. The tree highlights
+    // the entry the command left behind, so a selected file means the folder it
+    // lives in and a selected folder means itself; with nothing selected the
+    // first root is the workspace's default.
+    function selectedFolder(): string {
+        const selected = revealedPath;
+        if (selected === '') {
+            return folders[0] ?? '';
+        }
+        const tab = findDocumentByPath(tabs, selected);
+        if (tab !== undefined && tab.path !== '') {
+            return parentPath(selected);
+        }
+        return selected;
     }
 
     async function openFromDialog(): Promise<void> {
@@ -1383,6 +1471,12 @@
 
         switch (id) {
             case 'new-file':
+                void newFileFromMenu();
+                break;
+            case 'new-folder':
+                void newFolderFromMenu();
+                break;
+            case 'new-buffer':
                 newFile();
                 break;
             case 'open-file':
@@ -1704,6 +1798,403 @@
         tabs = moveDocumentTab(tabs, id, targetId, placeAfter);
     }
 
+    // ---- File tree operations -------------------------------------------------
+    //
+    // New File, New Folder, Rename, Duplicate, Cut/Copy/Paste, Move to Trash and
+    // drag to move all run against the explorer. Every one of them is a Go
+    // binding, because the file system is the backend's business; the frontend
+    // only decides which entry, asks for a name and retargets the tabs that
+    // follow a path.
+
+    // askName opens the one-line dialog and resolves with the name the user
+    // submitted, or an empty string when they cancelled. The dialog stays open
+    // while a refusal is shown in it, so a taken name is corrected in place.
+    function askName(options: {
+        title: string;
+        label: string;
+        value?: string;
+        selectStem?: boolean;
+        submitLabel?: string;
+        run: (value: string) => Promise<string>;
+    }): Promise<boolean> {
+        return new Promise((resolve) => {
+            const answer = (value: string): void => {
+                // The dialog was already closed by the caller's submit path, so
+                // the state is only read to know what to do next.
+                void (async () => {
+                    const refusal = await options.run(value);
+                    if (refusal === '') {
+                        resolve(true);
+                        return;
+                    }
+                    namePrompt = {
+                        title: options.title,
+                        label: options.label,
+                        value,
+                        selectStem: options.selectStem ?? false,
+                        submitLabel: options.submitLabel ?? options.title,
+                        error: refusal,
+                        answer,
+                        cancel: () => {
+                            namePrompt = null;
+                            resolve(false);
+                        },
+                    };
+                })();
+            };
+            namePrompt = {
+                title: options.title,
+                label: options.label,
+                value: options.value ?? '',
+                selectStem: options.selectStem ?? false,
+                submitLabel: options.submitLabel ?? options.title,
+                error: '',
+                answer,
+                cancel: () => {
+                    namePrompt = null;
+                    resolve(false);
+                },
+            };
+        });
+    }
+
+    // submitName closes the dialog and hands the value to the pending command,
+    // which reopens it with the refusal if the backend says no.
+    function submitName(value: string): void {
+        const prompt = namePrompt;
+        namePrompt = null;
+        prompt?.answer(value);
+    }
+
+    function cancelName(): void {
+        const prompt = namePrompt;
+        namePrompt = null;
+        prompt?.cancel();
+    }
+
+    // refreshTree rereads the tree after a command changed what is on disk.
+    function refreshTree(): void {
+        treeRefreshToken++;
+    }
+
+    // applyTreeMove retargets every tab whose file the command moved. A buffer
+    // keeps its text, edits and undo history; only the path it saves to changes.
+    // The renamed file's git baseline and diff marks are reread, because HEAD
+    // still knows the old name.
+    function applyTreeMove(from: string, to: string): void {
+        if (from === '' || to === '' || from === to) {
+            return;
+        }
+        const previous = tabs;
+        const next = retargetDocumentPaths(tabs, [{ from, to }]);
+        if (next === previous) {
+            return;
+        }
+        tabs = next;
+        for (const tab of next) {
+            const before = previous.find((entry) => entry.id === tab.id);
+            if (before === undefined || before.path === tab.path) {
+                continue;
+            }
+            // HEAD still knows the old name, so the gutter bars are recomputed
+            // against the path the file now has.
+            if (tab.kind === 'text') {
+                void loadBaseline(tab.id, tab.path);
+            }
+        }
+        // A diff tab followed its file, so the snapshot it shows is stale.
+        if (next.some((tab) => tab.kind === 'diff')) {
+            void refreshDiffTabs();
+        }
+        void refreshGitStatus();
+    }
+
+    // treeError reports a failed tree command in the status bar, where every
+    // other notice appears, and keeps the tree as it was.
+    function treeError(error: unknown): void {
+        notice = errorMessage(error);
+    }
+
+    // newFileInFolder is New File from the tree: the file is created on disk
+    // first, so an empty file exists even if the user never types into it, then
+    // opened as a tab.
+    async function newFileInFolder(folder: string): Promise<void> {
+        await askName({
+            title: 'New File',
+            label: `Name for the new file in ${entryName(folder)}`,
+            submitLabel: 'Create File',
+            run: async (name) => {
+                try {
+                    const entry = await createFile(folder, name);
+                    refreshTree();
+                    await openFile(entry.path);
+                    notice = '';
+                    return '';
+                } catch (error) {
+                    notice = '';
+                    return errorMessage(error);
+                }
+            },
+        });
+    }
+
+    // newFolderInFolder is New Folder. The new folder is expanded so the user
+    // sees where it went, which matters when it lands between many siblings.
+    async function newFolderInFolder(folder: string): Promise<void> {
+        await askName({
+            title: 'New Folder',
+            label: `Name for the new folder in ${entryName(folder)}`,
+            submitLabel: 'Create Folder',
+            run: async (name) => {
+                try {
+                    const entry = await createFolder(folder, name);
+                    refreshTree();
+                    revealInTree(entry.path);
+                    notice = '';
+                    return '';
+                } catch (error) {
+                    notice = '';
+                    return errorMessage(error);
+                }
+            },
+        });
+    }
+
+    // renameEntry renames in place. The tab that holds the file follows the new
+    // path, so the buffer stays open and keeps its edits and undo history.
+    async function renameEntry(path: string): Promise<void> {
+        await askName({
+            title: 'Rename',
+            label: 'New name',
+            value: entryName(path),
+            selectStem: true,
+            submitLabel: 'Rename',
+            run: async (name) => {
+                try {
+                    const entry = await renamePath(path, name);
+                    applyTreeMove(path, entry.path);
+                    refreshTree();
+                    revealInTree(entry.path);
+                    // A Cut waiting on the old path would move nothing, so it is
+                    // dropped rather than left pointing at a file that is gone.
+                    if (clipboardPath === path) {
+                        clipboardPath = entry.path;
+                    }
+                    notice = '';
+                    return '';
+                } catch (error) {
+                    notice = '';
+                    return errorMessage(error);
+                }
+            },
+        });
+    }
+
+    // duplicateEntry copies an entry beside itself, named " copy" the way Finder
+    // does. The copy is not opened: the user asked for a second file, not for a
+    // second tab.
+    async function duplicateEntry(path: string): Promise<void> {
+        try {
+            const entry = await duplicatePath(path);
+            refreshTree();
+            revealInTree(entry.path);
+            await refreshGitStatus();
+            notice = `Created ${entry.name}`;
+        } catch (error) {
+            treeError(error);
+        }
+    }
+
+    // cutEntry puts the entry aside for Paste. It changes nothing on disk: the
+    // move happens when the user chooses a folder to paste into.
+    function cutEntry(path: string): void {
+        clipboardPath = path;
+        clipboardCut = true;
+        notice = `Ready to move ${entryName(path)}`;
+    }
+
+    function copyEntry(path: string): void {
+        clipboardPath = path;
+        clipboardCut = false;
+        notice = `Ready to copy ${entryName(path)}`;
+    }
+
+    // pasteInto copies or moves the entry the clipboard holds into a folder. A
+    // cut is cleared after the move, so a second Paste cannot fail on a source
+    // that is no longer there.
+    async function pasteInto(folder: string): Promise<void> {
+        const source = clipboardPath;
+        if (source === '') {
+            return;
+        }
+        busyPath = folder;
+        try {
+            if (clipboardCut) {
+                const entry = await movePath(source, folder);
+                applyTreeMove(source, entry.path);
+                clipboardPath = '';
+                clipboardCut = false;
+                revealInTree(entry.path);
+                notice = `Moved ${entry.name}`;
+            } else {
+                const entry = await copyPath(source, folder);
+                revealInTree(entry.path);
+                notice = `Copied ${entry.name}`;
+            }
+            refreshTree();
+            await refreshGitStatus();
+        } catch (error) {
+            treeError(error);
+        } finally {
+            busyPath = '';
+        }
+    }
+
+    // moveEntry is a drop on a folder row. It is the same move Paste does, with
+    // the source coming from the drag rather than the clipboard.
+    async function moveEntry(source: string, folder: string): Promise<void> {
+        busyPath = folder;
+        try {
+            const entry = await movePath(source, folder);
+            applyTreeMove(source, entry.path);
+            refreshTree();
+            revealInTree(entry.path);
+            await refreshGitStatus();
+            notice = `Moved ${entry.name}`;
+        } catch (error) {
+            treeError(error);
+        } finally {
+            busyPath = '';
+        }
+    }
+
+    // trashEntry asks first, then moves the entry to the platform's Trash. Its
+    // tabs close with it: the files they show no longer exist, and a tab that
+    // cannot be saved is worse than no tab. A modified buffer asks about its
+    // edits before the file goes, so nothing is lost by accident.
+    async function trashEntry(path: string): Promise<void> {
+        const affected = tabs.filter(
+            (tab) =>
+                (tab.path !== '' && pathWithin(tab.path, path)) ||
+                (tab.kind === 'diff' && pathWithin(tab.sourcePath ?? '', path)),
+        );
+        const dirty = affected.filter((tab) => tab.dirty);
+        const confirmed = await askConfirm(
+            'Move to Trash',
+            dirty.length > 0
+                ? `Move ${entryName(path)} to the Trash? ${dirty.length === 1 ? 'One open buffer has' : `${dirty.length} open buffers have`} unsaved changes that will be lost.`
+                : `Move ${entryName(path)} to the Trash? You can put it back from the Trash.`,
+            'Move to Trash',
+        );
+        if (!confirmed) {
+            return;
+        }
+        busyPath = path;
+        try {
+            await trashPath(path);
+            for (const tab of affected) {
+                removeTab(tab.id);
+            }
+            if (pathWithin(clipboardPath, path)) {
+                clipboardPath = '';
+                clipboardCut = false;
+            }
+            refreshTree();
+            await refreshGitStatus();
+            notice = `Moved ${entryName(path)} to the Trash`;
+        } catch (error) {
+            treeError(error);
+        } finally {
+            busyPath = '';
+        }
+    }
+
+    // revealInTree expands the tree to path and scrolls it into view. New
+    // entries use it so they never land out of sight.
+    function revealInTree(path: string): void {
+        revealedPath = path;
+        treeRefreshToken++;
+    }
+
+    // startRenameFromMenu opens the rename dialog for the entry the context menu
+    // is acting on.
+    function contextTarget(): { path: string; isDir: boolean } {
+        return { path: contextMenu?.path ?? '', isDir: contextMenu?.isDir ?? false };
+    }
+
+    // contextMenuItems builds the row menu. A tree row that is a file creates in
+    // the folder it lives in, which is why it offers the same items; a tab row
+    // only gets Reveal in Finder. A separator is an item with an empty id, which
+    // the menu draws as a line.
+    function contextMenuItems(): Array<{
+        id: string;
+        label: string;
+        disabled?: boolean;
+    }> {
+        const items = [{ id: 'reveal', label: 'Reveal in Finder' }];
+        if (!contextMenu?.inTree) {
+            return items;
+        }
+        return [
+            ...items,
+            { id: '', label: '' },
+            { id: 'new-file', label: 'New File…' },
+            { id: 'new-folder', label: 'New Folder…' },
+            { id: '', label: '' },
+            { id: 'cut', label: 'Cut' },
+            { id: 'copy', label: 'Copy' },
+            { id: 'paste', label: 'Paste', disabled: clipboardPath === '' },
+            { id: 'duplicate', label: 'Duplicate' },
+            { id: '', label: '' },
+            { id: 'rename', label: 'Rename…' },
+            { id: 'trash', label: 'Move to Trash' },
+        ];
+    }
+
+    // runContextMenu runs the item the row menu picked against the entry it was
+    // opened on.
+    function runContextMenu(id: string): void {
+        const entry = contextTarget();
+        closeContextMenu();
+        void runTreeCommand(id, entry.path, entry.isDir);
+    }
+
+    async function runTreeCommand(id: string, path: string, isDir: boolean): Promise<void> {
+        if (id === 'reveal') {
+            await revealPath(path);
+            return;
+        }
+        // Commands that create or paste need a folder: a file row means the
+        // folder it lives in.
+        const folder = isDir ? path : parentPath(path);
+        switch (id) {
+            case 'new-file':
+                await newFileInFolder(folder);
+                break;
+            case 'new-folder':
+                await newFolderInFolder(folder);
+                break;
+            case 'cut':
+                cutEntry(path);
+                break;
+            case 'copy':
+                copyEntry(path);
+                break;
+            case 'paste':
+                await pasteInto(folder);
+                break;
+            case 'duplicate':
+                await duplicateEntry(path);
+                break;
+            case 'rename':
+                await renameEntry(path);
+                break;
+            case 'trash':
+                await trashEntry(path);
+                break;
+        }
+    }
+
     // recordRecent puts an opened file at the top of Open Recent.
     async function recordRecent(path: string): Promise<void> {
         try {
@@ -1999,13 +2490,33 @@
     }
 
     // showContextMenu opens the right-click menu for path at the pointer. An
-    // untitled buffer has nothing on disk, so it gets no menu.
-    function showContextMenu(event: MouseEvent, path: string): void {
+    // untitled buffer has nothing on disk, so it gets no menu. A tree row also
+    // says whether it is a folder and passes the entries it loaded, which is how
+    // the menu knows it may create a file or a folder there.
+    function showContextMenu(
+        event: MouseEvent,
+        path: string,
+        options: { isDir?: boolean; inTree?: boolean } = {},
+    ): void {
         event.preventDefault();
+        event.stopPropagation();
         if (path === '') {
             return;
         }
-        contextMenu = { x: event.clientX, y: event.clientY, path };
+        contextMenu = {
+            x: event.clientX,
+            y: event.clientY,
+            path,
+            isDir: options.isDir ?? false,
+            inTree: options.inTree ?? false,
+        };
+    }
+
+    // showEmptyAreaMenu opens the tree's background menu for one root, titled by
+    // the folder itself: New File and New Folder need somewhere to land, so the
+    // menu is the one a folder row would offer.
+    function showEmptyAreaMenu(event: MouseEvent, folder: string): void {
+        showContextMenu(event, folder, { isDir: true, inTree: true });
     }
 
     function closeContextMenu(): void {
@@ -2193,7 +2704,9 @@
             unsubscribeQuickOpen = listenForQuickOpen(() => void showQuickOpen());
             unsubscribeCommandPalette = listenForCommandPalette(showCommandPalette);
             unsubscribeFileCommands = listenForFileCommands({
-                'new-file': newFile,
+                'new-file': () => void newFileFromMenu(),
+                'new-folder': () => void newFolderFromMenu(),
+                'new-buffer': newFile,
                 'open-file': () => void openFromDialog(),
                 'save': () => saveActive(),
                 'save-as': () => saveActive(true),
@@ -2292,13 +2805,16 @@
                     selectedPath={revealedPath}
                     {busy}
                     refreshToken={treeRefreshToken}
+                    {busyPath}
                     statuses={gitStatuses}
                     iconStyle={uiSettings.iconStyle}
                     onAddFolder={() => void addFolderFromDialog()}
                     onRemoveFolder={(path) => void removeFolder(path)}
                     onOpenFile={(path) => void openFile(path)}
                     onContextMenu={showContextMenu}
+                    onEmptyAreaMenu={showEmptyAreaMenu}
                     onExpandedChange={setExpanded}
+                    onMovePath={(source, folder) => void moveEntry(source, folder)}
                 />
             {/if}
         </div>
@@ -2483,15 +2999,20 @@
         <ContextMenu
             x={contextMenu.x}
             y={contextMenu.y}
-            items={[{ id: 'reveal', label: 'Reveal in Finder' }]}
-            onSelect={() => {
-                const path = contextMenu?.path ?? '';
-                closeContextMenu();
-                if (path !== '') {
-                    void revealPath(path);
-                }
-            }}
+            items={contextMenuItems()}
+            onSelect={runContextMenu}
             onClose={closeContextMenu}
+        />
+    {/if}
+    {#if namePrompt !== null}
+        <NamePrompt
+            title={namePrompt.title}
+            label={namePrompt.label}
+            bind:value={namePrompt.value}
+            selectStem={namePrompt.selectStem}
+            error={namePrompt.error}
+            onSubmit={submitName}
+            onCancel={cancelName}
         />
     {/if}
     {#if settingsOverlay}

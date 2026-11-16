@@ -2,8 +2,13 @@
     import { onMount } from 'svelte';
 
     interface Item {
+        // id is what onSelect receives. It is empty for a separator, which is
+        // never clickable and only groups the items around it.
         id: string;
         label: string;
+        // disabled greys an item out, for a command that cannot run on the
+        // entry that was right-clicked.
+        disabled?: boolean;
     }
 
     interface Props {
@@ -50,13 +55,18 @@
 <svelte:window onpointerdown={onPointerDown} onkeydown={onKeydown} />
 
 <div class="menu" role="menu" bind:this={menu} style:left={`${left}px`} style:top={`${top}px`}>
-    {#each items as item (item.id)}
-        <button
-            class="menu__item"
-            role="menuitem"
-            type="button"
-            onclick={() => onSelect(item.id)}
-        >{item.label}</button>
+    {#each items as item, index (item.id === '' ? `separator-${index}` : item.id)}
+        {#if item.id === ''}
+            <div class="menu__separator" role="separator"></div>
+        {:else}
+            <button
+                class="menu__item"
+                role="menuitem"
+                type="button"
+                disabled={item.disabled === true}
+                onclick={() => onSelect(item.id)}
+            >{item.label}</button>
+        {/if}
     {/each}
 </div>
 
@@ -86,9 +96,21 @@
         cursor: pointer;
     }
 
-    .menu__item:hover,
-    .menu__item:focus-visible {
+    .menu__item:hover:enabled,
+    .menu__item:focus-visible:enabled {
         background: var(--bg-hover);
         outline: none;
+    }
+
+    .menu__item:disabled {
+        color: var(--fg-muted);
+        opacity: 0.6;
+        cursor: default;
+    }
+
+    .menu__separator {
+        height: 1px;
+        margin: 4px 6px;
+        background: var(--border);
     }
 </style>

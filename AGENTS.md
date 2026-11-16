@@ -57,6 +57,44 @@ introduce one unprompted.
   `folder.go`, and the CLI paths by `App.GetLaunchRequest` in `app.go`; the
   frontend never imports Node APIs. `cli.go` parses argv into a `LaunchRequest`
   that survives the frontend not being ready yet.
+- **The tree is a file manager, not just a viewer.** `filetree.go` adds
+  `App.CreateFile`, `CreateFolder`, `RenamePath`, `DuplicatePath`, `CopyPath`,
+  `MovePath` and `TrashPath`. Every one validates what it is handed: a name is
+  one path segment, so a caller cannot walk up the tree, and a destination is a
+  real folder, so a copy never lands somewhere the user cannot see. New File
+  opens with `O_EXCL` and a rename or move refuses a taken name, so nothing is
+  overwritten by accident. Duplicate and Copy land on the first free
+  `name copy.ext` (keeping its own name when a copy lands in another folder and
+  that name is free); `MovePath` renames and falls back to copy-then-delete only
+  across volumes (`EXDEV`). **Nothing deletes for good:**
+  `TrashPath` goes through the platform's Trash (`trash_darwin.go`, cgo AppKit
+  `trashItemAtURL:`, called on the main thread) and `trash_other.go` fails loudly
+  elsewhere. Each command returns a `FileTreeResult` with both the written path
+  and its symlink-resolved `real_path`, because tabs match on the latter.
+- **A rename or move keeps the tabs open.** `retargetDocumentPaths` in `tabs.ts`
+  rewrites a tab's `path`/`realPath` and the diff tab that watches the same file,
+  retargeting every tab under a renamed folder in one pass; the tab keeps its
+  `id`, so Monaco keeps the model, the text, the undo history and the dirty flag.
+  `applyTreeMove` in `App.svelte` applies it and then rereads the file's git
+  baseline and any diff of it, because HEAD still knows the old name. Cutting is
+  cleared when the moved entry was the thing the clipboard held.
+- **The row menu is the tree's only file manager UI.** `FolderTree.svelte`
+  reports `isDir`/`inTree` through `onContextMenu`, so `ContextMenu.svelte`
+  (which now draws separators and disabled rows) offers New File, New Folder,
+  Cut/Copy/Paste, Duplicate, Rename and Move to Trash for a tree row and only
+  Reveal in Finder for a tab. A folder row, and the empty space under its
+  children, is the drop target: drag state lives in `filetree.ts` (a drag spans
+  components), a drop reads either the tree payload or the local path of the
+  file dragged in from Finder, and a folder cannot be dropped into its own
+  subtree. Names are asked for in `NamePrompt.svelte`, which stays open with the
+  backend's refusal in it so a taken name is corrected in place.
+- **File → New File creates on disk; New Buffer is the untitled one.**
+  <kbd>Cmd</kbd>+<kbd>N</kbd> asks the tree for a name in the selected folder
+  (the selected file's folder when a file is selected), creates the file and
+  opens it; **File → New Folder…** does the same for a directory and
+  <kbd>Cmd</kbd>+<kbd>Alt</kbd>+<kbd>N</kbd> opens an untitled buffer. The menu
+  only emits `app:new-file`, `app:new-folder` and `app:new-buffer`, because the
+  sidebar roots are frontend state.
 - **The sidebar is a folder tree with several roots.** `App.ReadFolder` lists
   one level at a time and the recursive `FolderTree.svelte` reads children on
   first expansion, so adding a large folder costs one directory read. Roots are

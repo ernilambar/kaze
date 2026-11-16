@@ -59,12 +59,48 @@ export function CloseWindow(window: string): $CancellablePromise<void> {
 }
 
 /**
+ * CopyPath copies path into targetDir, keeping its name. A name already taken
+ * there gets the next free " copy" name instead of failing, so pasting the same
+ * file twice is not an error.
+ */
+export function CopyPath(path: string, targetDir: string): $CancellablePromise<$models.FileTreeResult> {
+    return $Call.ByID(1297703531, path, targetDir);
+}
+
+/**
  * CopyText puts text on the system clipboard. A menu click has no caller to
  * return to, so the command palette path reports the error and the menu logs
  * it.
  */
 export function CopyText(text: string): $CancellablePromise<void> {
     return $Call.ByID(2798394763, text);
+}
+
+/**
+ * CreateFile makes an empty file in parent. An existing name is an error rather
+ * than an overwrite: the tree is a file manager here, so New File must never
+ * truncate something the user already has.
+ */
+export function CreateFile(parent: string, name: string): $CancellablePromise<$models.FileTreeResult> {
+    return $Call.ByID(3418645411, parent, name);
+}
+
+/**
+ * CreateFolder makes one directory in parent. The path is validated here rather
+ * than trusted from the caller, because a name that walks up the tree would put
+ * the new folder somewhere the user cannot see.
+ */
+export function CreateFolder(parent: string, name: string): $CancellablePromise<$models.FileTreeResult> {
+    return $Call.ByID(1403526973, parent, name);
+}
+
+/**
+ * DuplicatePath copies path next to itself under a " copy" name, which is what
+ * Finder and VS Code do. A directory is copied whole, so the duplicate is a
+ * snapshot rather than a second name for the same contents.
+ */
+export function DuplicatePath(path: string): $CancellablePromise<$models.FileTreeResult> {
+    return $Call.ByID(3607991813, path);
 }
 
 /**
@@ -186,6 +222,15 @@ export function MinimiseWindow(window: string): $CancellablePromise<void> {
 }
 
 /**
+ * MovePath moves path into targetDir, keeping its name. The rename is the only
+ * copy-free path; when the two folders are on different volumes the contents are
+ * copied and the source removed, which is what the user asked for either way.
+ */
+export function MovePath(path: string, targetDir: string): $CancellablePromise<$models.FileTreeResult> {
+    return $Call.ByID(2028899675, path, targetDir);
+}
+
+/**
  * MoveTabToNewWindow hands one buffer to a new window. The frontend removes the
  * tab from its own list once this returns, because the buffer now lives in the
  * new window.
@@ -301,6 +346,15 @@ export function RemoveAllSidebarFolders(): $CancellablePromise<string[] | null> 
  */
 export function RemoveSidebarFolder(folder: string): $CancellablePromise<string[] | null> {
     return $Call.ByID(1753677811, folder);
+}
+
+/**
+ * RenamePath gives path a new name inside the folder it already lives in. The
+ * caller retargets the open tabs afterwards, so a renamed file stays open under
+ * its new path.
+ */
+export function RenamePath(path: string, name: string): $CancellablePromise<$models.FileTreeResult> {
+    return $Call.ByID(1959759948, path, name);
 }
 
 /**
@@ -440,6 +494,15 @@ export function ShouldRestoreSession(window: string): $CancellablePromise<boolea
  */
 export function ToggleFullScreen(window: string): $CancellablePromise<void> {
     return $Call.ByID(203905296, window);
+}
+
+/**
+ * TrashPath moves path to the platform's Trash. Deleting for good is not
+ * offered by the tree, so a mistyped rename or drop can still be undone in
+ * Finder.
+ */
+export function TrashPath(path: string): $CancellablePromise<void> {
+    return $Call.ByID(1861979214, path);
 }
 
 /**

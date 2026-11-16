@@ -9,6 +9,7 @@ export {
 export type {
     Document,
     EditorSettings,
+    FileTreeResult,
     FilesSettings,
     FolderEntry,
     GitBaseline,

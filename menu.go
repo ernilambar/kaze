@@ -103,8 +103,16 @@ func fileMenu(m *application.Menu, app *App, b *menuBuilder) {
 		}
 	})
 	m.AddSeparator()
+	// New File creates a file in the sidebar and New Buffer is the untitled
+	// buffer: creating a file needs a folder, which only the tree knows.
 	b.item(m, "new-file", "New File", "CmdOrCtrl+n", func(*application.Context) {
 		app.emitNewFile()
+	})
+	b.item(m, "new-folder", "New Folder…", "", func(*application.Context) {
+		app.emitNewFolder()
+	})
+	b.item(m, "new-buffer", "New Buffer", "CmdOrCtrl+Alt+n", func(*application.Context) {
+		app.emitNewBuffer()
 	})
 	b.item(m, "open-file", "Open…", "CmdOrCtrl+o", func(*application.Context) {
 		app.emitOpenFile()

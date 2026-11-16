@@ -515,16 +515,26 @@ func (a *App) emitCommandPalette() {
 // their paths all live in the UI, so Go only forwards each click. One name per
 // command keeps the menu and the App listener honest about what exists.
 const (
-	newFileEvent  = "app:new-file"
-	openFileEvent = "app:open-file"
-	saveEvent     = "app:save"
-	saveAsEvent   = "app:save-as"
-	saveAllEvent  = "app:save-all"
-	printEvent    = "app:print"
+	newFileEvent   = "app:new-file"
+	newFolderEvent = "app:new-folder"
+	newBufferEvent = "app:new-buffer"
+	openFileEvent  = "app:open-file"
+	saveEvent      = "app:save"
+	saveAsEvent    = "app:save-as"
+	saveAllEvent   = "app:save-all"
+	printEvent     = "app:print"
 )
 
-// emitNewFile tells the frontend to open a new untitled buffer.
+// emitNewFile asks the tree for a New File, which creates the file inside a
+// sidebar folder. The frontend picks the folder, because the sidebar roots are
+// its state.
 func (a *App) emitNewFile() { a.emitEvent(newFileEvent) }
+
+// emitNewFolder asks the tree to create a folder in the selected folder.
+func (a *App) emitNewFolder() { a.emitEvent(newFolderEvent) }
+
+// emitNewBuffer tells the frontend to open a new untitled buffer.
+func (a *App) emitNewBuffer() { a.emitEvent(newBufferEvent) }
 
 // emitOpenFile tells the frontend to show the Open dialog.
 func (a *App) emitOpenFile() { a.emitEvent(openFileEvent) }

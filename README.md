@@ -15,14 +15,18 @@ A minimal text editor for macOS.
   Open Folder in New Window and Bring All to Front, alongside Minimize, Zoom and
   Toggle Full Screen from the Window menu or the command palette. Each window
   has its own tabs and sidebar; settings and themes are shared.
-- **File handling** — New, Open, Save, Save As and Save All. Closing a dirty
-  tab, window or quit prompts to save, and saving over a file another program
-  changed warns first.
+- **File handling** — New File, New Folder, New Buffer, Open, Save, Save As and
+  Save All. Closing a dirty tab, window or quit prompts to save, and saving over
+  a file another program changed warns first.
 - **Folder sidebar** — several folders as roots, children read only on
   expansion, [File Icons](https://github.com/file-icons/icons) glyphs matched
   by name, and the list persisted in `settings.json`. **Toggle Sidebar**
   (<kbd>Cmd</kbd>+<kbd>B</kbd>) and **Close All Folders** are in the View and
   File menus.
+- **File tree operations** — New File, New Folder, Rename, Duplicate,
+  Cut/Copy/Paste, Move to Trash (the macOS Trash, not an unlink) and drag to
+  move, from each row's context menu or a drop on a folder row. A renamed or
+  moved file keeps its tab open, with its edits and undo history.
 - **Quick Open** (<kbd>Cmd</kbd>+<kbd>P</kbd>) — fuzzy-find a file by name or
   path across the sidebar folders, skipping whatever `files.exclude` hides.
 - **Find in Files** (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>) — search the

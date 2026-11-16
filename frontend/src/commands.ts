@@ -60,6 +60,8 @@ export const COMMANDS: readonly Command[] = [
     { id: 'new-window', name: 'New Window', detail: 'File' },
     { id: 'open-folder-new-window', name: 'Open Folder in New Window…', detail: 'File' },
     { id: 'new-file', name: 'New File', detail: 'File' },
+    { id: 'new-folder', name: 'New Folder…', detail: 'File' },
+    { id: 'new-buffer', name: 'New Buffer', detail: 'File' },
     { id: 'open-file', name: 'Open…', detail: 'File' },
     { id: 'open-recent', name: 'Open Recent…', detail: 'File' },
     { id: 'clear-recent', name: 'Clear Recent', detail: 'File' },

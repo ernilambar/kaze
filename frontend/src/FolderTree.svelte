@@ -1,6 +1,12 @@
 <script lang="ts">
     import { onMount, untrack } from 'svelte';
     import Self from './FolderTree.svelte';
+    import {
+        DRAG_TYPE,
+        draggingPath,
+        dropSource,
+        setDraggingPath,
+    } from './filetree';
     import { fileIcon } from './fileIcons';
     import { statusLabel, statusMark, type GitStatusKind } from './git';
     import { errorMessage, isWithin, readFolder, type FolderEntry } from './sidebar';
@@ -11,15 +17,28 @@
         depth?: number;
         selectedPath?: string;
         refreshToken?: number;
+        // busyPath is the entry a tree command is running on, so its row can say
+        // that the command is still working.
+        busyPath?: string;
         statuses?: Record<string, GitStatusKind>;
         expanded?: boolean;
         removable?: boolean;
         onOpenFile: (path: string) => void;
         // onContextMenu opens the row menu for a file or folder.
-        onContextMenu?: (event: MouseEvent, path: string) => void;
+        onContextMenu?: (
+            event: MouseEvent,
+            path: string,
+            options: { isDir?: boolean; inTree?: boolean },
+        ) => void;
         onRemove?: (path: string) => void;
         onExpandedChange?: (path: string, open: boolean) => void;
         iconStyle?: 'colorful' | 'monochrome';
+        // onMovePath moves path into targetDir. It is what a drop on a folder
+        // row does, from the tree or from another app.
+        onMovePath?: (path: string, targetDir: string) => void;
+        // onEmptyAreaMenu opens the row menu for the folder behind the empty
+        // space around a folder's children.
+        onEmptyAreaMenu?: (event: MouseEvent, folder: string) => void;
     }
 
     let {
@@ -28,6 +47,7 @@
         depth = 0,
         selectedPath = '',
         refreshToken = 0,
+        busyPath = '',
         statuses = {},
         expanded = false,
         removable = false,
@@ -36,6 +56,8 @@
         onRemove,
         onExpandedChange,
         iconStyle = 'colorful',
+        onMovePath,
+        onEmptyAreaMenu,
     }: Props = $props();
 
     // `expanded` is only the initial state: a root starts open, and after that
@@ -46,6 +68,77 @@
     let error = $state('');
     let loaded = $state(false);
     let loading = $state(false);
+
+    // dropTarget marks the folder a drag is over, which is also the row that
+    // draws the highlight. What is being dragged lives in filetree.ts, because a
+    // drag spans several rows and each one is its own component.
+    let dropTarget = $state(false);
+
+    function onRowDragStart(event: DragEvent): void {
+        startDrag(event, path);
+    }
+
+    // onFileDragStart drags a file row, so a file can be moved into any folder
+    // row in the tree. The folder rows are the drop targets; a file row is not.
+    function onFileDragStart(event: DragEvent, filePath: string): void {
+        startDrag(event, filePath);
+    }
+
+    function startDrag(event: DragEvent, source: string): void {
+        setDraggingPath(source);
+        if (event.dataTransfer === null) {
+            return;
+        }
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData(DRAG_TYPE, source);
+        event.dataTransfer.setData('text/plain', source);
+    }
+
+    function onRowDragEnd(): void {
+        onDragFinished();
+    }
+
+    // onDragFinished clears the state a drag left behind. A drop clears it too,
+    // because the browser does not always send dragend after a successful drop.
+    function onDragFinished(): void {
+        setDraggingPath('');
+        dropTarget = false;
+    }
+
+    // canDropPath keeps a folder from being dropped into itself or into its own
+    // subtree, which would detach it from the tree.
+    function canDropPath(source: string): boolean {
+        if (source === '' || source === path) {
+            return false;
+        }
+        return !isWithin(source, path);
+    }
+
+    function onRowDragOver(event: DragEvent): void {
+        const source = draggingPath() || dropSource(event.dataTransfer);
+        if (!canDropPath(source)) {
+            return;
+        }
+        event.preventDefault();
+        dropTarget = true;
+        if (event.dataTransfer !== null) {
+            event.dataTransfer.dropEffect = 'move';
+        }
+    }
+
+    function onRowDragLeave(): void {
+        dropTarget = false;
+    }
+
+    function onRowDrop(event: DragEvent): void {
+        event.preventDefault();
+        const source = dropSource(event.dataTransfer);
+        onDragFinished();
+        if (!canDropPath(source)) {
+            return;
+        }
+        onMovePath?.(source, path);
+    }
 
     // Children are read when the folder is first shown, so adding a large
     // folder costs one directory read rather than a walk over the whole tree.
@@ -138,12 +231,25 @@
 </script>
 
 <li class="node">
-    <div class="row" style:padding-left={`${8 + depth * 14}px`}>
+    <div
+        class="row"
+        role="presentation"
+        class:row--drop={dropTarget}
+        class:row--busy={busyPath === path}
+        aria-busy={busyPath === path}
+        style:padding-left={`${8 + depth * 14}px`}
+        draggable={onMovePath !== undefined}
+        ondragstart={onRowDragStart}
+        ondragend={onRowDragEnd}
+        ondragover={onRowDragOver}
+        ondragleave={onRowDragLeave}
+        ondrop={onRowDrop}
+    >
         <button
             class="row__main"
             onclick={toggle}
             title={path}
-            oncontextmenu={(event) => onContextMenu?.(event, path)}
+            oncontextmenu={(event) => onContextMenu?.(event, path, { isDir: true, inTree: true })}
         >
             <span class="row__chevron" class:row__chevron--open={open}>
                 <svg aria-hidden="true" height="10" viewBox="0 0 10 10" width="10">
@@ -173,6 +279,14 @@
     </div>
 
     {#if open}
+        <!-- The area below a row belongs to the folder that owns it, so a
+             right-click on the space around its children offers the same menu
+             the folder row does. -->
+        <div
+            class="node__area"
+            role="presentation"
+            oncontextmenu={(event) => onEmptyAreaMenu?.(event, path)}
+        >
         {#if error !== ''}
             <p class="node__error" style:padding-left={`${22 + depth * 14}px`}>{error}</p>
         {:else if loaded && entries.length === 0}
@@ -187,11 +301,14 @@
                             path={entry.path}
                             {selectedPath}
                             {refreshToken}
+                            {busyPath}
                             {statuses}
                             {onOpenFile}
                             {onContextMenu}
                             {onExpandedChange}
                             {iconStyle}
+                            {onMovePath}
+                            {onEmptyAreaMenu}
                         />
                     {:else}
                         {@const icon = fileIcon(entry.name)}
@@ -199,15 +316,24 @@
                         <li class="node">
                             <div
                                 class="row"
+                                role="presentation"
                                 class:row--selected={selectedPath === entry.path}
+                                class:row--busy={busyPath === entry.path}
                                 style:padding-left={`${8 + (depth + 1) * 14}px`}
+                                draggable={onMovePath !== undefined}
+                                ondragstart={(event) => onFileDragStart(event, entry.path)}
+                                ondragend={onRowDragEnd}
                                 use:revealSelected={selectedPath === entry.path}
                             >
                                 <button
                                     class="row__main"
                                     onclick={() => onOpenFile(entry.path)}
                                     title={entry.path}
-                                    oncontextmenu={(event) => onContextMenu?.(event, entry.path)}
+                                    oncontextmenu={(event) =>
+                                        onContextMenu?.(event, entry.path, {
+                                            isDir: false,
+                                            inTree: true,
+                                        })}
                                 >
                                     <span class="row__spacer"></span>
                                     <span
@@ -234,10 +360,17 @@
                 {/each}
             </ul>
         {/if}
+        </div>
     {/if}
 </li>
 
 <style>
+    /* The area holds a folder's children and the empty space around them; only
+       the list itself is styled, so the space stays clickable but invisible. */
+    .node__area {
+        display: block;
+    }
+
     .node__children {
         margin: 0;
         padding: 0;
@@ -256,6 +389,19 @@
 
     .row--selected {
         background: var(--bg-selected);
+    }
+
+    /* The entry a command is working on, so a slow copy does not look stuck. */
+    .row--busy {
+        opacity: 0.5;
+        cursor: progress;
+    }
+
+    /* The folder a drag would drop into, while the pointer is over it. */
+    .row--drop {
+        background: var(--bg-selected);
+        outline: 1px solid var(--fg-muted);
+        outline-offset: -1px;
     }
 
     .row__main {

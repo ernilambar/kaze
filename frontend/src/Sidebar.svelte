@@ -9,13 +9,26 @@
         busy?: boolean;
         // refreshToken changes when the tree should reread what is on disk.
         refreshToken?: number;
+        // busyPath is the entry a tree command is running on, so its row can say
+        // that the command is still working.
+        busyPath?: string;
         // statuses maps a path to its git state for the row's status mark.
         statuses?: Record<string, GitStatusKind>;
         onAddFolder: () => void;
         onRemoveFolder: (path: string) => void;
         onOpenFile: (path: string) => void;
         // onContextMenu opens the row menu for a file or folder.
-        onContextMenu?: (event: MouseEvent, path: string) => void;
+        onContextMenu?: (
+            event: MouseEvent,
+            path: string,
+            options: { isDir?: boolean; inTree?: boolean },
+        ) => void;
+        // onEmptyAreaMenu opens the same menu for the folder behind an empty
+        // area of the tree.
+        onEmptyAreaMenu?: (event: MouseEvent, folder: string) => void;
+        // onMovePath moves an entry into a folder, which is what dropping it on
+        // that folder row does.
+        onMovePath?: (path: string, targetDir: string) => void;
         // onExpandedChange reports which folders are open, so the app can watch
         // them for external changes.
         onExpandedChange?: (path: string, open: boolean) => void;
@@ -27,11 +40,14 @@
         selectedPath = '',
         busy = false,
         refreshToken = 0,
+        busyPath = '',
         statuses = {},
         onAddFolder,
         onRemoveFolder,
         onOpenFile,
         onContextMenu,
+        onEmptyAreaMenu,
+        onMovePath,
         onExpandedChange,
         iconStyle = 'colorful',
     }: Props = $props();
@@ -65,11 +81,14 @@
                     name={folderName(folder)}
                     {selectedPath}
                     {refreshToken}
+                    {busyPath}
                     {statuses}
                     expanded={true}
                     removable={true}
                     {onOpenFile}
                     {onContextMenu}
+                    {onEmptyAreaMenu}
+                    {onMovePath}
                     {onExpandedChange}
                     {iconStyle}
                     onRemove={onRemoveFolder}

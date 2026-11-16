@@ -3,10 +3,20 @@ import { onWindowEvent } from './windowstate';
 // FileCommand is every File menu item that acts on a buffer. Go only forwards
 // the click: buffers, their paths and their modified flags are frontend state,
 // so the work happens here.
-export type FileCommand = 'new-file' | 'open-file' | 'save' | 'save-as' | 'save-all' | 'print';
+export type FileCommand =
+    | 'new-file'
+    | 'new-folder'
+    | 'new-buffer'
+    | 'open-file'
+    | 'save'
+    | 'save-as'
+    | 'save-all'
+    | 'print';
 
 const FILE_COMMANDS: readonly FileCommand[] = [
     'new-file',
+    'new-folder',
+    'new-buffer',
     'open-file',
     'save',
     'save-as',

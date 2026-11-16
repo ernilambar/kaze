@@ -86,6 +86,19 @@ export interface EditorSettings {
 }
 
 /**
+ * FileTreeResult is one path a tree command produced: the spelling that was
+ * written and the same path with symlinks resolved. Open tabs match on the
+ * resolved one, so a rename through a symlinked root retargets the tab that was
+ * opened directly and the other way round.
+ */
+export interface FileTreeResult {
+    "path": string;
+    "real_path": string;
+    "name": string;
+    "is_dir": boolean;
+}
+
+/**
  * FilesSettings configures which entries the explorer and Quick Open hide.
  */
 export interface FilesSettings {

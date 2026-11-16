@@ -1,5 +1,5 @@
 import { onWindowEvent } from './windowstate';
-import type { OpenDocument } from './document';
+import { DIFF_PREFIX, type OpenDocument } from './document';
 
 // findDocumentByPath returns the tab that holds the file at path, matching
 // either the spelling it was opened with or its symlink-resolved path. An empty
@@ -174,4 +174,104 @@ export function listenForTabCommands(handlers: {
             off();
         }
     };
+}
+
+// retargetDocumentPath is the tab after its file moved on disk. Renaming or
+// moving a file keeps the same buffer open under its new path: the tab's text,
+// edits and undo history stay, so only its identity is rewritten and its id
+// travels with the buffer. A diff tab follows the file it is a view of instead
+// of pointing at a path that no longer exists.
+export function retargetDocumentPath(
+    document: OpenDocument,
+    from: string,
+    to: string,
+): OpenDocument | undefined {
+    if (from === '' || to === '' || from === to) {
+        return undefined;
+    }
+    if (document.kind === 'diff') {
+        const source = document.sourcePath ?? '';
+        const moved = remapPath(source, from, to);
+        if (moved === '' || moved === source) {
+            return undefined;
+        }
+        const name = baseName(moved);
+        return {
+            ...document,
+            id: `${DIFF_PREFIX}${moved}`,
+            name: `${name} (Diff)`,
+            sourcePath: moved,
+        };
+    }
+    if (document.path === '') {
+        return undefined;
+    }
+
+    // Either spelling can match: a tab remembers the path it was opened with
+    // and the same file with its symlinks resolved, while Go reports whichever
+    // one the command ran on.
+    const path = remapPath(document.path, from, to) || remapPath(document.realPath, from, to);
+    if (path === '') {
+        return undefined;
+    }
+    return { ...document, path, realPath: path, name: baseName(path) };
+}
+
+// retargetDocumentPaths applies every move in one pass, so a tab whose file
+// moved twice during one command ends up where it belongs. The list comes back
+// with the same identity when nothing moved, so callers can skip the work a
+// rewrite would cause.
+export function retargetDocumentPaths(
+    tabs: readonly OpenDocument[],
+    moves: ReadonlyArray<{ from: string; to: string }>,
+): OpenDocument[] {
+    if (moves.length === 0) {
+        return tabs as OpenDocument[];
+    }
+    let changed = false;
+    const next = tabs.map((tab) => {
+        let current = tab;
+        for (const move of moves) {
+            const moved = retargetDocumentPath(current, move.from, move.to);
+            if (moved !== undefined) {
+                current = moved;
+                changed = true;
+            }
+        }
+        return current;
+    });
+    return changed ? next : (tabs as OpenDocument[]);
+}
+
+// pathWithin reports whether path is base itself or sits inside it, so a
+// rename of a folder retargets the tabs of the files under it.
+export function pathWithin(path: string, base: string): boolean {
+    if (path === '' || base === '') {
+        return false;
+    }
+    const candidate = normalizeSeparators(path);
+    const root = normalizeSeparators(base).replace(/\/+$/, '');
+    return candidate === root || candidate.startsWith(`${root}/`);
+}
+
+// remapPath is path rewritten from base to target, or the empty string when
+// path is not under base. Both separators are accepted, because a path the
+// backend reported and the one a tab was opened with may spell the same file
+// differently.
+function remapPath(path: string, base: string, target: string): string {
+    if (!pathWithin(path, base)) {
+        return '';
+    }
+    const root = normalizeSeparators(base).replace(/\/+$/, '');
+    const suffix = normalizeSeparators(path).slice(root.length);
+    return `${target}${suffix}`;
+}
+
+function normalizeSeparators(value: string): string {
+    return value.replace(/\\/g, '/');
+}
+
+function baseName(path: string): string {
+    const parts = path.split(/[\\/]/).filter((part) => part !== '');
+    return parts.length === 0 ? path : parts[parts.length - 1];
 }

@@ -4,6 +4,9 @@ import {
     findDocumentByPath,
     moveDocumentTab,
     openDocumentTab,
+    pathWithin,
+    retargetDocumentPath,
+    retargetDocumentPaths,
     setDocumentDirty,
     stepTabId,
     tabIdAt,
@@ -255,5 +258,110 @@ describe('tabIdAt', () => {
     it('is empty outside the list', () => {
         expect(tabIdAt(tabs, 0)).toBe('');
         expect(tabIdAt(tabs, 4)).toBe('');
+    });
+});
+
+describe('pathWithin', () => {
+    it.each([
+        ['/a/b', '/a/b', true],
+        ['/a/b/c', '/a/b', true],
+        ['/a/bc', '/a/b', false],
+        ['/a', '/a/b', false],
+        ['', '/a', false],
+    ])('matches %j under %j as %j', (path, base, expected) => {
+        expect(pathWithin(path, base)).toBe(expected);
+    });
+
+    it('accepts either separator', () => {
+        expect(pathWithin('C:\\work\\notes.txt', 'C:/work')).toBe(true);
+    });
+});
+
+describe('retargetDocumentPath', () => {
+    it('renames the tab that holds the file', () => {
+        const moved = retargetDocumentPath(notes, '/tmp/notes.txt', '/tmp/journal.txt');
+
+        expect(moved?.path).toBe('/tmp/journal.txt');
+        expect(moved?.realPath).toBe('/tmp/journal.txt');
+        expect(moved?.name).toBe('journal.txt');
+        // The id travels with the buffer, so the editor keeps its model.
+        expect(moved?.id).toBe(notes.id);
+    });
+
+    it('keeps a dirty buffer dirty', () => {
+        const dirty: OpenDocument = { ...notes, dirty: true };
+
+        expect(retargetDocumentPath(dirty, '/tmp/notes.txt', '/tmp/journal.txt')?.dirty).toBe(true);
+    });
+
+    it('moves the tabs of files inside a renamed folder', () => {
+        const nested: OpenDocument = {
+            ...notes,
+            id: '/src/main.ts',
+            path: '/src/main.ts',
+            realPath: '/src/main.ts',
+            name: 'main.ts',
+        };
+
+        expect(retargetDocumentPath(nested, '/src', '/lib')?.path).toBe('/lib/main.ts');
+    });
+
+    it('matches the resolved path too', () => {
+        const linked: OpenDocument = {
+            ...notes,
+            realPath: '/private/notes.txt',
+        };
+
+        const moved = retargetDocumentPath(linked, '/private/notes.txt', '/private/journal.txt');
+
+        expect(moved?.path).toBe('/private/journal.txt');
+        expect(moved?.id).toBe(linked.id);
+    });
+
+    it('leaves unrelated tabs and untitled buffers alone', () => {
+        expect(retargetDocumentPath(notes, '/tmp/other.txt', '/tmp/moved.txt')).toBeUndefined();
+        const buffer = untitled('Untitled-1');
+        expect(retargetDocumentPath(buffer, '/tmp/notes.txt', '/tmp/journal.txt')).toBeUndefined();
+    });
+
+    it('does nothing when the path did not change', () => {
+        expect(retargetDocumentPath(notes, '/tmp/notes.txt', '/tmp/notes.txt')).toBeUndefined();
+    });
+
+    it('follows the file a diff tab shows', () => {
+        const diff: OpenDocument = {
+            ...notes,
+            id: 'diff:/tmp/notes.txt',
+            path: '',
+            realPath: '',
+            name: 'notes.txt (Diff)',
+            kind: 'diff',
+            sourcePath: '/tmp/notes.txt',
+        };
+
+        const moved = retargetDocumentPath(diff, '/tmp/notes.txt', '/tmp/journal.txt');
+
+        expect(moved?.sourcePath).toBe('/tmp/journal.txt');
+        expect(moved?.id).toBe('diff:/tmp/journal.txt');
+        expect(moved?.name).toBe('journal.txt (Diff)');
+    });
+});
+
+describe('retargetDocumentPaths', () => {
+    it('returns the same list when nothing matched', () => {
+        const tabs = [notes, readme];
+
+        expect(retargetDocumentPaths(tabs, [{ from: '/other', to: '/moved' }])).toBe(tabs);
+        expect(retargetDocumentPaths(tabs, [])).toBe(tabs);
+    });
+
+    it('applies a move to every tab it touches', () => {
+        const moved = retargetDocumentPaths(
+            [notes, readme],
+            [{ from: '/tmp/notes.txt', to: '/tmp/journal.txt' }],
+        );
+
+        expect(moved[0]?.path).toBe('/tmp/journal.txt');
+        expect(moved[1]).toBe(readme);
     });
 });
