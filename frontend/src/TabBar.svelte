@@ -155,7 +155,7 @@
         ondrop={dropAtEnd}
     >
         {#each tabs as tab (tab.id)}
-            {@const icon = fileIcon(tab.path || tab.name)}
+            {@const icon = fileIcon(tab.name)}
             <div
                 class="tab"
                 role="presentation"
