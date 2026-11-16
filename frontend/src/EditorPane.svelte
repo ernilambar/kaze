@@ -3,12 +3,11 @@
     import { onMount } from 'svelte';
     import { transformCase, type CaseTransform } from './case';
     import { changedLines } from './diff';
-    import { DIFF_PREFIX, normalizeEol } from './document';
+    import { DIFF_PREFIX, normalizeEol, type DocumentEOL } from './document';
     import {
         createEditor,
         createModel,
         editorOptions,
-        languageForPath,
         modelOptions,
         WELCOME_KEY,
     } from './editor';
@@ -39,6 +38,9 @@
         // readOnly is set for diff tabs, whose text is a generated snapshot.
         readOnly?: boolean;
         onCursorMove?: (line: number, column: number) => void;
+        // onSelectionChange reports how many characters are selected. The
+        // status bar appends it to the cursor position.
+        onSelectionChange?: (length: number) => void;
         // onRevealFile asks the app to show the active file in the platform's
         // file manager; it is wired to the editor's context menu.
         onRevealFile?: () => void;
@@ -56,6 +58,7 @@
         settings,
         readOnly = false,
         onCursorMove,
+        onSelectionChange,
         onRevealFile,
         onDirtyChange,
     }: Props = $props();
@@ -230,12 +233,30 @@
         current.focus();
     }
 
-    // setLanguage re-highlights a buffer after Save As gave it a real path.
-    export function setLanguage(key: string, path: string): void {
+    // setLanguage re-highlights a buffer after Save As gave it a real path or
+    // Change Language Mode picked an override. The caller resolves the id; this
+    // only touches the model.
+    export function setLanguage(key: string, languageId: string): void {
         const model = models.get(key);
         if (model !== undefined) {
-            monaco.editor.setModelLanguage(model, languageForPath(path));
+            monaco.editor.setModelLanguage(model, languageId);
         }
+    }
+
+    // setEol switches a buffer's line endings in place. Monaco records it as an
+    // edit, so the buffer becomes dirty and Save writes the new sequence.
+    export function setEol(key: string, eol: DocumentEOL): void {
+        const model = models.get(key);
+        if (model === undefined) {
+            return;
+        }
+        const crlf = eol === 'crlf';
+        if ((model.getEOL() === '\r\n') === crlf) {
+            return;
+        }
+        model.setEOL(
+            crlf ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF,
+        );
     }
 
     // transformSelection converts the selection, or the whole buffer when
@@ -356,6 +377,29 @@
         onDirtyChange?.(key, dirty);
     }
 
+    // reportSelection counts the characters selected across every cursor. The
+    // status bar shows it beside the cursor position; an empty selection
+    // reports zero and the bar drops it.
+    function reportSelection(): void {
+        const current = editor;
+        if (current === undefined) {
+            onSelectionChange?.(0);
+            return;
+        }
+        const model = current.getModel();
+        if (model === null) {
+            onSelectionChange?.(0);
+            return;
+        }
+        let length = 0;
+        for (const selection of current.getSelections() ?? []) {
+            if (!selection.isEmpty()) {
+                length += model.getValueLengthInRange(selection);
+            }
+        }
+        onSelectionChange?.(length);
+    }
+
     // showModel swaps the editor to key's buffer, creating it on first use.
     // Each buffer keeps its own undo stack, so switching tabs never rewrites
     // text or loses history.
@@ -382,6 +426,7 @@
         if (position !== null) {
             onCursorMove?.(position.lineNumber, position.column);
         }
+        reportSelection();
     }
 
     // pruneModels disposes buffers for tabs that were closed. The active model
@@ -437,6 +482,9 @@
         const cursorSubscription = created.onDidChangeCursorPosition((event) => {
             onCursorMove?.(event.position.lineNumber, event.position.column);
         });
+        const selectionSubscription = created.onDidChangeCursorSelection(() => {
+            reportSelection();
+        });
         const contentSubscription = created.onDidChangeModelContent(() => {
             reportDirty(activeKey);
             scheduleDecorations(activeKey);
@@ -451,6 +499,7 @@
 
         return () => {
             cursorSubscription.dispose();
+            selectionSubscription.dispose();
             contentSubscription.dispose();
             revealAction.dispose();
             created.dispose();

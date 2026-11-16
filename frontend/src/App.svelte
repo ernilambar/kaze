@@ -58,11 +58,18 @@
         readDocument,
         shownName,
         toBufferDocument,
+        type DocumentEOL,
         type LaunchBuffer,
         type LaunchRequest,
         type OpenDocument,
     } from './document';
-    import { languageLabel, WELCOME_KEY } from './editor';
+    import {
+        AUTO_LANGUAGE_ID,
+        languageChoices,
+        languageForDocument,
+        languageLabel,
+        WELCOME_KEY,
+    } from './editor';
     import {
         listenForEditorCommands,
         VIEW_OPTIONS,
@@ -296,6 +303,11 @@
 
     let line = $state(1);
     let column = $state(1);
+    let selectionLength = $state(0);
+    let languagePalette = $state(false);
+    // languageModeItems is built on first use, after Monaco has registered its
+    // languages, and reused for every keystroke in the mode palette.
+    let languageModeItems: PaletteItem[] | undefined;
 
     let editorPane = $state<EditorPane>();
 
@@ -313,7 +325,7 @@
             ? 'Image'
             : active?.kind === 'diff'
               ? 'Diff'
-              : languageLabel(active?.path ?? ''),
+              : languageLabel(active?.path ?? '', active?.content ?? '', active?.language ?? ''),
     );
     // Monaco keeps its buffers while an image tab is showing, so switching back
     // to a text tab preserves edits. The idle buffer keeps the hidden editor
@@ -587,6 +599,19 @@
     }
 
 
+    // toggleLineEnding switches the active text buffer's line endings. The
+    // model edit makes the tab dirty, so the next save writes the chosen
+    // sequence instead of the one the file had.
+    function toggleLineEnding(): void {
+        const tab = active;
+        if (tab === undefined || tab.kind !== 'text') {
+            return;
+        }
+        const eol: DocumentEOL = tab.eol === 'crlf' ? 'lf' : 'crlf';
+        editorPane?.setEol(tab.id, eol);
+        tabs = updateDocument(tabs, tab.id, { eol });
+    }
+
     // newFile opens an empty buffer with no path yet. Save turns it into a
     // Save As, which is how most editors treat an untitled document.
     function newFile(): void {
@@ -685,8 +710,17 @@
             invalidUTF8: false,
         });
         // Save As can give an untitled buffer a real path, and with it a
-        // language the model should start highlighting.
-        editorPane?.setLanguage(id, result.path);
+        // language the model should start highlighting. An explicit override
+        // still wins over the new extension.
+        const saved = findTab(id);
+        editorPane?.setLanguage(
+            id,
+            languageForDocument(
+                result.path,
+                editorPane?.value(id) ?? saved?.content ?? '',
+                saved?.language ?? '',
+            ),
+        );
         if (previousPath !== result.path) {
             void loadBaseline(id, result.path);
         }
@@ -1000,6 +1034,7 @@
     }
 
     function showSettingsOverlay(): void {
+        languagePalette = false;
         settingsOverlay = true;
     }
 
@@ -1186,6 +1221,7 @@
     async function showQuickOpen(): Promise<void> {
         commandPalette = false;
         recentOpen = false;
+        languagePalette = false;
         quickOpen = true;
         quickOpenLoading = true;
         try {
@@ -1223,9 +1259,40 @@
         return rankCommands(query);
     }
 
+    // Change Language Mode lists Auto Detect and every language Monaco
+    // registered. It is only meaningful for a text tab: a diff has its own
+    // fixed syntax and an image has none.
+    function rankLanguages(query: string): PaletteItem[] {
+        const items = languageModeItems ?? (languageModeItems = languageChoices());
+        return rankCandidates(query, items, items.length);
+    }
+
+    function showLanguagePalette(): void {
+        if (active === undefined || active.kind !== 'text') {
+            return;
+        }
+        quickOpen = false;
+        recentOpen = false;
+        commandPalette = false;
+        languagePalette = true;
+    }
+
+    function chooseLanguage(id: string): void {
+        languagePalette = false;
+        const tab = active;
+        if (tab === undefined || tab.kind !== 'text') {
+            return;
+        }
+        const override = id === AUTO_LANGUAGE_ID ? undefined : id;
+        tabs = updateDocument(tabs, tab.id, { language: override });
+        const content = editorPane?.value(tab.id) ?? tab.content;
+        editorPane?.setLanguage(tab.id, languageForDocument(tab.path, content, override ?? ''));
+    }
+
     function showCommandPalette(): void {
         quickOpen = false;
         recentOpen = false;
+        languagePalette = false;
         commandPalette = true;
     }
 
@@ -1321,6 +1388,9 @@
                 break;
             case 'trim-whitespace':
                 trimWhitespace();
+                break;
+            case 'change-language-mode':
+                showLanguagePalette();
                 break;
             case 'toggle-preview':
                 togglePreview();
@@ -1643,6 +1713,7 @@
         }
         quickOpen = false;
         commandPalette = false;
+        languagePalette = false;
         searchActive = false;
         recentOpen = true;
     }
@@ -1809,6 +1880,7 @@
         quickOpen = false;
         commandPalette = false;
         recentOpen = false;
+        languagePalette = false;
         searchOpen = true;
         searchActive = true;
         searchFocusToken++;
@@ -2262,6 +2334,9 @@
                             line = nextLine;
                             column = nextColumn;
                         }}
+                        onSelectionChange={(length) => {
+                            selectionLength = length;
+                        }}
                     />
                 </div>
                 {#if searchActive}
@@ -2307,7 +2382,10 @@
     <StatusBar
         {line}
         {column}
+        {selectionLength}
         {language}
+        eol={active?.kind === 'text' ? active.eol : ''}
+        invalidUTF8={active?.kind === 'text' && active.invalidUTF8}
         {notice}
         {folderLabel}
         imageSize={imageSizeLabel}
@@ -2315,6 +2393,8 @@
         sidebarView={sidebarView}
         changesCount={gitChanges.length}
         onSwitchView={switchSidebarView}
+        onToggleEol={toggleLineEnding}
+        onChangeLanguage={active?.kind === 'text' ? showLanguagePalette : undefined}
     />
     {#if quickOpen}
         <Palette
@@ -2347,6 +2427,16 @@
             empty="No matching commands."
             onSelect={selectCommand}
             onClose={closeCommandPalette}
+        />
+    {/if}
+    {#if languagePalette}
+        <Palette
+            title="Change Language Mode"
+            placeholder="Search languages"
+            rank={rankLanguages}
+            empty="No matching languages."
+            onSelect={chooseLanguage}
+            onClose={() => (languagePalette = false)}
         />
     {/if}
     {#if unsavedPrompt !== null}

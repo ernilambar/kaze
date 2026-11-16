@@ -240,6 +240,14 @@ introduce one unprompted.
   natively, so `App.SetViewOption` moves the same checkmark when the toggle
   came from the command palette. Monaco options are built in `editor.ts`
   (indentation lives on the model, so every buffer is updated too).
+- **Language and the status bar are frontend state.** `editor.ts` resolves a
+  buffer's language: an explicit **Change Language Mode** override stored on the
+  tab wins, otherwise the path decides, and a `#!` first line is used only when
+  the path names no language. The palette's Auto Detect row clears the override.
+  `StatusBar.svelte` prints the cursor and selection count, the tab's line
+  ending (clicking it switches the Monaco model between LF and CRLF, which
+  marks the buffer dirty), the language (clicking it opens the mode palette)
+  and an invalid-UTF-8 warning for a file read with replacement characters.
 - **Find in Files is Go-side.** `SearchProject`/`ReplaceInProject` in
   `search.go` walk the sidebar roots with the excludes and `.gitignore`, then
   return flat matches (capped) that the results tab groups; `SearchPanel.svelte`

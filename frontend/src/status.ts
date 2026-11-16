@@ -1,5 +1,16 @@
-export function formatCursorPosition(lineNumber: number, column: number): string {
-    return `Ln ${lineNumber}, Col ${column}`;
+export function formatCursorPosition(
+    lineNumber: number,
+    column: number,
+    selectionLength: number = 0,
+): string {
+    const position = `Ln ${lineNumber}, Col ${column}`;
+    return selectionLength > 0 ? `${position} (${selectionLength} selected)` : position;
+}
+
+// lineEndingLabel is the status bar's name for a document's line ending. The
+// control that prints it switches the buffer between the two.
+export function lineEndingLabel(eol: string): string {
+    return eol === 'crlf' ? 'CRLF' : 'LF';
 }
 
 export interface LaunchNotice {

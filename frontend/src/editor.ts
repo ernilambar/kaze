@@ -1,6 +1,8 @@
 import * as monaco from 'monaco-editor';
 import { DIFF_PREFIX, UNTITLED_PREFIX } from './document';
+import type { PaletteItem } from './palette';
 import type { EditorSettings } from './settings';
+import { shebangLanguage } from './shebang';
 
 // DIFF_LANGUAGE is Monaco's built-in diff syntax, used by the read-only diff
 // tabs. It is not chosen from a file extension.
@@ -96,13 +98,84 @@ export function languageForPath(path: string): string {
     return byExtension.get(name.slice(dot)) ?? PLAIN_TEXT_LANGUAGE;
 }
 
+// hasRegisteredName reports whether the path's own name or extension is known
+// to Monaco. A `.txt` file is explicitly Plain Text, so a shebang must not
+// override it; an unknown or absent extension is what leaves the first line to
+// decide.
+function hasRegisteredName(path: string): boolean {
+    const name = baseName(path).toLowerCase();
+    if (name === '') {
+        return false;
+    }
+    const { byExtension, byFilename } = languages();
+    if (byFilename.has(name)) {
+        return true;
+    }
+    const dot = name.lastIndexOf('.');
+    return dot > 0 && byExtension.has(name.slice(dot));
+}
+
+// languageForDocument resolves a buffer's language. An explicit override wins;
+// otherwise the path decides, and only when it names no language does the
+// first line get a say, so a Makefile stays a Makefile while an extensionless
+// script works out to shell or python from its `#!`.
+export function languageForDocument(
+    path: string,
+    content: string = '',
+    override: string = '',
+): string {
+    if (override !== '') {
+        return override;
+    }
+    const byPath = languageForPath(path);
+    if (byPath !== PLAIN_TEXT_LANGUAGE || hasRegisteredName(path)) {
+        return byPath;
+    }
+    return shebangLanguage(content) ?? PLAIN_TEXT_LANGUAGE;
+}
+
 // languageLabel is what the status bar prints. Monaco highlights SVG as XML,
-// but the file's own name is what the reader expects to see there.
-export function languageLabel(path: string): string {
-    if (path.toLowerCase().endsWith('.svg')) {
+// but the file's own name is what the reader expects to see there. An explicit
+// override is shown as its language name, and a shebang-derived language is
+// named the same way.
+export function languageLabel(
+    path: string,
+    content: string = '',
+    override: string = '',
+): string {
+    if (override === '' && path.toLowerCase().endsWith('.svg')) {
         return 'SVG';
     }
-    return languages().names.get(languageForPath(path)) ?? 'Plain Text';
+    const id = languageForDocument(path, content, override);
+    return languages().names.get(id) ?? id;
+}
+
+// AUTO_LANGUAGE_ID is the Change Language Mode row that clears an override.
+export const AUTO_LANGUAGE_ID = 'language-auto';
+
+// languageChoices is the Change Language Mode list: Auto Detect first, then
+// every language the editor bundle registered, sorted by the name the user
+// sees.
+export function languageChoices(): PaletteItem[] {
+    const choices: PaletteItem[] = [
+        { id: AUTO_LANGUAGE_ID, name: 'Auto Detect', detail: 'Language' },
+    ];
+    const seen = new Set<string>();
+    for (const language of monaco.languages.getLanguages()) {
+        if (seen.has(language.id)) {
+            continue;
+        }
+        seen.add(language.id);
+        choices.push({
+            id: language.id,
+            name: language.aliases?.[0] ?? language.id,
+            detail: 'Language',
+        });
+    }
+    return [
+        choices[0],
+        ...choices.slice(1).sort((a, b) => a.name.localeCompare(b.name)),
+    ];
 }
 
 // createModel makes a text buffer with its own undo stack. One model per open
@@ -116,9 +189,9 @@ export function createModel(
 ): monaco.editor.ITextModel {
     const language = key.startsWith(DIFF_PREFIX)
         ? DIFF_LANGUAGE
-        : key === WELCOME_KEY || key.startsWith(UNTITLED_PREFIX)
+        : key === WELCOME_KEY
           ? PLAIN_TEXT_LANGUAGE
-          : languageForPath(key);
+          : languageForDocument(key, content);
     const model = monaco.editor.createModel(content, language, modelURI(key));
     model.setEOL(
         eol === 'crlf' ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF,

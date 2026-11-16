@@ -1,11 +1,18 @@
 <script lang="ts">
-    import { formatCursorPosition } from './status';
+    import type { DocumentEOL } from './document';
+    import { formatCursorPosition, lineEndingLabel } from './status';
     import type { SidebarView } from './git';
 
 interface Props {
     line: number;
     column: number;
+    // selectionLength is the number of selected characters; zero hides it.
+    selectionLength?: number;
     language: string;
+    // eol is empty for a non-text tab, which has no line ending to switch.
+    eol?: DocumentEOL | '';
+    // invalidUTF8 flags a file that was not valid UTF-8 when it was read.
+    invalidUTF8?: boolean;
     folderLabel?: string;
     notice?: string;
     // imageSize is the natural pixel size of the image tab, formatted for
@@ -17,12 +24,19 @@ interface Props {
     sidebarView?: SidebarView;
     changesCount?: number;
     onSwitchView?: (view: SidebarView) => void;
+    // onToggleEol switches the active buffer between LF and CRLF.
+    onToggleEol?: () => void;
+    // onChangeLanguage opens the language mode list for the active buffer.
+    onChangeLanguage?: () => void;
 }
 
 let {
     line,
     column,
+    selectionLength = 0,
     language,
+    eol = '',
+    invalidUTF8 = false,
     folderLabel = '',
     notice = '',
     imageSize = '',
@@ -30,6 +44,8 @@ let {
     sidebarView = 'explorer',
     changesCount = 0,
     onSwitchView,
+    onToggleEol,
+    onChangeLanguage,
 }: Props = $props();
 </script>
 
@@ -51,12 +67,18 @@ let {
                 onclick={() => onSwitchView?.('changes')}
             >Changes{#if changesCount > 0}<span class="statusbar__count">{changesCount}</span>{/if}</button>
         </div>
-        <span class="statusbar__position">{formatCursorPosition(line, column)}</span>
+        <span class="statusbar__position">{formatCursorPosition(line, column, selectionLength)}</span>
     </div>
     {#if notice !== ''}
         <span class="statusbar__notice">{notice}</span>
     {/if}
     <div class="statusbar__end">
+        {#if invalidUTF8}
+            <span
+                class="statusbar__encoding"
+                title="This file is not valid UTF-8. Saving replaces the bytes that could not be decoded with U+FFFD."
+            >Invalid UTF-8</span>
+        {/if}
         {#if branch !== ''}
             <span class="statusbar__branch" title="Current branch">{branch}</span>
         {/if}
@@ -66,7 +88,24 @@ let {
         {#if folderLabel !== ''}
             <span class="statusbar__folder">{folderLabel}</span>
         {/if}
-        <span class="statusbar__language">{language}</span>
+        {#if eol !== ''}
+            <button
+                class="statusbar__action statusbar__eol"
+                type="button"
+                title="Select End of Line Sequence"
+                onclick={() => onToggleEol?.()}
+            >{lineEndingLabel(eol)}</button>
+        {/if}
+        {#if onChangeLanguage}
+            <button
+                class="statusbar__action statusbar__language"
+                type="button"
+                title="Select Language Mode"
+                onclick={() => onChangeLanguage?.()}
+            >{language}</button>
+        {:else}
+            <span class="statusbar__language">{language}</span>
+        {/if}
     </div>
 </footer>
 
@@ -167,5 +206,24 @@ let {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+
+    .statusbar__encoding {
+        white-space: nowrap;
+        color: var(--fg-danger);
+    }
+
+    .statusbar__action {
+        padding: 0;
+        border: none;
+        background: none;
+        color: inherit;
+        font: inherit;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+
+    .statusbar__action:hover {
+        color: var(--fg);
     }
 </style>

@@ -15,6 +15,7 @@ const EDIT_COMMANDS: readonly Command[] = [
         detail: 'Edit',
     })),
     { id: 'trim-whitespace', name: 'Trim Trailing Whitespace', detail: 'Edit' },
+    { id: 'change-language-mode', name: 'Change Language Mode', detail: 'Edit' },
 ];
 
 const APPEARANCE_COMMANDS: readonly Command[] = [

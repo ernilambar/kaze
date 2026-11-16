@@ -117,6 +117,10 @@ export interface OpenDocument {
     // eol is the file's line ending. The editor model is set to it, so its
     // text already uses the same sequence when it is saved.
     eol: DocumentEOL;
+    // language overrides the language the path or a shebang would choose. It
+    // is undefined for Auto Detect, and lives in the tab because an override
+    // is about this buffer, not the file on disk.
+    language?: string;
     // invalidUTF8 marks a buffer whose file was not valid UTF-8. Its original
     // bytes became U+FFFD, and a save asks before writing those back.
     invalidUTF8: boolean;

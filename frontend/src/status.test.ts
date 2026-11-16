@@ -1,13 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { formatCursorPosition, noticeFor } from './status';
+import { formatCursorPosition, lineEndingLabel, noticeFor } from './status';
 
 describe('formatCursorPosition', () => {
     it.each([
-        [1, 1, 'Ln 1, Col 1'],
-        [12, 34, 'Ln 12, Col 34'],
-        [1200, 80, 'Ln 1200, Col 80'],
-    ])('formats line %i column %i', (line, column, expected) => {
-        expect(formatCursorPosition(line, column)).toBe(expected);
+        [1, 1, 0, 'Ln 1, Col 1'],
+        [12, 34, 0, 'Ln 12, Col 34'],
+        [1200, 80, 0, 'Ln 1200, Col 80'],
+        [3, 7, 12, 'Ln 3, Col 7 (12 selected)'],
+        [3, 7, 1, 'Ln 3, Col 7 (1 selected)'],
+    ])('formats line %i column %i selection %i', (line, column, selected, expected) => {
+        expect(formatCursorPosition(line, column, selected)).toBe(expected);
+    });
+});
+
+describe('lineEndingLabel', () => {
+    it('names both sequences the editor writes', () => {
+        expect(lineEndingLabel('lf')).toBe('LF');
+        expect(lineEndingLabel('crlf')).toBe('CRLF');
     });
 });
 
