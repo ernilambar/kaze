@@ -40,11 +40,15 @@ const byteOrderMark = "\uFEFF"
 // frontend never touches the filesystem. Content holds text for text documents;
 // Src holds a data URL for images.
 type Document struct {
-	Path    string `json:"path"`
-	Name    string `json:"name"`
-	Kind    string `json:"kind"`
-	Content string `json:"content"`
-	Src     string `json:"src"`
+	Path string `json:"path"`
+	// RealPath is Path with every symlink resolved. Tabs match on it, so the
+	// same file opened through a link and through its real path is one tab,
+	// while Path keeps the spelling the user opened for display.
+	RealPath string `json:"real_path"`
+	Name     string `json:"name"`
+	Kind     string `json:"kind"`
+	Content  string `json:"content"`
+	Src      string `json:"src"`
 	// Modified is the file's mtime in Unix milliseconds when the content was
 	// read. The frontend hands it back on save, so a write never silently
 	// overwrites a change another program made. Milliseconds, not nanoseconds:
@@ -136,6 +140,7 @@ func loadDocument(path string) (Document, error) {
 
 	return Document{
 		Path:        path,
+		RealPath:    canonicalPath(path),
 		Name:        name,
 		Kind:        documentKindText,
 		Content:     content,
@@ -181,6 +186,7 @@ func loadImage(path, name, mimeType string, modified int64) (Document, error) {
 	encoded := base64.StdEncoding.EncodeToString(data)
 	return Document{
 		Path:     path,
+		RealPath: canonicalPath(path),
 		Name:     name,
 		Kind:     documentKindImage,
 		Src:      "data:" + mimeType + ";base64," + encoded,

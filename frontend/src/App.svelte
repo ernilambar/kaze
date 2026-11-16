@@ -151,6 +151,7 @@
     import { noticeFor } from './status';
     import {
         closeDocumentTab,
+        findDocumentByPath,
         listenForCloseTab,
         listenForTabCommands,
         moveDocumentTab,
@@ -461,7 +462,7 @@
         }
 
         for (const path of request.files) {
-            const existing = tabs.find((tab) => tab.path !== '' && tab.path === path);
+            const existing = findDocumentByPath(tabs, path);
             if (existing !== undefined) {
                 activeId = existing.id;
                 continue;
@@ -479,22 +480,27 @@
         notice = failure !== '' ? failure : noticeFor(request);
     }
 
-    async function openFile(path: string): Promise<void> {
+    // openFile opens one file and returns the tab that now holds it, or an
+    // empty id when it could not be read. The id is the path spelling the tab
+    // was created with, which can differ from the one passed in when the file
+    // is open through a symlink.
+    async function openFile(path: string): Promise<string> {
         // Clicking a file that is already open focuses its tab instead of
         // rereading the file, which would discard edits made in the buffer.
-        const existing = tabs.find((tab) => tab.path !== '' && tab.path === path);
+        const existing = findDocumentByPath(tabs, path);
         if (existing !== undefined) {
             activeId = existing.id;
             notice = '';
-            return;
+            return existing.id;
         }
         const opened = await readDocument(path);
         if (opened === undefined) {
             notice = `Cannot open ${path}`;
-            return;
+            return '';
         }
         showDocument(opened);
         notice = '';
+        return activeId;
     }
 
     // refreshGitStatus rereads the repositories behind the sidebar roots. It
@@ -700,6 +706,7 @@
         const clean = editorPane?.markSaved(id, content) ?? true;
         tabs = updateDocument(tabs, id, {
             path: result.path,
+            realPath: result.real_path || result.path,
             name: result.name,
             modified: result.modified,
             content,
@@ -764,8 +771,14 @@
             }
             expected = 0;
             // Two tabs writing one file would disagree about its content, so
-            // Save As refuses a path that is already open.
-            if (tabs.some((other) => other.id !== id && other.path === path)) {
+            // Save As refuses a path that is already open. The dialog returns a
+            // resolved path, so an alias of an open file counts too.
+            if (
+                tabs.some(
+                    (other) =>
+                        other.id !== id && (other.path === path || other.realPath === path),
+                )
+            ) {
                 notice = `${path} is already open.`;
                 return false;
             }
@@ -1325,6 +1338,7 @@
         const buffer: LaunchBuffer = {
             name: tab.name,
             path: tab.kind === 'diff' ? '' : tab.path,
+            real_path: tab.kind === 'diff' ? '' : tab.realPath,
             kind: tab.kind,
             content: tab.kind === 'text' ? bufferText(tab) : tab.content,
             saved_content: tab.content,
@@ -1811,6 +1825,7 @@
             bom: opened.bom,
             eol: opened.eol,
             invalidUTF8: opened.invalidUTF8,
+            realPath: opened.realPath || opened.path,
         });
     }
 
@@ -1852,8 +1867,8 @@
     async function handleWatchedChanges(paths: string[]): Promise<void> {
         let refreshTree = false;
         for (const path of paths) {
-            const tab = tabs.find((entry) => entry.kind === 'text' && entry.path === path);
-            if (tab === undefined) {
+            const tab = findDocumentByPath(tabs, path);
+            if (tab === undefined || tab.kind !== 'text') {
                 refreshTree = true;
                 continue;
             }
@@ -1953,14 +1968,13 @@
     // openSearchMatch switches to the file, then puts the caret on the hit.
     // The model is created by the tab effect, so the reveal waits a tick.
     async function openSearchMatch(path: string, line: number, column: number): Promise<void> {
-        await openFile(path);
-        const tab = tabs.find((entry) => entry.path === path);
-        if (tab === undefined) {
+        const id = await openFile(path);
+        if (id === '') {
             return;
         }
         searchActive = false;
         await tick();
-        editorPane?.revealLine(tab.id, line, column);
+        editorPane?.revealLine(id, line, column);
     }
 
     // revealPath shows one file in the platform's file manager.
@@ -2022,7 +2036,7 @@
     // files are skipped, so one deleted file does not stop the rest.
     async function restoreSession(session: WorkspaceState['session']): Promise<void> {
         for (const path of session.openFiles) {
-            if (tabs.some((tab) => tab.path === path)) {
+            if (findDocumentByPath(tabs, path) !== undefined) {
                 continue;
             }
             const opened = await readDocument(path);
@@ -2031,7 +2045,7 @@
             }
             showDocument(opened, false);
         }
-        const restoredActive = tabs.find((tab) => tab.path === session.active);
+        const restoredActive = findDocumentByPath(tabs, session.active);
         if (restoredActive !== undefined) {
             activeId = restoredActive.id;
         }

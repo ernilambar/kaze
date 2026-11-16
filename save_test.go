@@ -30,6 +30,33 @@ func TestSaveDocumentWritesContent(t *testing.T) {
 	}
 }
 
+// Saving through a symlinked directory must report the real path, so the
+// frontend recognises the file it wrote as the tab it already has.
+func TestSaveDocumentReportsResolvedPath(t *testing.T) {
+	dir := t.TempDir()
+	realDir, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatalf("resolve directory: %v", err)
+	}
+	linkDir := filepath.Join(t.TempDir(), "project")
+	if err := os.Symlink(dir, linkDir); err != nil {
+		t.Skipf("cannot create a symlink: %v", err)
+	}
+	path := filepath.Join(linkDir, "notes.txt")
+
+	result, err := saveDocument(SaveRequest{Path: path, Content: "hello\n"})
+	if err != nil {
+		t.Fatalf("saveDocument() error = %v", err)
+	}
+	if result.Path != path {
+		t.Fatalf("saveDocument() path = %q, want the chosen spelling %q", result.Path, path)
+	}
+	want := filepath.Join(realDir, "notes.txt")
+	if result.RealPath != want {
+		t.Fatalf("saveDocument() real path = %q, want %q", result.RealPath, want)
+	}
+}
+
 // A file opened with a BOM and CRLF endings must come back byte-for-byte when
 // its buffer is saved unchanged: the editor strips the BOM to show the text and
 // normalizes the model to the file's EOL, and the save restores both.

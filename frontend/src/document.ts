@@ -7,6 +7,7 @@ import { onWindowEvent } from './windowstate';
 export interface LaunchBuffer {
     name: string;
     path: string;
+    real_path: string;
     kind: string;
     content: string;
     saved_content: string;
@@ -49,6 +50,7 @@ export function toLaunchRequest(request: models.LaunchRequest): LaunchRequest {
         buffers: (request.buffers ?? []).map((buffer) => ({
             name: buffer.name,
             path: buffer.path,
+            real_path: buffer.real_path ?? '',
             kind: buffer.kind,
             content: buffer.content,
             saved_content: buffer.saved_content ?? '',
@@ -92,6 +94,10 @@ export interface OpenDocument {
     // path is empty until an untitled buffer is saved, and for a diff tab,
     // which is a snapshot rather than a file.
     path: string;
+    // realPath is path with symlinks resolved. Tabs match on it, so one file
+    // opened through a link and through its real path is one tab; it is empty
+    // when there is no file on disk to resolve.
+    realPath: string;
     name: string;
     kind: DocumentKind;
     // content is the text that is on disk: what was loaded, or what was last
@@ -152,6 +158,7 @@ export function createDiffDocument(path: string, diff: string): OpenDocument {
     return {
         id: diffTabId(path),
         path: '',
+        realPath: '',
         name: `${name} (Diff)`,
         kind: 'diff',
         content: diff === '' ? `No changes against HEAD for ${name}.\n` : diff,
@@ -188,6 +195,7 @@ export function createUntitledDocument(tabs: readonly OpenDocument[]): OpenDocum
     return {
         id: `${UNTITLED_PREFIX}${name}`,
         path: '',
+        realPath: '',
         name,
         kind: 'text',
         content: '',
@@ -209,6 +217,7 @@ export function toOpenDocument(document: models.Document): OpenDocument {
     return {
         id: document.path,
         path: document.path,
+        realPath: document.real_path || document.path,
         name: document.name,
         kind: document.kind === 'image' ? 'image' : 'text',
         content: document.content,
@@ -229,6 +238,7 @@ export function toBufferDocument(buffer: LaunchBuffer): OpenDocument {
         return {
             id: diffTabId(buffer.source_path),
             path: '',
+            realPath: '',
             name: buffer.name,
             kind: 'diff',
             content: buffer.content,
@@ -244,6 +254,7 @@ export function toBufferDocument(buffer: LaunchBuffer): OpenDocument {
     return {
         id: buffer.path !== '' ? buffer.path : `${UNTITLED_PREFIX}${buffer.name}`,
         path: buffer.path,
+        realPath: buffer.real_path || buffer.path,
         name: buffer.name,
         kind: buffer.kind === 'image' ? 'image' : 'text',
         content: buffer.content,

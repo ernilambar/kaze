@@ -15,10 +15,13 @@ const launchEvent = "app:launch"
 // text, so unsaved edits move with the tab; an image or diff travels by path
 // and the receiving window reads it again.
 type LaunchBuffer struct {
-	Name    string `json:"name"`
-	Path    string `json:"path"`
-	Kind    string `json:"kind"`
-	Content string `json:"content"`
+	Name string `json:"name"`
+	Path string `json:"path"`
+	// RealPath is Path with symlinks resolved, so the receiving window matches
+	// the moved buffer against the tabs it already has.
+	RealPath string `json:"real_path"`
+	Kind     string `json:"kind"`
+	Content  string `json:"content"`
 	// SavedContent is the text the tab last had on disk. A moved dirty buffer
 	// needs it so the editor knows what "clean" means after the move.
 	SavedContent string `json:"saved_content"`

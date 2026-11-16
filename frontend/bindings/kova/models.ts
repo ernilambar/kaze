@@ -8,6 +8,13 @@
  */
 export interface Document {
     "path": string;
+
+    /**
+     * RealPath is Path with every symlink resolved. Tabs match on it, so the
+     * same file opened through a link and through its real path is one tab,
+     * while Path keeps the spelling the user opened for display.
+     */
+    "real_path": string;
     "name": string;
     "kind": string;
     "content": string;
@@ -180,6 +187,12 @@ export interface KeybindingsState {
 export interface LaunchBuffer {
     "name": string;
     "path": string;
+
+    /**
+     * RealPath is Path with symlinks resolved, so the receiving window matches
+     * the moved buffer against the tabs it already has.
+     */
+    "real_path": string;
     "kind": string;
     "content": string;
 
@@ -297,6 +310,13 @@ export interface SaveRequest {
  */
 export interface SaveResult {
     "path": string;
+
+    /**
+     * RealPath is Path with every symlink resolved, so the frontend can match
+     * the saved file against the tabs it already has (an alias of an open file
+     * is the same file).
+     */
+    "real_path": string;
     "name": string;
     "modified": number;
     "conflict": boolean;

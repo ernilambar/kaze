@@ -23,6 +23,7 @@ func TestLoadDocumentReadsTextFile(t *testing.T) {
 
 	want := Document{
 		Path:     path,
+		RealPath: canonicalPath(path),
 		Name:     "notes.txt",
 		Kind:     documentKindText,
 		Content:  "first\nsecond\n",
@@ -37,6 +38,76 @@ func TestLoadDocumentReadsTextFile(t *testing.T) {
 	want.Modified = info.ModTime().UnixMilli()
 	if doc != want {
 		t.Fatalf("loadDocument() = %+v, want %+v", doc, want)
+	}
+}
+
+func TestLoadDocumentResolvesSymlinkedPaths(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "notes.txt")
+	if err := os.WriteFile(target, []byte("first\n"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	realTarget, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		t.Fatalf("resolve target: %v", err)
+	}
+
+	// A symlinked directory is the common case: a project reached through a
+	// link (or /var on macOS) must still resolve to the file's real path.
+	linkDir := filepath.Join(t.TempDir(), "project")
+	if err := os.Symlink(dir, linkDir); err != nil {
+		t.Skipf("cannot create a symlink: %v", err)
+	}
+	linked := filepath.Join(linkDir, "notes.txt")
+
+	doc, err := loadDocument(linked)
+	if err != nil {
+		t.Fatalf("loadDocument() error = %v", err)
+	}
+	if doc.Path != linked {
+		t.Fatalf("loadDocument() path = %q, want the opened path %q", doc.Path, linked)
+	}
+	if doc.RealPath != realTarget {
+		t.Fatalf("loadDocument() real path = %q, want %q", doc.RealPath, realTarget)
+	}
+
+	direct, err := loadDocument(target)
+	if err != nil {
+		t.Fatalf("loadDocument() error = %v", err)
+	}
+	if direct.RealPath != doc.RealPath {
+		t.Fatalf(
+			"real paths differ: %q through the link and %q directly, want one file to match one tab",
+			doc.RealPath,
+			direct.RealPath,
+		)
+	}
+}
+
+func TestLoadDocumentResolvesSymlinkedFile(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "notes.txt")
+	if err := os.WriteFile(target, []byte("first\n"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	alias := filepath.Join(dir, "alias.txt")
+	if err := os.Symlink(target, alias); err != nil {
+		t.Skipf("cannot create a symlink: %v", err)
+	}
+	realTarget, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		t.Fatalf("resolve target: %v", err)
+	}
+
+	doc, err := loadDocument(alias)
+	if err != nil {
+		t.Fatalf("loadDocument() error = %v", err)
+	}
+	if doc.Path != alias || doc.Name != "alias.txt" {
+		t.Fatalf("loadDocument() = %+v, want the alias spelling for display", doc)
+	}
+	if doc.RealPath != realTarget {
+		t.Fatalf("loadDocument() real path = %q, want %q", doc.RealPath, realTarget)
 	}
 }
 

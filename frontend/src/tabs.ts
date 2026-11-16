@@ -1,19 +1,34 @@
 import { onWindowEvent } from './windowstate';
 import type { OpenDocument } from './document';
 
+// findDocumentByPath returns the tab that holds the file at path, matching
+// either the spelling it was opened with or its symlink-resolved path. An empty
+// path never matches, because that is an untitled buffer rather than a file.
+export function findDocumentByPath(
+    tabs: readonly OpenDocument[],
+    path: string,
+): OpenDocument | undefined {
+    if (path === '') {
+        return undefined;
+    }
+    return tabs.find((tab) => tab.path === path || tab.realPath === path);
+}
+
 // openDocumentTab returns tabs with document appended, unless a tab for the
-// same file is already open. The id of the tab that now holds the document
-// comes back too, so the caller activates the existing tab instead of opening a
-// duplicate; untitled buffers have no path, so they are never deduplicated.
+// same file is already open. The file is identified by its resolved path, so a
+// path reached through a symlink and the real one share one tab; the id of that
+// tab comes back too, so the caller activates it instead of opening a
+// duplicate. Untitled buffers have no path, so they are never deduplicated.
 export function openDocumentTab(
     tabs: readonly OpenDocument[],
     document: OpenDocument,
 ): { tabs: OpenDocument[]; activeId: string } {
-    if (document.path !== '') {
-        const existing = tabs.find((tab) => tab.path === document.path);
-        if (existing !== undefined) {
-            return { tabs: tabs.slice(), activeId: existing.id };
-        }
+    const existing = findDocumentByPath(
+        tabs,
+        document.path === '' ? '' : document.realPath || document.path,
+    );
+    if (existing !== undefined) {
+        return { tabs: tabs.slice(), activeId: existing.id };
     }
     return { tabs: [...tabs, document], activeId: document.id };
 }

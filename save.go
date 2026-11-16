@@ -38,7 +38,11 @@ type SaveRequest struct {
 // describe where the text belongs, so Save As can move a buffer to its new home
 // in one step.
 type SaveResult struct {
-	Path        string `json:"path"`
+	Path string `json:"path"`
+	// RealPath is Path with every symlink resolved, so the frontend can match
+	// the saved file against the tabs it already has (an alias of an open file
+	// is the same file).
+	RealPath    string `json:"real_path"`
 	Name        string `json:"name"`
 	Modified    int64  `json:"modified"`
 	Conflict    bool   `json:"conflict"`
@@ -63,6 +67,7 @@ func saveDocument(request SaveRequest) (SaveResult, error) {
 	if err != nil {
 		return SaveResult{}, err
 	}
+	realPath := canonicalPath(path)
 
 	if !request.Overwrite && request.ExpectedModified > 0 {
 		conflict, err := changedOnDisk(path, request.ExpectedModified)
@@ -70,12 +75,12 @@ func saveDocument(request SaveRequest) (SaveResult, error) {
 			return SaveResult{}, err
 		}
 		if conflict {
-			return SaveResult{Path: path, Name: filepath.Base(path), Conflict: true}, nil
+			return SaveResult{Path: path, RealPath: realPath, Name: filepath.Base(path), Conflict: true}, nil
 		}
 	}
 
 	if request.InvalidUTF8 && !request.AllowInvalidUTF8 {
-		return SaveResult{Path: path, Name: filepath.Base(path), InvalidUTF8: true}, nil
+		return SaveResult{Path: path, RealPath: realPath, Name: filepath.Base(path), InvalidUTF8: true}, nil
 	}
 
 	text := normalizeEOL(request.Content, request.EOL)
@@ -94,6 +99,7 @@ func saveDocument(request SaveRequest) (SaveResult, error) {
 	}
 	return SaveResult{
 		Path:     path,
+		RealPath: canonicalPath(path),
 		Name:     filepath.Base(path),
 		Modified: info.ModTime().UnixMilli(),
 	}, nil
@@ -167,5 +173,11 @@ func (a *App) SaveFileDialog(suggested string) (string, error) {
 			dialog.SetFilename(suggested)
 		}
 	}
-	return dialog.PromptForSingleSelection()
+	path, err := dialog.PromptForSingleSelection()
+	if err != nil || path == "" {
+		return path, err
+	}
+	// Resolve the chosen path so a save onto an alias of an open file is
+	// recognised as that file, not as a second tab.
+	return canonicalPath(path), nil
 }

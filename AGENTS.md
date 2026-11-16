@@ -85,13 +85,18 @@ introduce one unprompted.
   flag and one error notice.
 - **Open files are tabs held in frontend state.** `App.svelte` keeps the tab
   list and the active tab id; `tabs.ts` has the pure open/close rules (one tab
-  per path, activate the right neighbour when the active tab closes).
+  per file, activate the right neighbour when the active tab closes).
   `OpenDocument` in `document.ts` carries a stable `id` (the path for a file,
   `untitled:<name>` for a **New File** buffer), the on-disk `content`, the
   file's `modified` mtime and a `dirty` flag, so **Save As** moves a buffer to
-  its new path without the editor losing its Monaco model. `EditorPane` owns one
-  model per open id and reports `onDirtyChange` by comparing the buffer's text
-  with the text last loaded or saved; models are disposed when their tab closes.
+  its new path without the editor losing its Monaco model. Tabs are matched on
+  `realPath`: `LoadDocument` and `SaveDocument` report `real_path`, the path
+  with `filepath.EvalSymlinks` applied, so a file opened through a symlink or a
+  symlinked folder and the same file opened directly share one tab, while `path`
+  keeps the spelling that was opened for display, reveal and relative paths.
+  `EditorPane` owns one model per open id and reports `onDirtyChange` by
+  comparing the buffer's text with the text last loaded or saved; models are
+  disposed when their tab closes.
   Dragging a tab onto another reorders the list through `moveDocumentTab`, whose
   result is also the order the session saves.
   **File → Close Tab** (<kbd>Cmd</kbd>+<kbd>W</kbd>) emits `app:close-tab`.

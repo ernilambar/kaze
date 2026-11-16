@@ -356,20 +356,6 @@ func gitPathspec(relative string) string {
 	return ":(literal)" + relative
 }
 
-// canonicalPath resolves symlinks so a path from git and a path from the
-// sidebar compare equal. A deleted file resolves through its parent, because
-// the file itself no longer exists to follow.
-func canonicalPath(path string) string {
-	if resolved, err := filepath.EvalSymlinks(path); err == nil {
-		return resolved
-	}
-	dir, name := filepath.Split(path)
-	if resolved, err := filepath.EvalSymlinks(filepath.Clean(dir)); err == nil {
-		return filepath.Join(resolved, name)
-	}
-	return path
-}
-
 // sidebarPath expresses a physical repository path under the lexical root the
 // user added to the sidebar. The returned root is that same lexical folder, so
 // the changes list can show a path relative to it. The frontend builds tree

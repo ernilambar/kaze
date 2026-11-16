@@ -14,6 +14,7 @@ function document(overrides: Partial<OpenDocument> = {}): OpenDocument {
     return {
         id: '/tmp/notes.txt',
         path: '/tmp/notes.txt',
+        realPath: '/tmp/notes.txt',
         name: 'notes.txt',
         kind: 'text',
         content: '',
@@ -48,6 +49,7 @@ describe('toOpenDocument', () => {
     it('maps the generated binding model and starts clean', () => {
         const model = {
             path: '/tmp/notes.txt',
+            real_path: '/tmp/notes.txt',
             name: 'notes.txt',
             kind: 'text',
             content: 'hello',
@@ -61,6 +63,7 @@ describe('toOpenDocument', () => {
         expect(toOpenDocument(model)).toEqual({
             id: '/tmp/notes.txt',
             path: '/tmp/notes.txt',
+            realPath: '/tmp/notes.txt',
             name: 'notes.txt',
             kind: 'text',
             content: 'hello',
@@ -73,9 +76,30 @@ describe('toOpenDocument', () => {
         });
     });
 
+    it('keeps the opened spelling but records the resolved path', () => {
+        const model = {
+            path: '/tmp/alias.txt',
+            real_path: '/tmp/notes.txt',
+            name: 'alias.txt',
+            kind: 'text',
+            content: 'hello',
+            src: '',
+            modified: 0,
+            bom: false,
+            eol: 'lf',
+            invalid_utf8: false,
+        };
+
+        const opened = toOpenDocument(model);
+        expect(opened.id).toBe('/tmp/alias.txt');
+        expect(opened.path).toBe('/tmp/alias.txt');
+        expect(opened.realPath).toBe('/tmp/notes.txt');
+    });
+
     it('keeps an image data URL and marks the tab as an image', () => {
         const model = {
             path: '/tmp/logo.png',
+            real_path: '/tmp/logo.png',
             name: 'logo.png',
             kind: 'image',
             content: '',
@@ -95,7 +119,7 @@ describe('toOpenDocument', () => {
 });
 
 function untitled(name: string): OpenDocument {
-    return document({ id: `untitled:${name}`, path: '', name });
+    return document({ id: `untitled:${name}`, path: '', realPath: '', name });
 }
 
 describe('nextUntitledName', () => {
@@ -121,6 +145,7 @@ describe('createUntitledDocument', () => {
         expect(createUntitledDocument([document()])).toEqual({
             id: 'untitled:Untitled-1',
             path: '',
+            realPath: '',
             name: 'Untitled-1',
             kind: 'text',
             content: '',
@@ -153,6 +178,7 @@ describe('toBufferDocument', () => {
             toBufferDocument({
                 name: 'notes.txt',
                 path: '/tmp/notes.txt',
+                real_path: '/private/tmp/notes.txt',
                 kind: 'text',
                 content: 'unsaved',
                 saved_content: 'on disk',
@@ -166,6 +192,7 @@ describe('toBufferDocument', () => {
         ).toEqual({
             id: '/tmp/notes.txt',
             path: '/tmp/notes.txt',
+            realPath: '/private/tmp/notes.txt',
             name: 'notes.txt',
             kind: 'text',
             content: 'unsaved',
@@ -184,6 +211,7 @@ describe('toBufferDocument', () => {
             toBufferDocument({
                 name: 'Untitled-2',
                 path: '',
+                real_path: '',
                 kind: 'text',
                 content: 'draft',
                 saved_content: '',
@@ -201,6 +229,7 @@ describe('toBufferDocument', () => {
         const moved = toBufferDocument({
             name: 'notes.txt (Diff)',
             path: '',
+            real_path: '',
             kind: 'diff',
             content: '@@ -1 +1 @@',
             saved_content: '',

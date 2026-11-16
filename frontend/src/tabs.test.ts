@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     closeDocumentTab,
+    findDocumentByPath,
     moveDocumentTab,
     openDocumentTab,
     setDocumentDirty,
@@ -14,6 +15,7 @@ function document(path: string): OpenDocument {
     return {
         id: path,
         path,
+        realPath: path,
         name: path.split('/').pop() ?? path,
         kind: 'text',
         content: '',
@@ -26,10 +28,18 @@ function document(path: string): OpenDocument {
     };
 }
 
+// linked is a tab opened through a symlink: the spelling is the link, the
+// identity is the target.
+function linked(alias: string, target: string): OpenDocument {
+    const tab = document(target);
+    return { ...tab, id: alias, path: alias, realPath: target, name: alias.split('/').pop() ?? alias };
+}
+
 function untitled(name: string): OpenDocument {
     return {
         id: `untitled:${name}`,
         path: '',
+        realPath: '',
         name,
         kind: 'text',
         content: '',
@@ -67,6 +77,33 @@ describe('openDocumentTab', () => {
         const second = untitled('Untitled-2');
 
         expect(openDocumentTab([first], second).tabs).toEqual([first, second]);
+    });
+
+    it('opens one tab for a file reached through a symlink and directly', () => {
+        const viaLink = linked('/tmp/project-link/notes.txt', '/tmp/project/notes.txt');
+        const direct = document('/tmp/project/notes.txt');
+
+        expect(openDocumentTab([viaLink], direct)).toEqual({
+            tabs: [viaLink],
+            activeId: viaLink.id,
+        });
+        expect(openDocumentTab([direct], viaLink)).toEqual({
+            tabs: [direct],
+            activeId: direct.id,
+        });
+    });
+});
+
+describe('findDocumentByPath', () => {
+    it('matches the spelling a tab was opened with and its resolved path', () => {
+        const viaLink = linked('/tmp/project-link/notes.txt', '/tmp/project/notes.txt');
+
+        expect(findDocumentByPath([viaLink], '/tmp/project-link/notes.txt')).toBe(viaLink);
+        expect(findDocumentByPath([viaLink], '/tmp/project/notes.txt')).toBe(viaLink);
+    });
+
+    it('never matches an empty path', () => {
+        expect(findDocumentByPath([untitled('Untitled-1')], '')).toBeUndefined();
     });
 });
 
