@@ -105,6 +105,11 @@ export interface EditorCommandHandlers {
     zoom: (command: ZoomCommand) => void;
     togglePreview: () => void;
     setViewOption: (option: ViewOption, checked: boolean) => void;
+    find: () => void;
+    replace: () => void;
+    goToLine: () => void;
+    nextFindResult: () => void;
+    previousFindResult: () => void;
 }
 
 // listenForEditorCommands runs the handler for each Edit, Selection or View
@@ -128,6 +133,11 @@ export function listenForEditorCommands(
                 handlers.setViewOption?.(toggle.option, toggle.checked);
             }
         }),
+        onWindowEvent('app:find', () => handlers.find?.()),
+        onWindowEvent('app:replace', () => handlers.replace?.()),
+        onWindowEvent('app:go-to-line', () => handlers.goToLine?.()),
+        onWindowEvent('app:find-next-result', () => handlers.nextFindResult?.()),
+        onWindowEvent('app:find-previous-result', () => handlers.previousFindResult?.()),
     ];
     return () => {
         for (const off of offs) {

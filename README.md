@@ -32,13 +32,15 @@ A minimal text editor for macOS.
 - **Quick Open** (<kbd>Cmd</kbd>+<kbd>P</kbd>) — fuzzy-find a file by name or
   path across the sidebar folders, skipping whatever `files.exclude` hides.
 - **Find in Files** (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>) — search the
-  sidebar folders with literal or regular-expression matching, case and
-  include-glob options, results in a tab, and Replace All. Excludes and every
-  `.gitignore` are honoured.
+  sidebar folders with literal or regular-expression matching, case options,
+  include and exclude globs, results in a tab, and Replace All.
+  <kbd>F4</kbd>/<kbd>Shift</kbd>+<kbd>F4</kbd> hop through the matches.
+  Excludes from settings and every `.gitignore` are honoured.
 - **Navigation** — Open Recent (<kbd>Ctrl</kbd>+<kbd>R</kbd>) with Clear Recent,
   Reopen Closed Tab, next/previous tab, jump to a tab with
-  <kbd>Cmd</kbd>+<kbd>1</kbd>–<kbd>9</kbd>, and Reveal in Finder or copy the
-  absolute, relative or file name from the File menu.
+  <kbd>Cmd</kbd>+<kbd>1</kbd>–<kbd>9</kbd>, Go to Line
+  (<kbd>Ctrl</kbd>+<kbd>G</kbd>), Find/Replace from the Edit menu, and Reveal in
+  Finder or copy the absolute, relative or file name from the File menu.
 - **Fresh state** — Kova watches the open buffers and expanded folders, so
   external edits reload clean tabs and the tree follows new files; **View →
   Refresh** rereads on demand. Restored tabs reopen on the next launch.

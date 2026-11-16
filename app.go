@@ -556,15 +556,20 @@ func (a *App) emitPrint() { a.emitEvent(printEvent) }
 const closeRequestEvent = "app:confirm-close"
 
 // The Edit, Selection and View menus are frontend state too: the transforms,
-// selection actions, preview and zoom all act on Monaco buffers, so Go forwards
-// each one.
+// selection actions, find, preview and zoom all act on Monaco buffers, so Go
+// forwards each one.
 const (
-	transformCaseEvent    = "app:transform-case"
-	trimWhitespaceEvent   = "app:trim-whitespace"
-	selectionCommandEvent = "app:selection-command"
-	zoomEvent             = "app:zoom"
-	togglePreviewEvent    = "app:toggle-preview"
-	toggleViewEvent       = "app:toggle-view"
+	transformCaseEvent      = "app:transform-case"
+	trimWhitespaceEvent     = "app:trim-whitespace"
+	selectionCommandEvent   = "app:selection-command"
+	findEvent               = "app:find"
+	replaceEvent            = "app:replace"
+	goToLineEvent           = "app:go-to-line"
+	findNextResultEvent     = "app:find-next-result"
+	findPreviousResultEvent = "app:find-previous-result"
+	zoomEvent               = "app:zoom"
+	togglePreviewEvent      = "app:toggle-preview"
+	toggleViewEvent         = "app:toggle-view"
 )
 
 // emitTransformCase tells the frontend to convert the selection to id's case.
@@ -579,6 +584,22 @@ func (a *App) emitTrimWhitespace() { a.emitEvent(trimWhitespaceEvent) }
 func (a *App) emitSelectionCommand(command string) {
 	a.emitEventWith(selectionCommandEvent, command)
 }
+
+// emitFind tells the frontend to open Monaco's find widget on the active
+// buffer.
+func (a *App) emitFind() { a.emitEvent(findEvent) }
+
+// emitReplace tells the frontend to open Monaco's find widget in replace mode.
+func (a *App) emitReplace() { a.emitEvent(replaceEvent) }
+
+// emitGoToLine tells the frontend to open Monaco's Go to Line prompt.
+func (a *App) emitGoToLine() { a.emitEvent(goToLineEvent) }
+
+// emitFindNextResult and emitFindPreviousResult step through the Find in Files
+// results the focused window holds.
+func (a *App) emitFindNextResult() { a.emitEvent(findNextResultEvent) }
+
+func (a *App) emitFindPreviousResult() { a.emitEvent(findPreviousResultEvent) }
 
 // emitZoom tells the frontend to change the editor font size by command.
 func (a *App) emitZoom(command string) { a.emitEventWith(zoomEvent, command) }

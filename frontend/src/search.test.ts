@@ -8,6 +8,7 @@ import {
     replaceText,
     searchExpression,
     searchSummary,
+    stepSearchResult,
 } from './search';
 
 function match(path: string, line: number, modified = 1000): SearchMatch {
@@ -52,6 +53,23 @@ describe('searchSummary', () => {
 
     it('says so when nothing matched', () => {
         expect(searchSummary(0, 0, false)).toBe('No results.');
+    });
+});
+
+describe('stepSearchResult', () => {
+    it('starts at the first result going forward and the last going back', () => {
+        expect(stepSearchResult(-1, 3, 1)).toBe(0);
+        expect(stepSearchResult(-1, 3, -1)).toBe(2);
+    });
+
+    it('advances and rewinds, wrapping at both ends', () => {
+        expect(stepSearchResult(0, 3, 1)).toBe(1);
+        expect(stepSearchResult(2, 3, 1)).toBe(0);
+        expect(stepSearchResult(0, 3, -1)).toBe(2);
+    });
+
+    it('reports no step without results', () => {
+        expect(stepSearchResult(-1, 0, 1)).toBe(-1);
     });
 });
 

@@ -386,6 +386,18 @@
         });
     }
 
+    // runEditorAction runs a Monaco action by id, focusing the editor first so
+    // Find, Replace and Go to Line act on this buffer rather than on whatever
+    // had focus.
+    export function runEditorAction(action: string): void {
+        const current = editor;
+        if (current === undefined) {
+            return;
+        }
+        current.focus();
+        void current.getAction(action)?.run();
+    }
+
     // zoom changes the effective font size around the configured one.
     export function zoom(command: ZoomCommand): void {
         if (editor === undefined) {

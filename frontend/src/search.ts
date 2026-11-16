@@ -25,6 +25,19 @@ export function groupSearchMatches(matches: readonly SearchMatch[]): SearchFileG
     return groups;
 }
 
+// stepSearchResult returns the index of the next result to open. A negative
+// current means nothing has been visited yet: F4 then starts at the first
+// result and Shift+F4 at the last one. Both ends wrap.
+export function stepSearchResult(current: number, count: number, direction: 1 | -1): number {
+    if (count <= 0) {
+        return -1;
+    }
+    if (current < 0 || current >= count) {
+        return direction > 0 ? 0 : count - 1;
+    }
+    return (current + direction + count) % count;
+}
+
 // searchSummary is the line above the results. It reports matched files rather
 // than searched files, because that is what the user can act on.
 export function searchSummary(groups: number, matches: number, truncated: boolean): string {

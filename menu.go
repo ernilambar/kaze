@@ -211,6 +211,25 @@ var caseTransforms = []struct{ label, id string }{
 // editMenu holds the buffer transforms. They act on Monaco's selection, which
 // lives in the frontend, so each item only forwards the command.
 func editMenu(m *application.Menu, app *App, b *menuBuilder) {
+	// Find and Replace are Monaco's widgets; Next/Previous step through the
+	// Find in Files results the window holds. Go to Line is Monaco's prompt.
+	find := m.AddSubmenu("Find")
+	b.item(find, "find", "Find…", "CmdOrCtrl+f", func(*application.Context) { app.emitFind() })
+	b.item(find, "replace", "Replace…", "CmdOrCtrl+Alt+f", func(*application.Context) {
+		app.emitReplace()
+	})
+	find.AddSeparator()
+	b.item(find, "find-next-result", "Find Next Result", "F4", func(*application.Context) {
+		app.emitFindNextResult()
+	})
+	b.item(find, "find-previous-result", "Find Previous Result", "Shift+F4", func(*application.Context) {
+		app.emitFindPreviousResult()
+	})
+	find.AddSeparator()
+	b.item(find, "go-to-line", "Go to Line…", "Ctrl+g", func(*application.Context) {
+		app.emitGoToLine()
+	})
+	m.AddSeparator()
 	transform := m.AddSubmenu("Transform Case")
 	for _, entry := range caseTransforms {
 		id := "case-" + entry.id

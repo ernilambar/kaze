@@ -122,6 +122,7 @@
         replaceText,
         searchExpression,
         searchSummary,
+        stepSearchResult,
     } from './search';
     import {
         defaultEditorSettings,
@@ -313,15 +314,25 @@
     let searchActive = $state(false);
     let searchQuery = $state('');
     let searchInclude = $state('');
+    let searchExcludeGlobs = $state('');
     let searchReplacement = $state('');
     let searchRegex = $state(false);
     let searchCaseSensitive = $state(false);
     let searchMatches = $state<SearchMatch[]>([]);
     let searchTruncated = $state(false);
+    // searchResultIndex is the position F4 last opened in searchMatches, or -1
+    // before the first step. A new search resets it.
+    let searchResultIndex = $state(-1);
     // searchedParams records the query that produced searchMatches. Replace
     // All uses these rather than the live fields, so changing the query without
     // searching again cannot replace text the results do not describe.
-    let searchedParams = $state({ query: '', regex: false, caseSensitive: false, include: '' });
+    let searchedParams = $state({
+        query: '',
+        regex: false,
+        caseSensitive: false,
+        include: '',
+        exclude: '',
+    });
     let searchBusy = $state(false);
     let searchError = $state('');
     let searchFocusToken = $state(0);
@@ -1337,6 +1348,19 @@
         editorPane?.runSelectionCommand(command);
     }
 
+    // runEditorAction runs one of Monaco's own editor actions on the active
+    // buffer: its Find and Replace widgets and the Go to Line prompt. Those
+    // widgets belong to the editor, so the Find in Files results panel gives
+    // way first rather than hiding them.
+    function runEditorAction(action: string): void {
+        if (active === undefined) {
+            notice = 'Open a document first.';
+            return;
+        }
+        searchActive = false;
+        editorPane?.runEditorAction(action);
+    }
+
     function zoom(command: ZoomCommand): void {
         editorPane?.zoom(command);
     }
@@ -1569,6 +1593,21 @@
                 break;
             case 'change-language-mode':
                 showLanguagePalette();
+                break;
+            case 'find':
+                runEditorAction('actions.find');
+                break;
+            case 'replace':
+                runEditorAction('editor.action.startFindReplaceAction');
+                break;
+            case 'go-to-line':
+                runEditorAction('editor.action.gotoLine');
+                break;
+            case 'find-next-result':
+                void stepFindResult(1);
+                break;
+            case 'find-previous-result':
+                void stepFindResult(-1);
                 break;
             case 'toggle-preview':
                 togglePreview();
@@ -2496,6 +2535,7 @@
         searchOpen = false;
         searchActive = false;
         searchMatches = [];
+        searchResultIndex = -1;
         searchError = '';
     }
 
@@ -2503,8 +2543,15 @@
         const query = searchQuery.trim();
         if (query === '') {
             searchMatches = [];
+            searchResultIndex = -1;
             searchError = '';
-            searchedParams = { query: '', regex: false, caseSensitive: false, include: '' };
+            searchedParams = {
+                query: '',
+                regex: false,
+                caseSensitive: false,
+                include: '',
+                exclude: '',
+            };
             return;
         }
         searchBusy = true;
@@ -2515,21 +2562,24 @@
                 regex: searchRegex,
                 case_sensitive: searchCaseSensitive,
                 include: searchInclude,
-                exclude: '',
+                exclude: searchExcludeGlobs,
                 replacement: '',
                 expected_modified: null,
                 open_paths: null,
             });
             searchMatches = result.matches ?? [];
+            searchResultIndex = -1;
             searchTruncated = result.truncated;
             searchedParams = {
                 query,
                 regex: searchRegex,
                 caseSensitive: searchCaseSensitive,
                 include: searchInclude,
+                exclude: searchExcludeGlobs,
             };
         } catch (error) {
             searchMatches = [];
+            searchResultIndex = -1;
             searchError = errorMessage(error);
         } finally {
             searchBusy = false;
@@ -2590,7 +2640,7 @@
                 regex: searchedParams.regex,
                 case_sensitive: searchedParams.caseSensitive,
                 include: searchedParams.include,
-                exclude: '',
+                exclude: searchedParams.exclude,
                 replacement: searchReplacement,
                 expected_modified: expected,
                 open_paths: openPaths,
@@ -2646,6 +2696,23 @@
         searchActive = false;
         await tick();
         editorPane?.revealLine(id, line, column);
+    }
+
+    // stepFindResult opens the next or previous Find in Files hit. The index
+    // advances before the file is opened, so holding F4 cannot open the same
+    // hit twice while the first read is still in flight.
+    async function stepFindResult(direction: 1 | -1): Promise<void> {
+        if (searchMatches.length === 0) {
+            notice = 'No search results to step through.';
+            return;
+        }
+        const index = stepSearchResult(searchResultIndex, searchMatches.length, direction);
+        searchResultIndex = index;
+        const match = searchMatches[index];
+        if (match === undefined) {
+            return;
+        }
+        await openSearchMatch(match.path, match.line, match.column);
     }
 
     // revealPath shows one file in the platform's file manager.
@@ -2901,6 +2968,11 @@
                 zoom,
                 togglePreview,
                 setViewOption,
+                find: () => runEditorAction('actions.find'),
+                replace: () => runEditorAction('editor.action.startFindReplaceAction'),
+                goToLine: () => runEditorAction('editor.action.gotoLine'),
+                nextFindResult: () => void stepFindResult(1),
+                previousFindResult: () => void stepFindResult(-1),
             });
             unsubscribeWatched = listenForWatchedChanges(
                 (paths) => void handleWatchedChanges(paths),
@@ -3063,6 +3135,7 @@
                     <SearchPanel
                         bind:query={searchQuery}
                         bind:include={searchInclude}
+                        bind:exclude={searchExcludeGlobs}
                         bind:replacement={searchReplacement}
                         bind:regex={searchRegex}
                         bind:caseSensitive={searchCaseSensitive}

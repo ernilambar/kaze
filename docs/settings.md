@@ -105,7 +105,9 @@ Patterns are globs matched against the path relative to a sidebar root:
 
 Find in Files also honours every `.gitignore` file it walks past, and never
 descends into `.git`, `.hg` or `.svn` even when those are removed from the
-list. Entries are trimmed, blanks are dropped and duplicates are removed.
+list. The panel's include and exclude fields narrow one search: exclude
+patterns there are merged with both lists. Entries are trimmed, blanks are
+dropped and duplicates are removed.
 
 ## Recent files and session
 

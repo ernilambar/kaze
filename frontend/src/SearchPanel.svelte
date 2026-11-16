@@ -5,6 +5,7 @@
     interface Props {
         query: string;
         include: string;
+        exclude: string;
         replacement: string;
         regex: boolean;
         caseSensitive: boolean;
@@ -26,6 +27,7 @@
     let {
         query = $bindable(''),
         include = $bindable(''),
+        exclude = $bindable(''),
         replacement = $bindable(''),
         regex = $bindable(false),
         caseSensitive = $bindable(false),
@@ -100,6 +102,14 @@
             bind:value={include}
             aria-label="Files to include"
             placeholder="files to include, e.g. *.go, src/**"
+            spellcheck="false"
+            autocomplete="off"
+        />
+        <input
+            class="search__input search__input--small"
+            bind:value={exclude}
+            aria-label="Files to exclude"
+            placeholder="files to exclude, e.g. vendor/**, *.min.js"
             spellcheck="false"
             autocomplete="off"
         />

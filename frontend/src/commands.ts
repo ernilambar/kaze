@@ -16,6 +16,11 @@ const EDIT_COMMANDS: readonly Command[] = [
     })),
     { id: 'trim-whitespace', name: 'Trim Trailing Whitespace', detail: 'Edit' },
     { id: 'change-language-mode', name: 'Change Language Mode', detail: 'Edit' },
+    { id: 'find', name: 'Find…', detail: 'Edit' },
+    { id: 'replace', name: 'Replace…', detail: 'Edit' },
+    { id: 'find-next-result', name: 'Find Next Result', detail: 'Edit' },
+    { id: 'find-previous-result', name: 'Find Previous Result', detail: 'Edit' },
+    { id: 'go-to-line', name: 'Go to Line…', detail: 'Edit' },
 ];
 
 const SELECTION_PALETTE_COMMANDS: readonly Command[] = SELECTION_COMMANDS.map((entry) => ({
