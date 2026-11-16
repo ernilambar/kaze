@@ -35,13 +35,17 @@ command cache; if `kova` reports `command not found`, run `hash -r`.
 | A missing path | Reported in the status bar, and the rest still open. |
 | `-h`, `-help`, `--help` | Print usage and exit without opening a window. |
 | `-v`, `-V`, `-version`, `--version` | Print the version and exit. |
+| `--new-window` | Open a new window for the other arguments instead of the focused one, even with no paths. |
 | Other flags (`-x`, `--anything`) | Ignored, so they cannot be mistaken for files. |
 | `--` | Everything after it is treated as a path, even if it starts with `-`. |
 
 Relative paths are resolved by the installed launcher against the directory you
 ran it from, so `kova notes.txt` works from any shell. If Kova is already
 running, the arguments are forwarded to the focused window and it comes to the
-front; a second process is never started.
+front; a second process is never started. `--new-window` changes that: the
+arguments open in a window of their own, leaving the focused one as it was. A
+cold launch has no focused window to reuse, so its startup window is already
+the new window and the flag makes no difference there.
 
 ## Help and version
 

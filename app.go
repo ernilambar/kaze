@@ -638,8 +638,21 @@ func (a *App) GetLaunchRequest(window string) LaunchRequest {
 }
 
 // queueLaunch records what a command line asked to open and, when the focused
-// window is already listening, hands it over immediately.
+// window is already listening, hands it over immediately. A request marked
+// NewWindow opens a window of its own instead of reusing the focused one; the
+// flag is consumed here, so no frontend has to know about it.
 func (a *App) queueLaunch(request LaunchRequest) {
+	if request.NewWindow {
+		request.NewWindow = false
+		// Before the runtime is attached there is nothing to open a window in:
+		// the startup window is already the new window this launch asked for,
+		// so its paths are queued and it adopts them.
+		if a.wails != nil {
+			if err := a.openWindow(request); err == nil {
+				return
+			}
+		}
+	}
 	if request.Empty() {
 		return
 	}

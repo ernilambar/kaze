@@ -76,6 +76,56 @@ func TestParseLaunchRequestSkipsFlags(t *testing.T) {
 	}
 }
 
+func TestParseLaunchRequestRecognizesNewWindow(t *testing.T) {
+	dir := t.TempDir()
+	file := writeTempFile(t, dir, "notes.txt", "hello")
+
+	got := parseLaunchRequest([]string{"--new-window", file})
+
+	if !got.NewWindow {
+		t.Fatal("NewWindow = false, want --new-window recognized")
+	}
+	if want := []string{file}; !reflect.DeepEqual(got.Files, want) {
+		t.Fatalf("Files = %q, want %q", got.Files, want)
+	}
+	if len(got.Missing) != 0 {
+		t.Fatalf("Missing = %q, want empty; the flag is not a path", got.Missing)
+	}
+}
+
+func TestParseLaunchRequestNewWindowAfterDoubleDashIsAPath(t *testing.T) {
+	got := parseLaunchRequest([]string{"--", "--new-window"})
+
+	if got.NewWindow {
+		t.Fatal("NewWindow = true, want the flag after -- to be a path")
+	}
+	if want := []string{"--new-window"}; !reflect.DeepEqual(got.Missing, want) {
+		t.Fatalf("Missing = %q, want %q", got.Missing, want)
+	}
+}
+
+func TestNewWindowOnlyRequestIsNotEmpty(t *testing.T) {
+	if (LaunchRequest{NewWindow: true}).Empty() {
+		t.Fatal("Empty() = true for a --new-window request, want a window to open")
+	}
+}
+
+func TestQueueLaunchNewWindowBeforeTheFirstWindowIsAdopted(t *testing.T) {
+	app := NewApp()
+	dir := t.TempDir()
+
+	app.queueLaunch(parseLaunchRequest([]string{"--new-window", dir}))
+	app.registerWindow("main", emptyLaunchRequest())
+
+	got := app.GetLaunchRequest("main")
+	if want := []string{dir}; !reflect.DeepEqual(got.Folders, want) {
+		t.Fatalf("Folders = %q, want %q", got.Folders, want)
+	}
+	if got.NewWindow {
+		t.Fatal("NewWindow = true, want the flag consumed before the frontend sees it")
+	}
+}
+
 func TestParseLaunchRequestTreatsPathsAfterDoubleDashAsPaths(t *testing.T) {
 	dir := t.TempDir()
 	file := writeTempFile(t, dir, "-weird.txt", "hello")

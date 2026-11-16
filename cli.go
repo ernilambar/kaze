@@ -50,6 +50,9 @@ type LaunchRequest struct {
 	// saved tabs and writes the session back, so a new window does not clobber
 	// the session with its own empty or moved tab list.
 	RestoreSession bool `json:"restore_session"`
+	// NewWindow asks for a window of its own instead of the focused one. It is
+	// consumed by queueLaunch, so a window's frontend never sees it set.
+	NewWindow bool `json:"new_window"`
 }
 
 // emptyLaunchRequest is the zero request, with the slices the frontend expects
@@ -65,7 +68,7 @@ func emptyLaunchRequest() LaunchRequest {
 
 // Empty reports whether nothing at all was requested.
 func (r LaunchRequest) Empty() bool {
-	return len(r.Files) == 0 && len(r.Folders) == 0 && len(r.Missing) == 0 && len(r.Buffers) == 0
+	return len(r.Files) == 0 && len(r.Folders) == 0 && len(r.Missing) == 0 && len(r.Buffers) == 0 && !r.NewWindow
 }
 
 // Merge appends another request, keeping command line order. Every folder is
@@ -77,6 +80,7 @@ func (r *LaunchRequest) Merge(other LaunchRequest) {
 	r.Buffers = append(r.Buffers, other.Buffers...)
 	r.ReplaceFolders = r.ReplaceFolders || other.ReplaceFolders
 	r.RestoreSession = r.RestoreSession || other.RestoreSession
+	r.NewWindow = r.NewWindow || other.NewWindow
 }
 
 // normalized replaces nil slices with empty ones and drops repeated folders.
@@ -168,11 +172,13 @@ Arguments:
 Options:
   -h, --help     Show this help and exit.
   -v, --version  Show the version and exit.
+  --new-window   Open a new window instead of the focused one.
   --             Treat every following argument as a path.
 
 Files open in the editor. Folders become sidebar roots and are remembered for
 next time. Running %s with paths while %s is already open hands them to that
-window instead of starting a second one.
+window instead of starting a second one; --new-window opens a window of its own
+for them instead.
 `, meta.ProductName, meta.ProductVersion, commandName, commandName, meta.ProductName)
 }
 
@@ -193,6 +199,10 @@ func parseLaunchRequest(args []string) LaunchRequest {
 		if !pathsOnly {
 			if arg == "--" {
 				pathsOnly = true
+				continue
+			}
+			if arg == "--new-window" || arg == "-new-window" {
+				request.NewWindow = true
 				continue
 			}
 			if strings.HasPrefix(arg, "-") {
