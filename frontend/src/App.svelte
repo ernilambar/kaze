@@ -207,12 +207,13 @@
 
     // ConfirmPrompt asks whether a save may go ahead when it would lose
     // something: another program's newer file, or bytes that were never valid
-    // UTF-8 and are now replacement characters.
+    // UTF-8 and are now replacement characters. A conflict offers Reload as a
+    // third answer, so the prompt carries its actions instead of a boolean.
     interface ConfirmPrompt {
         title: string;
         message: string;
-        confirmLabel: string;
-        answer: (confirmed: boolean) => void;
+        actions: { id: string; label: string; primary?: boolean }[];
+        answer: (id: string) => void;
     }
 
     // ClosedTab is one entry in the Reopen Closed Tab stack. The buffer text is
@@ -770,14 +771,44 @@
         confirmLabel: string,
     ): Promise<boolean> {
         return new Promise((resolve) => {
-            confirmPrompt = { title, message, confirmLabel, answer: resolve };
+            confirmPrompt = {
+                title,
+                message,
+                actions: [
+                    { id: 'confirm', label: confirmLabel, primary: true },
+                    { id: 'cancel', label: 'Cancel' },
+                ],
+                answer: (id) => resolve(id === 'confirm'),
+            };
         });
     }
 
-    function answerConfirm(confirmed: boolean): void {
+    // askConflict is the save prompt for a file another program changed. Reload
+    // is a separate answer because the disk copy may be the newer one, and
+    // discarding the buffer is then the right move.
+    function askConflict(
+        title: string,
+        message: string,
+    ): Promise<'overwrite' | 'reload' | 'cancel'> {
+        return new Promise((resolve) => {
+            confirmPrompt = {
+                title,
+                message,
+                actions: [
+                    { id: 'overwrite', label: 'Overwrite', primary: true },
+                    { id: 'reload', label: 'Reload from Disk' },
+                    { id: 'cancel', label: 'Cancel' },
+                ],
+                answer: (id) =>
+                    resolve(id === 'overwrite' || id === 'reload' ? id : 'cancel'),
+            };
+        });
+    }
+
+    function answerConfirm(id: string): void {
         const prompt = confirmPrompt;
         confirmPrompt = null;
-        prompt?.answer(confirmed);
+        prompt?.answer(id);
     }
 
     async function chooseSavePath(tab: OpenDocument): Promise<string> {
@@ -901,13 +932,27 @@
                     continue;
                 }
                 if (result.conflict) {
-                    const proceed = await askConfirm(
+                    const choice = await askConflict(
                         'File Changed on Disk',
-                        `${result.name} changed on disk since it was opened. Overwrite it with your version?`,
-                        'Overwrite',
+                        `${result.name} changed on disk since it was opened. Overwrite it with your version, or reload it from disk?`,
                     );
-                    if (!proceed) {
+                    if (choice === 'cancel') {
                         return false;
+                    }
+                    if (choice === 'reload') {
+                        // The user chose the disk copy: replace the buffer and
+                        // forget its edits. The tab is clean afterwards, so a
+                        // save during close can go on to close it.
+                        const opened = await readDocument(tab.path);
+                        if (opened === undefined) {
+                            notice = `Could not reload ${tab.name} from disk.`;
+                            return false;
+                        }
+                        applyReload(id, opened);
+                        void loadBaseline(id, tab.path);
+                        void refreshDiffTabs();
+                        void refreshGitStatus();
+                        return true;
                     }
                     overwrite = true;
                     continue;
@@ -2999,12 +3044,9 @@
         <Prompt
             title={confirmPrompt.title}
             message={confirmPrompt.message}
-            actions={[
-                { id: 'confirm', label: confirmPrompt.confirmLabel, primary: true },
-                { id: 'cancel', label: 'Cancel' },
-            ]}
-            onSelect={(id) => answerConfirm(id === 'confirm')}
-            onCancel={() => answerConfirm(false)}
+            actions={confirmPrompt.actions}
+            onSelect={answerConfirm}
+            onCancel={() => answerConfirm('cancel')}
         />
     {/if}
     {#if contextMenu !== null}
