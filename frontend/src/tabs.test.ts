@@ -20,6 +20,9 @@ function document(path: string): OpenDocument {
         src: '',
         modified: 0,
         dirty: false,
+        bom: false,
+        eol: 'lf',
+        invalidUTF8: false,
     };
 }
 
@@ -33,6 +36,9 @@ function untitled(name: string): OpenDocument {
         src: '',
         modified: 0,
         dirty: false,
+        bom: false,
+        eol: 'lf',
+        invalidUTF8: false,
     };
 }
 

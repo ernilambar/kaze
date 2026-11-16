@@ -3,6 +3,7 @@ import {
     createUntitledDocument,
     emptyLaunchRequest,
     nextUntitledName,
+    normalizeEol,
     shownName,
     toBufferDocument,
     toOpenDocument,
@@ -19,9 +20,19 @@ function document(overrides: Partial<OpenDocument> = {}): OpenDocument {
         src: '',
         modified: 0,
         dirty: false,
+        bom: false,
+        eol: 'lf',
+        invalidUTF8: false,
         ...overrides,
     };
 }
+
+describe('normalizeEol', () => {
+    it('converts every line ending to the document sequence', () => {
+        expect(normalizeEol('a\nb\r\nc\r', 'crlf')).toBe('a\r\nb\r\nc\r\n');
+        expect(normalizeEol('a\nb\r\nc\r', 'lf')).toBe('a\nb\nc\n');
+    });
+});
 
 describe('shownName', () => {
     it('falls back to an untitled label before a file is opened', () => {
@@ -42,6 +53,9 @@ describe('toOpenDocument', () => {
             content: 'hello',
             src: '',
             modified: 1712345678901,
+            bom: true,
+            eol: 'crlf',
+            invalid_utf8: false,
         };
 
         expect(toOpenDocument(model)).toEqual({
@@ -53,6 +67,9 @@ describe('toOpenDocument', () => {
             src: '',
             modified: 1712345678901,
             dirty: false,
+            bom: true,
+            eol: 'crlf',
+            invalidUTF8: false,
         });
     });
 
@@ -64,6 +81,9 @@ describe('toOpenDocument', () => {
             content: '',
             src: 'data:image/png;base64,AAAA',
             modified: 0,
+            bom: false,
+            eol: '',
+            invalid_utf8: false,
         };
 
         expect(toOpenDocument(model)).toMatchObject({
@@ -107,6 +127,9 @@ describe('createUntitledDocument', () => {
             src: '',
             modified: 0,
             dirty: false,
+            bom: false,
+            eol: 'lf',
+            invalidUTF8: false,
         });
     });
 });
@@ -136,6 +159,9 @@ describe('toBufferDocument', () => {
                 modified: 42,
                 dirty: true,
                 source_path: '',
+                bom: true,
+                eol: 'crlf',
+                invalid_utf8: false,
             }),
         ).toEqual({
             id: '/tmp/notes.txt',
@@ -147,6 +173,9 @@ describe('toBufferDocument', () => {
             src: '',
             modified: 42,
             dirty: true,
+            bom: true,
+            eol: 'crlf',
+            invalidUTF8: false,
         });
     });
 
@@ -161,6 +190,9 @@ describe('toBufferDocument', () => {
                 modified: 0,
                 dirty: true,
                 source_path: '',
+                bom: false,
+                eol: 'lf',
+                invalid_utf8: false,
             }).id,
         ).toBe('untitled:Untitled-2');
     });
@@ -175,6 +207,9 @@ describe('toBufferDocument', () => {
             modified: 0,
             dirty: false,
             source_path: '/tmp/notes.txt',
+            bom: false,
+            eol: 'lf',
+            invalid_utf8: false,
         });
         expect(moved.id).toBe('diff:/tmp/notes.txt');
         expect(moved.sourcePath).toBe('/tmp/notes.txt');

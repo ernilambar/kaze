@@ -54,6 +54,7 @@
         createUntitledDocument,
         diffTabId,
         listenForLaunch,
+        normalizeEol,
         readDocument,
         shownName,
         toBufferDocument,
@@ -179,11 +180,14 @@
         answer: (answer: 'save' | 'discard' | 'cancel') => void;
     }
 
-    // ConflictPrompt asks whether a buffer may overwrite a file another program
-    // changed while it was open.
-    interface ConflictPrompt {
+    // ConfirmPrompt asks whether a save may go ahead when it would lose
+    // something: another program's newer file, or bytes that were never valid
+    // UTF-8 and are now replacement characters.
+    interface ConfirmPrompt {
+        title: string;
         message: string;
-        answer: (overwrite: boolean) => void;
+        confirmLabel: string;
+        answer: (confirmed: boolean) => void;
     }
 
     // ClosedTab is one entry in the Reopen Closed Tab stack. The buffer text is
@@ -280,7 +284,7 @@
     let searchFocusToken = $state(0);
 
     let unsavedPrompt = $state<UnsavedPrompt | null>(null);
-    let conflictPrompt = $state<ConflictPrompt | null>(null);
+    let confirmPrompt = $state<ConfirmPrompt | null>(null);
     // contextMenu is the right-click menu in the tab bar or the tree, anchored
     // where the pointer was and acting on the path under it.
     let contextMenu = $state<{ x: number; y: number; path: string } | null>(null);
@@ -311,6 +315,9 @@
     // from creating a model for an image path.
     let editorKey = $derived(imageActive ? WELCOME_KEY : (active?.id ?? WELCOME_KEY));
     let editorContent = $derived(imageActive ? '' : (active?.content ?? ''));
+    // The active file's line ending decides the Monaco model's EOL, so edits
+    // and the saved text use the same sequence the file started with.
+    let editorEol = $derived(imageActive ? 'lf' : (active?.eol ?? 'lf'));
     // savedContent is what a clean buffer would hold. A moved dirty tab carries
     // a different text than the file on disk, so its tab records the baseline.
     let editorSavedContent = $derived(
@@ -536,7 +543,7 @@
         try {
             const document = createDiffDocument(path, await readGitDiff(path));
             tabs = updateDocument(tabs, id, { content: document.content });
-            editorPane?.reload(id, document.content);
+            editorPane?.reload(id, document.content, document.eol);
         } catch (error) {
             console.error('Failed to refresh the diff.', error);
         }
@@ -631,16 +638,20 @@
         prompt?.answer(answer);
     }
 
-    function askConflict(message: string): Promise<boolean> {
+    function askConfirm(
+        title: string,
+        message: string,
+        confirmLabel: string,
+    ): Promise<boolean> {
         return new Promise((resolve) => {
-            conflictPrompt = { message, answer: resolve };
+            confirmPrompt = { title, message, confirmLabel, answer: resolve };
         });
     }
 
-    function answerConflict(overwrite: boolean): void {
-        const prompt = conflictPrompt;
-        conflictPrompt = null;
-        prompt?.answer(overwrite);
+    function answerConfirm(confirmed: boolean): void {
+        const prompt = confirmPrompt;
+        confirmPrompt = null;
+        prompt?.answer(confirmed);
     }
 
     async function chooseSavePath(tab: OpenDocument): Promise<string> {
@@ -664,6 +675,9 @@
             content,
             savedContent: undefined,
             dirty: !clean,
+            // The file on disk is valid UTF-8 now; the replacement characters
+            // it holds are what the user agreed to write.
+            invalidUTF8: false,
         });
         // Save As can give an untitled buffer a real path, and with it a
         // language the model should start highlighting.
@@ -698,6 +712,10 @@
         if (editorSettings.ensureFinalNewline) {
             content = appendFinalNewline(content);
         }
+        // The model's text is already normalized to the document's EOL, but a
+        // buffer that was never shown comes straight from the tab. Normalizing
+        // here keeps the baseline markSaved compares with the model.
+        content = normalizeEol(content, tab.eol);
         let path = tab.path;
         let expected = tab.modified;
         if (saveAs || path === '') {
@@ -714,31 +732,47 @@
             }
         }
 
+        let overwrite = false;
+        let allowInvalidUTF8 = false;
         try {
-            const result = await SaveDocument({
-                path,
-                content,
-                expected_modified: expected,
-                overwrite: false,
-            });
-            if (result.conflict) {
-                const overwrite = await askConflict(
-                    `${result.name} changed on disk since it was opened. Overwrite it with your version?`,
-                );
-                if (!overwrite) {
-                    return false;
-                }
-                const forced = await SaveDocument({
-                    path: result.path,
+            for (;;) {
+                const result = await SaveDocument({
+                    path,
                     content,
                     expected_modified: expected,
-                    overwrite: true,
+                    overwrite,
+                    bom: tab.bom,
+                    eol: tab.eol,
+                    invalid_utf8: tab.invalidUTF8,
+                    allow_invalid_utf8: allowInvalidUTF8,
                 });
-                applySaved(id, forced, content);
+                if (result.invalid_utf8) {
+                    const proceed = await askConfirm(
+                        'Invalid UTF-8',
+                        `${result.name} is not valid UTF-8. Saving replaces the bytes that could not be decoded with U+FFFD. Continue?`,
+                        'Save Anyway',
+                    );
+                    if (!proceed) {
+                        return false;
+                    }
+                    allowInvalidUTF8 = true;
+                    continue;
+                }
+                if (result.conflict) {
+                    const proceed = await askConfirm(
+                        'File Changed on Disk',
+                        `${result.name} changed on disk since it was opened. Overwrite it with your version?`,
+                        'Overwrite',
+                    );
+                    if (!proceed) {
+                        return false;
+                    }
+                    overwrite = true;
+                    continue;
+                }
+                applySaved(id, result, content);
                 return true;
             }
-            applySaved(id, result, content);
-            return true;
         } catch (error) {
             notice = errorMessage(error);
             return false;
@@ -798,7 +832,7 @@
         // second Cmd+Q must not stack a dialog on top of it. Answering the
         // request with "cancel" clears Go's pending flag, so the next Cmd+Q
         // asks again instead of being swallowed.
-        if (unsavedPrompt !== null || conflictPrompt !== null) {
+        if (unsavedPrompt !== null || confirmPrompt !== null) {
             await resolveClose(false);
             return;
         }
@@ -1225,6 +1259,9 @@
             modified: tab.modified,
             dirty: tab.kind === 'text' ? tab.dirty : false,
             source_path: tab.sourcePath ?? '',
+            bom: tab.bom,
+            eol: tab.eol,
+            invalid_utf8: tab.invalidUTF8,
         };
         try {
             await MoveTabToNewWindow(buffer);
@@ -1666,7 +1703,7 @@
     // told first, so the editor's dirty check agrees with the tab record.
     function applyReload(id: string, opened: OpenDocument): void {
         if (opened.kind === 'text') {
-            editorPane?.reload(id, opened.content);
+            editorPane?.reload(id, opened.content, opened.eol);
         }
         tabs = updateDocument(tabs, id, {
             kind: opened.kind,
@@ -1675,6 +1712,9 @@
             src: opened.src,
             modified: opened.modified,
             dirty: false,
+            bom: opened.bom,
+            eol: opened.eol,
+            invalidUTF8: opened.invalidUTF8,
         });
     }
 
@@ -2184,6 +2224,7 @@
                         modelKey={editorKey}
                         content={editorContent}
                         savedContent={editorSavedContent}
+                        eol={editorEol}
                         {openIds}
                         settings={editorSettings}
                         readOnly={active?.kind === 'diff'}
@@ -2296,16 +2337,16 @@
             onCancel={() => answerUnsaved('cancel')}
         />
     {/if}
-    {#if conflictPrompt !== null}
+    {#if confirmPrompt !== null}
         <Prompt
-            title="File Changed on Disk"
-            message={conflictPrompt.message}
+            title={confirmPrompt.title}
+            message={confirmPrompt.message}
             actions={[
-                { id: 'overwrite', label: 'Overwrite', primary: true },
+                { id: 'confirm', label: confirmPrompt.confirmLabel, primary: true },
                 { id: 'cancel', label: 'Cancel' },
             ]}
-            onSelect={(id) => answerConflict(id === 'overwrite')}
-            onCancel={() => answerConflict(false)}
+            onSelect={(id) => answerConfirm(id === 'confirm')}
+            onCancel={() => answerConfirm(false)}
         />
     {/if}
     {#if contextMenu !== null}

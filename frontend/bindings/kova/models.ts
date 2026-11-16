@@ -21,6 +21,25 @@ export interface Document {
      * 2^53.
      */
     "modified": number;
+
+    /**
+     * BOM records a UTF-8 byte order mark that was stripped from the content.
+     * SaveDocument puts it back so a round trip never rewrites the file's
+     * encoding.
+     */
+    "bom": boolean;
+
+    /**
+     * EOL is the file's line ending: "lf" or "crlf". Mixed endings are
+     * reported as whichever comes first and are normalized to it on save.
+     */
+    "eol": string;
+
+    /**
+     * InvalidUTF8 marks content that was not valid UTF-8. The bytes became
+     * replacement characters, and a save must warn before it drops them.
+     */
+    "invalid_utf8": boolean;
 }
 
 /**
@@ -172,6 +191,14 @@ export interface LaunchBuffer {
     "modified": number;
     "dirty": boolean;
     "source_path": string;
+
+    /**
+     * BOM, EOL and InvalidUTF8 travel with a text buffer so the receiving
+     * window saves it back byte-for-byte the way the first one would.
+     */
+    "bom": boolean;
+    "eol": string;
+    "invalid_utf8": boolean;
 }
 
 /**
@@ -242,19 +269,38 @@ export interface SaveRequest {
     "content": string;
     "expected_modified": number;
     "overwrite": boolean;
+
+    /**
+     * BOM and EOL are the file's encoding as LoadDocument reported it. The
+     * content itself is normalized by Monaco, so a save restores both around
+     * the text it is handed.
+     */
+    "bom": boolean;
+    "eol": string;
+
+    /**
+     * InvalidUTF8 marks a buffer whose file was not valid UTF-8. Writing it
+     * replaces the original bytes with U+FFFD, so the save returns without
+     * writing until AllowInvalidUTF8 says the user agreed.
+     */
+    "invalid_utf8": boolean;
+    "allow_invalid_utf8": boolean;
 }
 
 /**
  * SaveResult reports what a save did. A Conflict means the buffer was not
- * written and the user has to decide whether to overwrite; the other fields are
- * then the file that caused it. Path and Name describe where the text belongs,
- * so Save As can move a buffer to its new home in one step.
+ * written and the user has to decide whether to overwrite; InvalidUTF8 means
+ * the buffer holds replacement characters and the user has to agree to lose
+ * them. The other fields are then the file that caused it. Path and Name
+ * describe where the text belongs, so Save As can move a buffer to its new home
+ * in one step.
  */
 export interface SaveResult {
     "path": string;
     "name": string;
     "modified": number;
     "conflict": boolean;
+    "invalid_utf8": boolean;
 }
 
 /**

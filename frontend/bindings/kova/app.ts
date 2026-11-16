@@ -159,9 +159,11 @@ export function ListThemes(): $CancellablePromise<$models.ThemeCatalog> {
 
 /**
  * LoadDocument reads a file for the editor. Directories, special files,
- * oversized files and non-UTF-8 content are rejected with a message the UI can
- * show as-is, instead of rendering garbage. Supported image formats are
- * returned as a data URL for the image viewer.
+ * oversized files and binary content are rejected with a message the UI can
+ * show as-is, instead of rendering garbage. Text that is merely not valid UTF-8
+ * still opens with replacement characters and is flagged, because refusing a
+ * small mis-encoded log would be less useful than showing it. Supported image
+ * formats are returned as a data URL for the image viewer.
  */
 export function LoadDocument(path: string): $CancellablePromise<$models.Document> {
     return $Call.ByID(3916855336, path);

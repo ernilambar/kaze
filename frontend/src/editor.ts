@@ -107,14 +107,23 @@ export function languageLabel(path: string): string {
 
 // createModel makes a text buffer with its own undo stack. One model per open
 // document is what lets switching tabs preserve edits instead of rewriting the
-// active buffer.
-export function createModel(key: string, content: string): monaco.editor.ITextModel {
+// active buffer. eol is the file's line ending: the model adopts it so its text
+// already matches what SaveDocument writes back.
+export function createModel(
+    key: string,
+    content: string,
+    eol: string = 'lf',
+): monaco.editor.ITextModel {
     const language = key.startsWith(DIFF_PREFIX)
         ? DIFF_LANGUAGE
         : key === WELCOME_KEY || key.startsWith(UNTITLED_PREFIX)
           ? PLAIN_TEXT_LANGUAGE
           : languageForPath(key);
-    return monaco.editor.createModel(content, language, modelURI(key));
+    const model = monaco.editor.createModel(content, language, modelURI(key));
+    model.setEOL(
+        eol === 'crlf' ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF,
+    );
+    return model;
 }
 
 // editorOptions translates settings.json into Monaco options. Zoom passes the

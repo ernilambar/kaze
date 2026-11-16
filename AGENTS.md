@@ -131,6 +131,12 @@ introduce one unprompted.
   `app:confirm-close` with a `close` or `quit` reason. The Save/Don't Save
   prompt answers with `ResolveClose(window, quit)`; a quit asks every dirty
   window in turn.
+- **Text files keep their encoding.** `LoadDocument` strips a UTF-8 BOM and
+  reports it with the file's `lf`/`crlf` line ending; the editor sets the Monaco
+  model's EOL and `SaveDocument` restores both. A file that is not valid UTF-8
+  opens with U+FFFD replacement characters and `invalid_utf8` set, and a save
+  returns `InvalidUTF8: true` without writing until the frontend confirms with
+  `allow_invalid_utf8`; a NUL byte still marks a real binary and is rejected.
 - **File watching polls rather than subscribing.** `watch.go` stats open
   buffers and expanded folders once a second and emits `app:watched-changed`
   with the changed paths. The watcher records which windows asked for each path,

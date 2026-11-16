@@ -30,6 +30,93 @@ func TestSaveDocumentWritesContent(t *testing.T) {
 	}
 }
 
+// A file opened with a BOM and CRLF endings must come back byte-for-byte when
+// its buffer is saved unchanged: the editor strips the BOM to show the text and
+// normalizes the model to the file's EOL, and the save restores both.
+func TestSaveDocumentRestoresBOMAndCRLF(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "windows.txt")
+	original := []byte("\uFEFFfirst\r\nsecond\r\n")
+	if err := os.WriteFile(path, original, 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	doc, err := loadDocument(path)
+	if err != nil {
+		t.Fatalf("loadDocument() error = %v", err)
+	}
+	// Monaco hands the text back with its model EOL, which is the file's.
+	result, err := saveDocument(SaveRequest{
+		Path:    path,
+		Content: doc.Content,
+		BOM:     doc.BOM,
+		EOL:     doc.EOL,
+	})
+	if err != nil {
+		t.Fatalf("saveDocument() error = %v", err)
+	}
+	if result.Conflict || result.InvalidUTF8 {
+		t.Fatalf("saveDocument() result = %+v, want a plain write", result)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read saved file: %v", err)
+	}
+	if string(data) != string(original) {
+		t.Fatalf("saved content = %q, want %q", data, original)
+	}
+}
+
+// A buffer whose file was not valid UTF-8 must not quietly replace the original
+// bytes. The first save says so without writing; the retry, after the user
+// agreed, writes the replacement characters.
+func TestSaveDocumentWarnsBeforeWritingInvalidUTF8(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "latin1.txt")
+	original := []byte{'c', 'a', 'f', 0xe9, '\n'}
+	if err := os.WriteFile(path, original, 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	result, err := saveDocument(SaveRequest{
+		Path:        path,
+		Content:     "caf\uFFFD\n",
+		InvalidUTF8: true,
+	})
+	if err != nil {
+		t.Fatalf("saveDocument() error = %v", err)
+	}
+	if !result.InvalidUTF8 {
+		t.Fatal("saveDocument() invalid_utf8 = false, want the write to wait for agreement")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read file: %v", err)
+	}
+	if string(data) != string(original) {
+		t.Fatalf("file content = %q, want the original bytes untouched", data)
+	}
+
+	result, err = saveDocument(SaveRequest{
+		Path:             path,
+		Content:          "caf\uFFFD\n",
+		InvalidUTF8:      true,
+		AllowInvalidUTF8: true,
+	})
+	if err != nil {
+		t.Fatalf("saveDocument() error = %v", err)
+	}
+	if result.InvalidUTF8 {
+		t.Fatal("saveDocument() invalid_utf8 = true, want the agreed write to go through")
+	}
+	data, err = os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read file: %v", err)
+	}
+	if string(data) != "caf\uFFFD\n" {
+		t.Fatalf("file content = %q, want the replacement characters", data)
+	}
+}
+
 // A buffer saved and then reopened must agree with the mtime the save reported,
 // or the very next save would claim the file changed on disk.
 func TestSaveDocumentModifiedMatchesReload(t *testing.T) {

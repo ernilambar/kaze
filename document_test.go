@@ -21,7 +21,15 @@ func TestLoadDocumentReadsTextFile(t *testing.T) {
 		t.Fatalf("loadDocument() error = %v", err)
 	}
 
-	want := Document{Path: path, Name: "notes.txt", Kind: documentKindText, Content: "first\nsecond\n"}
+	want := Document{
+		Path:     path,
+		Name:     "notes.txt",
+		Kind:     documentKindText,
+		Content:  "first\nsecond\n",
+		EOL:      documentEOLlf,
+		BOM:      false,
+		Modified: 0,
+	}
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatalf("stat file: %v", err)
@@ -29,6 +37,46 @@ func TestLoadDocumentReadsTextFile(t *testing.T) {
 	want.Modified = info.ModTime().UnixMilli()
 	if doc != want {
 		t.Fatalf("loadDocument() = %+v, want %+v", doc, want)
+	}
+}
+
+func TestLoadDocumentStripsBOMAndDetectsCRLF(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "windows.txt")
+	original := "\uFEFFfirst\r\nsecond\r\n"
+	if err := os.WriteFile(path, []byte(original), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	doc, err := loadDocument(path)
+	if err != nil {
+		t.Fatalf("loadDocument() error = %v", err)
+	}
+	if !doc.BOM {
+		t.Fatal("loadDocument() BOM = false, want the byte order mark recorded")
+	}
+	if doc.EOL != documentEOLcrlf {
+		t.Fatalf("loadDocument() EOL = %q, want %q", doc.EOL, documentEOLcrlf)
+	}
+	if doc.Content != "first\r\nsecond\r\n" {
+		t.Fatalf("loadDocument() content = %q, want the BOM stripped and the line endings kept", doc.Content)
+	}
+}
+
+func TestLoadDocumentOpensInvalidUTF8WithReplacement(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "latin1.txt")
+	if err := os.WriteFile(path, []byte{'c', 'a', 'f', 0xe9, '\n'}, 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	doc, err := loadDocument(path)
+	if err != nil {
+		t.Fatalf("loadDocument() error = %v", err)
+	}
+	if !doc.InvalidUTF8 {
+		t.Fatal("loadDocument() InvalidUTF8 = false, want the mis-encoded file flagged")
+	}
+	if doc.Content != "caf\uFFFD\n" {
+		t.Fatalf("loadDocument() content = %q, want replacement characters", doc.Content)
 	}
 }
 
@@ -102,7 +150,7 @@ func TestLoadDocumentMapsImageExtensions(t *testing.T) {
 
 func TestLoadDocumentRejectsBinaryContent(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "blob.bin")
-	if err := os.WriteFile(path, []byte{0x89, 0x50, 0x4e, 0x47, 0xff, 0xfe}, 0o644); err != nil {
+	if err := os.WriteFile(path, []byte{0x89, 0x50, 0x4e, 0x47, 0x00, 0xff, 0xfe}, 0o644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
 

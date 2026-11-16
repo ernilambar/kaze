@@ -3,7 +3,7 @@
     import { onMount } from 'svelte';
     import { transformCase, type CaseTransform } from './case';
     import { changedLines } from './diff';
-    import { DIFF_PREFIX } from './document';
+    import { DIFF_PREFIX, normalizeEol } from './document';
     import {
         createEditor,
         createModel,
@@ -23,6 +23,9 @@
         // content is only read the first time a model is created, so a tab
         // keeps its edits when the user switches away and back.
         content?: string;
+        // eol is the active document's line ending. A model adopts it when it
+        // is created, so its text already matches what a save writes.
+        eol?: string;
         // savedContent is what the buffer last held on disk. It differs from
         // content for a tab moved from another window with unsaved edits, so
         // the moved buffer keeps its dirty state and its undo cannot look saved.
@@ -48,6 +51,7 @@
         modelKey = WELCOME_KEY,
         content = '',
         savedContent = '',
+        eol = 'lf',
         openIds = [],
         settings,
         readOnly = false,
@@ -186,16 +190,27 @@
 
     // reload replaces a buffer's text with what is now on disk and makes it the
     // clean baseline. The caller only does this for a tab with no unsaved
-    // edits, so the external text cannot overwrite the user's work.
-    export function reload(key: string, text: string): void {
+    // edits, so the external text cannot overwrite the user's work. The file's
+    // line ending may have changed too, so the model follows it.
+    export function reload(key: string, text: string, eol: string): void {
         const model = models.get(key);
         if (model === undefined) {
             return;
         }
+        const crlf = eol === 'crlf';
+        if ((model.getEOL() === '\r\n') !== crlf) {
+            model.setEOL(
+                crlf
+                    ? monaco.editor.EndOfLineSequence.CRLF
+                    : monaco.editor.EndOfLineSequence.LF,
+            );
+        }
         if (model.getValue() !== text) {
             model.setValue(text);
         }
-        savedTexts.set(key, text);
+        // The model normalizes mixed endings, so its own value is the baseline
+        // the next keystroke is compared with.
+        savedTexts.set(key, model.getValue());
         scheduleDecorations(key);
         onDirtyChange?.(key, false);
     }
@@ -314,13 +329,13 @@
         zoomOffset = next - settings.fontSize;
     }
 
-    function modelFor(key: string, text: string): monaco.editor.ITextModel {
+    function modelFor(key: string, text: string, documentEol: string): monaco.editor.ITextModel {
         let model = models.get(key);
         if (model === undefined) {
-            model = createModel(key, text);
+            model = createModel(key, text, documentEol);
             model.updateOptions(modelOptions(settings));
             models.set(key, model);
-            savedTexts.set(key, savedContent);
+            savedTexts.set(key, normalizeEol(savedContent, documentEol));
             // A baseline may have arrived before the tab was first shown.
             updateDecorations(key);
         }
@@ -344,7 +359,7 @@
     // showModel swaps the editor to key's buffer, creating it on first use.
     // Each buffer keeps its own undo stack, so switching tabs never rewrites
     // text or loses history.
-    function showModel(key: string, text: string): void {
+    function showModel(key: string, text: string, documentEol: string): void {
         if (editor === undefined) {
             return;
         }
@@ -354,7 +369,7 @@
         if (editor.getModel() !== null) {
             viewStates.set(activeKey, editor.saveViewState());
         }
-        editor.setModel(modelFor(key, text));
+        editor.setModel(modelFor(key, text, documentEol));
         const state = viewStates.get(key);
         if (state) {
             editor.restoreViewState(state);
@@ -392,7 +407,7 @@
     }
 
     $effect(() => {
-        showModel(modelKey, content);
+        showModel(modelKey, content, eol);
         pruneModels(openIds, modelKey);
     });
 
@@ -416,7 +431,7 @@
     });
 
     onMount(() => {
-        const created = createEditor(container, settings, modelFor(modelKey, content));
+        const created = createEditor(container, settings, modelFor(modelKey, content, eol));
         editor = created;
         activeKey = modelKey;
         const cursorSubscription = created.onDidChangeCursorPosition((event) => {

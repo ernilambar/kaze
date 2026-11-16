@@ -13,6 +13,9 @@ export interface LaunchBuffer {
     modified: number;
     dirty: boolean;
     source_path: string;
+    bom: boolean;
+    eol: string;
+    invalid_utf8: boolean;
 }
 
 // Mirrors LaunchRequest in cli.go. The backend resolves paths; the frontend only
@@ -52,6 +55,9 @@ export function toLaunchRequest(request: models.LaunchRequest): LaunchRequest {
             modified: buffer.modified,
             dirty: buffer.dirty,
             source_path: buffer.source_path ?? '',
+            bom: buffer.bom ?? false,
+            eol: buffer.eol === 'crlf' ? 'crlf' : 'lf',
+            invalid_utf8: buffer.invalid_utf8 ?? false,
         })),
         replace_folders: request.replace_folders ?? false,
         restore_session: request.restore_session ?? false,
@@ -62,6 +68,19 @@ export function toLaunchRequest(request: models.LaunchRequest): LaunchRequest {
 // viewer for pictures. Mirrors the Kind field in document.go, plus the
 // frontend-only diff tab.
 export type DocumentKind = 'text' | 'image' | 'diff';
+
+// DocumentEOL mirrors the EOL flag in document.go. A document is shown with
+// this sequence and written back with it, so a save never converts a file's
+// line endings unless the user edited them.
+export type DocumentEOL = 'lf' | 'crlf';
+
+// normalizeEol rewrites a buffer's line endings to the document's sequence.
+// Monaco normalizes a showable buffer to the model's EOL, so the same
+// conversion is what makes a stored baseline comparable.
+export function normalizeEol(text: string, eol: string): string {
+    const lines = text.replace(/\r\n?/g, '\n');
+    return eol === 'crlf' ? lines.replace(/\n/g, '\r\n') : lines;
+}
 
 // OpenDocument is one tab's buffer. It lives in the frontend because the editor
 // owns the text; Go only reads it from disk and writes it back.
@@ -92,6 +111,15 @@ export interface OpenDocument {
     // sourcePath is the file a diff tab is showing. It is empty for every other
     // kind, and kept apart from path so a diff never looks saveable.
     sourcePath?: string;
+    // bom records a UTF-8 byte order mark stripped when the file was loaded;
+    // saving writes it back.
+    bom: boolean;
+    // eol is the file's line ending. The editor model is set to it, so its
+    // text already uses the same sequence when it is saved.
+    eol: DocumentEOL;
+    // invalidUTF8 marks a buffer whose file was not valid UTF-8. Its original
+    // bytes became U+FFFD, and a save asks before writing those back.
+    invalidUTF8: boolean;
 }
 
 // UNTITLED_PREFIX starts the id of a buffer that has no file yet. Its id is not
@@ -127,6 +155,9 @@ export function createDiffDocument(path: string, diff: string): OpenDocument {
         modified: 0,
         dirty: false,
         sourcePath: path,
+        bom: false,
+        eol: 'lf',
+        invalidUTF8: false,
     };
 }
 
@@ -159,6 +190,9 @@ export function createUntitledDocument(tabs: readonly OpenDocument[]): OpenDocum
         src: '',
         modified: 0,
         dirty: false,
+        bom: false,
+        eol: 'lf',
+        invalidUTF8: false,
     };
 }
 
@@ -177,6 +211,9 @@ export function toOpenDocument(document: models.Document): OpenDocument {
         src: document.src,
         modified: document.modified,
         dirty: false,
+        bom: document.bom,
+        eol: document.eol === 'crlf' ? 'crlf' : 'lf',
+        invalidUTF8: document.invalid_utf8,
     };
 }
 
@@ -195,6 +232,9 @@ export function toBufferDocument(buffer: LaunchBuffer): OpenDocument {
             modified: 0,
             dirty: false,
             sourcePath: buffer.source_path,
+            bom: false,
+            eol: 'lf',
+            invalidUTF8: false,
         };
     }
     return {
@@ -207,6 +247,9 @@ export function toBufferDocument(buffer: LaunchBuffer): OpenDocument {
         src: '',
         modified: buffer.modified,
         dirty: buffer.dirty,
+        bom: buffer.bom,
+        eol: buffer.eol === 'crlf' ? 'crlf' : 'lf',
+        invalidUTF8: buffer.invalid_utf8,
     };
 }
 

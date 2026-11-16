@@ -25,6 +25,11 @@ type LaunchBuffer struct {
 	Modified     int64  `json:"modified"`
 	Dirty        bool   `json:"dirty"`
 	SourcePath   string `json:"source_path"`
+	// BOM, EOL and InvalidUTF8 travel with a text buffer so the receiving
+	// window saves it back byte-for-byte the way the first one would.
+	BOM         bool   `json:"bom"`
+	EOL         string `json:"eol"`
+	InvalidUTF8 bool   `json:"invalid_utf8"`
 }
 
 // LaunchRequest is what a command line invocation asked the app to open. It travels

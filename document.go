@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -26,6 +27,15 @@ const (
 	documentKindImage = "image"
 )
 
+// Line endings a text document can ask for. Monaco normalizes mixed endings to
+// one of these, and SaveDocument writes the buffer back the way it was read.
+const (
+	documentEOLlf   = "lf"
+	documentEOLcrlf = "crlf"
+)
+
+const byteOrderMark = "\uFEFF"
+
 // Document is a file opened in the editor. File I/O lives in Go so the
 // frontend never touches the filesystem. Content holds text for text documents;
 // Src holds a data URL for images.
@@ -41,6 +51,16 @@ type Document struct {
 	// the value travels through JavaScript, whose numbers lose precision above
 	// 2^53.
 	Modified int64 `json:"modified"`
+	// BOM records a UTF-8 byte order mark that was stripped from the content.
+	// SaveDocument puts it back so a round trip never rewrites the file's
+	// encoding.
+	BOM bool `json:"bom"`
+	// EOL is the file's line ending: "lf" or "crlf". Mixed endings are
+	// reported as whichever comes first and are normalized to it on save.
+	EOL string `json:"eol"`
+	// InvalidUTF8 marks content that was not valid UTF-8. The bytes became
+	// replacement characters, and a save must warn before it drops them.
+	InvalidUTF8 bool `json:"invalid_utf8"`
 }
 
 // imageMIMETypes are the formats the viewer can display, keyed by lower-case
@@ -63,9 +83,11 @@ func imageMIMEType(path string) (string, bool) {
 }
 
 // LoadDocument reads a file for the editor. Directories, special files,
-// oversized files and non-UTF-8 content are rejected with a message the UI can
-// show as-is, instead of rendering garbage. Supported image formats are
-// returned as a data URL for the image viewer.
+// oversized files and binary content are rejected with a message the UI can
+// show as-is, instead of rendering garbage. Text that is merely not valid UTF-8
+// still opens with replacement characters and is flagged, because refusing a
+// small mis-encoded log would be less useful than showing it. Supported image
+// formats are returned as a data URL for the image viewer.
 func (a *App) LoadDocument(path string) (Document, error) {
 	return loadDocument(path)
 }
@@ -99,17 +121,53 @@ func loadDocument(path string) (Document, error) {
 	if err != nil {
 		return Document{}, err
 	}
-	if !utf8.Valid(data) {
+	data, bom := stripBOM(data)
+	// A NUL byte is what actually distinguishes a binary from mis-encoded text:
+	// every other byte sequence is either valid UTF-8 or recoverable with
+	// replacement characters.
+	if bytes.IndexByte(data, 0) >= 0 {
 		return Document{}, fmt.Errorf("%s is not a text file", name)
+	}
+	invalid := !utf8.Valid(data)
+	content := string(data)
+	if invalid {
+		content = strings.ToValidUTF8(content, "\uFFFD")
 	}
 
 	return Document{
-		Path:     path,
-		Name:     name,
-		Kind:     documentKindText,
-		Content:  string(data),
-		Modified: modified,
+		Path:        path,
+		Name:        name,
+		Kind:        documentKindText,
+		Content:     content,
+		Modified:    modified,
+		BOM:         bom,
+		EOL:         detectEOL(data),
+		InvalidUTF8: invalid,
 	}, nil
+}
+
+// stripBOM removes a UTF-8 byte order mark. It reports whether one was there so
+// a save can write it back.
+func stripBOM(data []byte) ([]byte, bool) {
+	if bytes.HasPrefix(data, []byte(byteOrderMark)) {
+		return data[len(byteOrderMark):], true
+	}
+	return data, false
+}
+
+// detectEOL reports the first line ending in the file, defaulting to LF for a
+// file without one. Mixed endings are normalized to that choice on save.
+func detectEOL(data []byte) string {
+	for i, b := range data {
+		if b != '\n' {
+			continue
+		}
+		if i > 0 && data[i-1] == '\r' {
+			return documentEOLcrlf
+		}
+		return documentEOLlf
+	}
+	return documentEOLlf
 }
 
 // loadImage reads an image and returns it as a data URL. Sending the bytes
