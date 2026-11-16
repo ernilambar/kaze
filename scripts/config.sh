@@ -4,7 +4,7 @@
 # Called by scripts/dev.sh and scripts/bundle.sh (and sourced by CI), so the
 # product name and version exist in exactly one place: build/config.yml, which
 # also feeds the bundle's Info.plist. about.go embeds the same file for the app
-# menu and `kova --version`.
+# menu and the CLI's `--version`.
 
 # read_info prints one scalar from the top-level `info:` block in build/config.yml.
 # The file is YAML; only these scalars are read outside the wails3 CLI, so awk
@@ -26,7 +26,7 @@ read_info() {
 }
 
 # bundle_executable prints the Mach-O name inside the .app bundle, which is also
-# the bundle's file name (kova.app).
+# the bundle's file name (<name>.app).
 bundle_executable() {
     plutil -extract CFBundleExecutable raw -o - "${1:-build/darwin/Info.plist}"
 }

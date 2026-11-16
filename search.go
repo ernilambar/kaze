@@ -166,7 +166,7 @@ func (a *App) ReplaceInProject(request SearchRequest) (ReplaceResult, error) {
 		if changed {
 			result.Files++
 			// The watcher sees this write too; treat it as the new baseline so
-			// Kova's own change is not reported back to the window.
+			// the app's own change is not reported back to the window.
 			a.watcher.rebaseline(path)
 		}
 		result.Matches += matches

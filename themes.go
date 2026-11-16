@@ -177,7 +177,7 @@ type themeEntry struct {
 
 // loadThemeEntries reads the built-in family first, then every user file in
 // filename order. A later file overrides an earlier variant with the same name,
-// so a user's kova.json shadows the embedded one.
+// so a user file with a built-in variant's name shadows the embedded one.
 func loadThemeEntries(dir string) ([]themeEntry, []string) {
 	entries := make([]themeEntry, 0)
 	problems := make([]string, 0)
