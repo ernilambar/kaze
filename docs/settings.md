@@ -1,123 +1,77 @@
 # Settings
 
 Kaze reads `~/Library/Application Support/Kaze/settings.json`, creating it with
-defaults on first run. A partial file is valid: missing keys keep their
-defaults, and unknown keys are ignored.
+defaults on first run. Missing keys keep their defaults; unknown keys are
+ignored. Edit it from **Settings…** (`⌘,`); hand edits need a restart.
 
 ## Editor
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `editor.font_family` | string | `Menlo` | Editor font; empty falls back to `Menlo`. |
-| `editor.font_size` | number | `13` | Font size in pixels. |
-| `editor.font_weight` | number | `400` | CSS font weight. |
-| `editor.tab_size` | number | `4` | Columns per tab and indent level. |
-| `editor.hard_tabs` | boolean | `false` | Insert tab characters instead of spaces. |
-| `editor.ligatures` | boolean | `false` | Render font ligatures. |
-| `editor.cursor_width` | number | `1` | Line cursor width in pixels. |
-| `editor.cursor_blink` | boolean | `true` | Blink the cursor. |
-| `editor.cursor_surrounding_lines` | number | `0` | Lines kept visible above and below the cursor. |
-| `editor.scroll_beyond_last_line` | boolean | `true` | Allow scrolling past the last line. |
-| `editor.ensure_final_newline` | boolean | `false` | Add a trailing newline on save. |
-| `editor.word_wrap` | boolean | `true` | Wrap long lines. |
-| `editor.invisible_characters` | boolean | `false` | Draw spaces, tabs, and line ends. |
-| `editor.line_numbers` | boolean | `true` | Show the line-number gutter. |
-| `editor.indent_guides` | boolean | `true` | Draw indent guides. |
-| `editor.code_folding` | boolean | `true` | Show folding controls. |
-| `editor.auto_close_brackets` | boolean | `true` | Close brackets and quotes while typing. |
-| `editor.smart_indent` | boolean | `true` | Follow the previous line's indentation and brackets. |
-
-The View menu's checkboxes write `word_wrap` through `code_folding`; the last two
-are toggled from Settings or the command palette.
+| Key | Default | Description |
+| --- | --- | --- |
+| `editor.font_family` | `Menlo` | Editor font. |
+| `editor.font_size` | `13` | Font size in pixels. |
+| `editor.font_weight` | `400` | CSS font weight. |
+| `editor.tab_size` | `4` | Columns per indent. |
+| `editor.hard_tabs` | `false` | Indent with tabs. |
+| `editor.ligatures` | `false` | Font ligatures. |
+| `editor.cursor_width` | `1` | Cursor width in pixels. |
+| `editor.cursor_blink` | `true` | Blink the cursor. |
+| `editor.cursor_surrounding_lines` | `0` | Lines kept visible around the cursor. |
+| `editor.scroll_beyond_last_line` | `true` | Scroll past the last line. |
+| `editor.ensure_final_newline` | `false` | Add a trailing newline on save. |
+| `editor.word_wrap` | `true` | Wrap long lines. |
+| `editor.invisible_characters` | `false` | Draw whitespace. |
+| `editor.line_numbers` | `true` | Line-number gutter. |
+| `editor.indent_guides` | `true` | Indent guides. |
+| `editor.code_folding` | `true` | Folding controls. |
+| `editor.auto_close_brackets` | `true` | Close brackets and quotes. |
+| `editor.smart_indent` | `true` | Indent from context. |
 
 ## Sidebar
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `sidebar.visible` | boolean | `true` | Show the sidebar; **Toggle Sidebar** (`⌘B`) writes it. |
-| `sidebar.auto_reveal` | boolean | `true` | Expand the tree to the active file on tab change. |
-
-The open folders themselves are not settings; `session.json` keeps them, and
-adding a folder with the sidebar's `+`, **File → Add Folder to Sidebar…**
-(`⌃⌘O`), or `kaze .` updates that list.
+| Key | Default | Description |
+| --- | --- | --- |
+| `sidebar.visible` | `true` | Show the sidebar (`⌘B`). |
+| `sidebar.auto_reveal` | `true` | Reveal the active file in the tree. |
 
 ## Excludes
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `files.exclude` | string[] | `[".git", ".hg", ".svn", "node_modules", ".DS_Store"]` | Hidden from the tree and Quick Open. |
-| `search.exclude` | string[] | same list | Extra paths skipped by Find in Files; `files.exclude` applies too. |
+| Key | Default | Description |
+| --- | --- | --- |
+| `files.exclude` | `[".git", ".hg", ".svn", "node_modules", ".DS_Store"]` | Hidden from the tree and Quick Open. |
+| `search.exclude` | same list | Also skipped by Find in Files. |
 
-Patterns are globs matched against a path relative to a sidebar root:
+Globs, relative to a sidebar root:
 
-- A bare name (`node_modules`, `*.log`) matches at any depth.
-- A leading slash (`/dist`) anchors it to the root.
-- A slash elsewhere (`build/output`, `src/**`) makes it root-relative; `**`
-  spans directories.
-- A trailing slash (`dist/`) matches folders only.
+- `node_modules`, `*.log` — any depth.
+- `/dist` — anchored to the root; `**` spans directories.
+- `dist/` — folders only.
 
-Find in Files also honours every `.gitignore` it walks past and never descends
-into `.git`, `.hg`, or `.svn`. The panel's include/exclude fields narrow one
-search. Entries are trimmed, blanks dropped, and duplicates removed.
+Find in Files also honours `.gitignore`.
 
 ## Appearance
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `theme.mode` | string | `dark` | `system` follows macOS; otherwise `light` or `dark`. |
-| `theme.light` | string | `Kaze Light` | Theme variant used for light appearance. |
-| `theme.dark` | string | `Kaze Dark` | Theme variant used for dark appearance. |
+| Key | Default | Description |
+| --- | --- | --- |
+| `theme.mode` | `dark` | `system`, `light` or `dark`. |
+| `theme.light` | `Kaze Light` | Light theme variant. |
+| `theme.dark` | `Kaze Dark` | Dark theme variant. |
 
-Theme names are the `name` fields inside the Zed theme files in the `themes/`
-folder beside `settings.json`. Kaze writes the built-in `kaze.json` there on
-first use. A missing or unknown name falls back to the first theme for that
-appearance.
+Themes are Zed theme files in `themes/` beside `settings.json`; names are their
+`name` fields.
 
 ## Interface
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `ui.font_family` | string | `""` | Chrome font; empty uses the system UI font. |
-| `ui.font_size` | number | `13` | Chrome text size in pixels, clamped to 9–48. |
-| `ui.tab_icons` | boolean | `true` | Show file icons in the tab bar. |
-| `ui.icon_style` | string | `colorful` | `colorful` or `monochrome`. |
-| `ui.sidebar_position` | string | `left` | `left` or `right`. |
+| Key | Default | Description |
+| --- | --- | --- |
+| `ui.font_family` | `""` | Chrome font; empty = system font. |
+| `ui.font_size` | `13` | Chrome text size (9–48). |
+| `ui.tab_icons` | `true` | File icons in tabs. |
+| `ui.icon_style` | `colorful` | `colorful` or `monochrome`. |
+| `ui.sidebar_position` | `left` | `left` or `right`. |
 
-## App-written state
+## Session
 
-`settings.json` holds user configuration only. What the app records about the
-last run lives in `session.json` beside it:
-
-| Key | Description |
-| --- | --- |
-| `sidebar.roots` | Open sidebar folders, in display order. |
-| `frame` | Last window frame, written when the first window closes or the app quits. A frame that is too small or would put the title bar off-screen is ignored. |
-| `recent.files` | Open Recent history, newest first, capped at 20. |
-| `window` | Launch window's workspace, folders, open files, active tab, expanded folders. |
-| `workspaces` | One parked tab set per workspace file, keyed by canonical path, capped at 50. |
-
-Only file-backed tabs are recorded; untitled buffers are not restored. Missing
-files are skipped. A corrupt `session.json` is moved to `session.json.bak` when
-it is read. Version 1 kept the Open Recent list in `settings.json`: reading a
-version-1 file moves that `recent` section here and drops the key. The cleanup
-runs only while `session.json` is missing, empty, corrupt or older than version
-2; a `recent` key sitting beside a current session file, and a `session` key
-written by even older builds, are ignored. The same holds for the `window` frame
-and the `sidebar.folders` list that older builds kept here: both are ignored,
-so delete them by hand if they are still in the file.
-
-## Behaviour
-
-- `font_family` is trimmed. Non-positive editor sizes fall back to their
-  defaults, as do invalid theme/interface values.
-- Malformed JSON is reported in the developer console; Kaze runs with defaults
-  and leaves the file untouched so it can be repaired.
-- Settings are read at startup. Excludes are read again for each folder level
-  and each search. Changes made in the settings panel apply immediately; after
-  editing the file by hand, restart Kaze.
-
-The settings panel (**Settings…**, `⌘,`) covers Editor, Appearance, Interface,
-Files, Sidebar, and Advanced. Advanced opens the settings file, the generated
-`default-settings.json`, the themes folder, and `keybindings.json`. The
-settings file opens with `$VISUAL`, then `$EDITOR`, then the default file
-handler; the editor is launched detached, so use a graphical one.
+Open folders, tabs, window frame and Open Recent are app state, kept in
+`session.json` beside `settings.json` — not settings. Untitled buffers are not
+restored. A corrupt file is moved to `session.json.bak`.
