@@ -24,7 +24,7 @@ loaded (at app startup), so no manual setup is required.
     "cursor_width": 1,
     "cursor_blink": true,
     "cursor_surrounding_lines": 0,
-    "scroll_beyond_last_line": false,
+    "scroll_beyond_last_line": true,
     "ensure_final_newline": false,
     "word_wrap": true,
     "invisible_characters": false,
@@ -63,7 +63,7 @@ loaded (at app startup), so no manual setup is required.
 | `editor.cursor_width` | number | `1` | Width in pixels of the line cursor. |
 | `editor.cursor_blink` | boolean | `true` | Blink the cursor; `false` keeps it solid. |
 | `editor.cursor_surrounding_lines` | number | `0` | Lines always kept visible above and below the cursor. |
-| `editor.scroll_beyond_last_line` | boolean | `false` | Allow scrolling past the last line. |
+| `editor.scroll_beyond_last_line` | boolean | `true` | Allow scrolling past the last line. |
 | `editor.ensure_final_newline` | boolean | `false` | Append a newline on save when the buffer has none. |
 | `editor.word_wrap` | boolean | `true` | Wrap long lines instead of scrolling horizontally. |
 | `editor.invisible_characters` | boolean | `false` | Draw spaces, tabs and line ends. |

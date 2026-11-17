@@ -41,7 +41,7 @@ export const defaultEditorSettings: EditorSettings = {
     cursorWidth: 1,
     cursorBlink: true,
     cursorSurroundingLines: 0,
-    scrollBeyondLastLine: false,
+    scrollBeyondLastLine: true,
     ensureFinalNewline: false,
     wordWrap: true,
     invisibleCharacters: false,

@@ -159,7 +159,7 @@ func defaultSettings() Settings {
 			CursorWidth:            defaultCursorWidth,
 			CursorBlink:            true,
 			CursorSurroundingLines: 0,
-			ScrollBeyondLastLine:   false,
+			ScrollBeyondLastLine:   true,
 			EnsureFinalNewline:     false,
 
 			WordWrap:            true,
