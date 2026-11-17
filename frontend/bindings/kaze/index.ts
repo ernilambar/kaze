@@ -29,8 +29,6 @@ export type {
     SearchRequest,
     SearchResult,
     SearchSettings,
-    SessionSettings,
-    SessionState,
     Settings,
     SidebarSettings,
     ThemeCatalog,
@@ -39,6 +37,8 @@ export type {
     ThemeSettings,
     ThemeSummary,
     UISettings,
+    WindowSession,
     WindowSettings,
-    WorkspaceInfo
+    WorkspaceInfo,
+    WorkspaceSession
 } from "./models.js";

@@ -111,17 +111,27 @@ dropped and duplicates are removed.
 
 ## Recent files and session
 
-Kaze maintains two lists that are normally read, not edited:
+`recent.files` is the only list left in `settings.json`:
 
 | Key | Type | Description |
 | --- | --- | --- |
 | `recent.files` | string[] | Files shown by **File → Open Recent…** (<kbd>Ctrl</kbd>+<kbd>R</kbd>), newest first, capped at 20. |
-| `session.open_files` | string[] | Files reopened on the next launch, capped at 40. |
-| `session.active` | string | File whose tab is active after restoring the session. |
 
-Only tabs backed by a file are recorded: an untitled buffer exists only in
-memory and is not restored empty. Missing files are skipped on restore, so a
-deleted file does not stop the rest of the list.
+Tabs and workspace sessions are app-written state in `session.json`, beside
+`settings.json`, not editable settings:
+
+- `window` holds the launch window's file-backed tabs, active tab, expanded
+  folders and workspace path.
+- `workspaces` parks one tab set per workspace file, keyed by canonical path.
+  Switching to a workspace saves the current set, closes the open tabs after
+  the save prompt, and restores the parked set. Closing a workspace keeps its
+  parked set.
+- Only tabs backed by a file are recorded: an untitled buffer exists only in
+  memory and is not restored empty. Missing files are skipped on restore.
+- A workspace file that moved or was renamed is matched by a unique set of
+  canonical folders when the old file no longer exists; ambiguous matches and
+  existing copies are ignored. The map is capped at 50 workspaces.
+- A corrupt `session.json` is moved to `session.json.bak` before the next write.
 
 The **View** menu's checkable toggles (`word_wrap` through `smart_indent`) are
 written back here whenever you flip them, from the menu or the command palette,
@@ -138,9 +148,9 @@ booleans above, not as a separate UI state.
 - Unknown keys are ignored.
 - Malformed JSON is reported in the developer console; Kaze runs with defaults
   and leaves the file untouched so it can be fixed.
-- Editor values, `sidebar.visible`, `sidebar.auto_reveal`, the recent list and the session are read
-  at startup; excludes are read when a folder level is opened and when a
-  search runs. The settings panel applies changes immediately; after editing
+- Editor values, `sidebar.visible`, `sidebar.auto_reveal` and the recent list
+  are read at startup; excludes are read when a folder level is opened and when
+  a search runs. The settings panel applies changes immediately; after editing
   the file by hand, restart Kaze to reread the editor values or the sidebar.
 
 The settings panel (**Settings…**, <kbd>Cmd</kbd>+<kbd>,</kbd>) edits every
@@ -151,8 +161,9 @@ saved to `settings.json` as they change, and the View menu checkmarks follow the
 panel's toggles. The panel's **Advanced** section links to the JSON file, the default
 settings, the themes folder and the keybindings.
 
-`recent.files` and `session.*` are managed by the app: the Open Recent menu and
-the tab bar are their UI, so the panel does not list them as editable settings.
+`recent.files` is managed by the app: the Open Recent menu is its UI, so the
+panel does not list it as an editable setting. Tabs and workspace sessions live
+in `session.json` instead.
 
 The shortcut launches `$VISUAL`, falling back to `$EDITOR`, and then to the
 platform's default file handler. The value may include arguments, e.g.

@@ -39,6 +39,10 @@ type windowSession struct {
 	// savedFrame is that stored frame, read once when the window is created.
 	restoreGeometry bool
 	savedFrame      WindowSettings
+	// owner marks the one window whose tabs session.json restores and writes
+	// on the next launch. Later windows park workspace tab sets but do not
+	// replace the launch session with their own.
+	owner bool
 	// placed makes the move/size-once before the window is shown idempotent;
 	// the runtime may report readiness more than once.
 	placed atomic.Bool
@@ -105,7 +109,8 @@ func (s *windowSession) allowClose() bool {
 // adopts any request queued before a window existed.
 func (a *App) registerWindow(name string, request LaunchRequest) *windowSession {
 	a.windowsMu.Lock()
-	if len(a.windows) == 0 {
+	first := len(a.windows) == 0
+	if first {
 		request.RestoreSession = true
 		if !a.pending.Empty() {
 			request.Merge(a.pending)
@@ -115,7 +120,8 @@ func (a *App) registerWindow(name string, request LaunchRequest) *windowSession 
 	session := &windowSession{
 		name:            name,
 		pending:         request.normalized(),
-		restoreGeometry: len(a.windows) == 0,
+		restoreGeometry: first,
+		owner:           first,
 	}
 	a.windows[name] = session
 	a.order = append(a.order, name)

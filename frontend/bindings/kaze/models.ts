@@ -398,25 +398,6 @@ export interface SearchSettings {
 }
 
 /**
- * SessionSettings is the set of tabs restored on the next launch. Only tabs
- * backed by a file are recorded: an untitled buffer has no text on disk, and
- * restoring it empty would look like the work was lost.
- */
-export interface SessionSettings {
-    "open_files": string[] | null;
-    "active": string;
-}
-
-/**
- * SessionState is the set of open tabs a relaunch should restore. Only tabs
- * backed by a file are recorded; untitled buffers live only in memory.
- */
-export interface SessionState {
-    "open_files": string[] | null;
-    "active": string;
-}
-
-/**
  * Settings is the contents of the user's settings.json file.
  */
 export interface Settings {
@@ -425,14 +406,13 @@ export interface Settings {
     "files": FilesSettings;
     "search": SearchSettings;
     "recent": RecentSettings;
-    "session": SessionSettings;
     "theme": ThemeSettings;
     "ui": UISettings;
 
     /**
      * Window is the frame the last window of a launch left behind. It is
      * written by the backend, not by the settings overlay, and it is state
-     * rather than a user preference, like the session.
+     * rather than a user preference, like the recent list.
      */
     "window": WindowSettings;
 }
@@ -528,6 +508,22 @@ export interface UISettings {
 }
 
 /**
+ * WindowSession is the state a relaunch restores for one window. It lives in
+ * session.json, never in settings.json or a workspace file. Only tabs backed by
+ * a file are recorded; untitled buffers have no text on disk.
+ */
+export interface WindowSession {
+    /**
+     * Workspace is the workspace file this window is showing, if any.
+     */
+    "workspace": string;
+    "folders": string[] | null;
+    "open_files": string[] | null;
+    "active": string;
+    "expanded": string[] | null;
+}
+
+/**
  * WindowSettings is the saved frame of the main window. An empty struct means
  * no frame has been saved yet, so the next launch starts from the screen-sized
  * default. The size and position are in DIPs, the units Wails reports.
@@ -554,6 +550,21 @@ export interface WorkspaceInfo {
     "path": string;
     "name": string;
     "folders": string[] | null;
+    "session": WorkspaceSession;
+}
+
+/**
+ * WorkspaceSession is the tab set parked under a workspace file. Switching
+ * away parks the current tabs here; switching back restores them. Folders are
+ * the workspace file's resolved roots, used to adopt a session after the file
+ * itself was moved or renamed.
+ */
+export interface WorkspaceSession {
+    "folders": string[] | null;
+    "open_files": string[] | null;
+    "active": string;
+    "expanded": string[] | null;
+    "updated": number;
 }
 
 /**

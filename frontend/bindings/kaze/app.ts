@@ -188,6 +188,15 @@ export function GetSettings(): $CancellablePromise<$models.Settings> {
 }
 
 /**
+ * GetWindowSession returns the tabs this window should restore. Only the first
+ * window of a launch owns the session; later windows start with their own
+ * launch request instead of overwriting it.
+ */
+export function GetWindowSession(window: string): $CancellablePromise<$models.WindowSession> {
+    return $Call.ByID(4187053305, window);
+}
+
+/**
  * InstallCommandLineTool installs the command line launcher in /usr/local/bin, asking
  * for an administrator password when the directory is not writable. It reports
  * the outcome with dialogs, because the app menu and the command palette have no
@@ -233,6 +242,16 @@ export function LoadDocument(path: string): $CancellablePromise<$models.Document
  */
 export function LoadTheme(name: string): $CancellablePromise<$models.ThemePalette> {
     return $Call.ByID(2120010470, name);
+}
+
+/**
+ * LoadWorkspace reads a workspace file and attaches the tab set parked under
+ * it, so opening a workspace from the menu and restoring the last one at
+ * launch follow the same path. An empty session means this workspace has not
+ * been open since session.json was written.
+ */
+export function LoadWorkspace(path: string): $CancellablePromise<$models.WorkspaceInfo> {
+    return $Call.ByID(3689398994, path);
 }
 
 /**
@@ -454,11 +473,12 @@ export function SetAppearanceMode(mode: string): $CancellablePromise<void> {
 }
 
 /**
- * SetSession records the tabs that should reopen on the next launch. The
- * frontend calls it whenever the tab list or the active tab changes.
+ * SetSession records this window's tabs and the workspace they belong to. The
+ * owner window also updates the launch session; every window parks its current
+ * workspace set, so switching workspaces restores the tabs in any window.
  */
-export function SetSession(session: $models.SessionState): $CancellablePromise<void> {
-    return $Call.ByID(2200011365, session);
+export function SetSession(window: string, session: $models.WindowSession): $CancellablePromise<void> {
+    return $Call.ByID(2200011365, window, session);
 }
 
 /**

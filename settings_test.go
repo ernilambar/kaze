@@ -564,13 +564,13 @@ func TestUpdateSettingsFillsEmptySection(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	content := "{\n  \"editor\": {\n    \"font_size\": 12\n  },\n  \"session\": {},\n  \"custom\": { \"keep\": true }\n}\n"
+	content := "{\n  \"editor\": {\n    \"font_size\": 12\n  },\n  \"sidebar\": {},\n  \"custom\": { \"keep\": true }\n}\n"
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := NewApp().SetSession(SessionState{OpenFiles: []string{"/a"}, Active: "/a"}); err != nil {
-		t.Fatalf("SetSession() error = %v", err)
+	if err := NewApp().SetSidebarVisible(false); err != nil {
+		t.Fatalf("SetSidebarVisible() error = %v", err)
 	}
 
 	data, err := os.ReadFile(path)
@@ -581,12 +581,12 @@ func TestUpdateSettingsFillsEmptySection(t *testing.T) {
 	if err := json.Unmarshal(data, &document); err != nil {
 		t.Fatalf("settings file is not valid JSON: %v\n%s", err, data)
 	}
-	var session SessionSettings
-	if err := json.Unmarshal(document["session"], &session); err != nil {
+	var sidebar SidebarSettings
+	if err := json.Unmarshal(document["sidebar"], &sidebar); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(session.OpenFiles, []string{"/a"}) || session.Active != "/a" {
-		t.Errorf("session = %+v, want the written tabs", session)
+	if sidebar.Visible {
+		t.Errorf("sidebar = %+v, want a hidden tree", sidebar)
 	}
 	if _, ok := document["custom"]; !ok {
 		t.Error("the custom section was dropped")

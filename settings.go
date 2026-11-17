@@ -32,12 +32,11 @@ type Settings struct {
 	Files   FilesSettings   `json:"files"`
 	Search  SearchSettings  `json:"search"`
 	Recent  RecentSettings  `json:"recent"`
-	Session SessionSettings `json:"session"`
 	Theme   ThemeSettings   `json:"theme"`
 	UI      UISettings      `json:"ui"`
 	// Window is the frame the last window of a launch left behind. It is
 	// written by the backend, not by the settings overlay, and it is state
-	// rather than a user preference, like the session.
+	// rather than a user preference, like the recent list.
 	Window WindowSettings `json:"window"`
 }
 
@@ -118,14 +117,6 @@ type RecentSettings struct {
 	Files []string `json:"files"`
 }
 
-// SessionSettings is the set of tabs restored on the next launch. Only tabs
-// backed by a file are recorded: an untitled buffer has no text on disk, and
-// restoring it empty would look like the work was lost.
-type SessionSettings struct {
-	OpenFiles []string `json:"open_files"`
-	Active    string   `json:"active"`
-}
-
 // ThemeSettings selects the palette. Mode is system, light or dark; the other
 // two name the variant to use for each appearance. Names are variant names,
 // matching the `name` field inside a Zed theme file.
@@ -148,10 +139,6 @@ type UISettings struct {
 // maxRecentFiles caps the Open Recent list. More than a screenful is never
 // read, and the list is stored in settings.json.
 const maxRecentFiles = 20
-
-// maxSessionFiles caps restored tabs, so a settings file edited by hand cannot
-// make startup open an unbounded number of files.
-const maxSessionFiles = 40
 
 // defaultExcludePatterns is what a first run hides. Version control metadata
 // and installed packages hold thousands of files nobody opens by hand.
@@ -187,7 +174,6 @@ func defaultSettings() Settings {
 		Files:   FilesSettings{Exclude: defaultExcludePatterns()},
 		Search:  SearchSettings{Exclude: defaultExcludePatterns()},
 		Recent:  RecentSettings{Files: []string{}},
-		Session: SessionSettings{OpenFiles: []string{}},
 		Theme: ThemeSettings{
 			Mode:  defaultThemeMode,
 			Light: defaultThemeLight,
@@ -236,12 +222,6 @@ func (s *Settings) normalize() {
 	if len(s.Recent.Files) > maxRecentFiles {
 		s.Recent.Files = s.Recent.Files[:maxRecentFiles]
 	}
-
-	s.Session.OpenFiles = normalizeFileList(s.Session.OpenFiles)
-	if len(s.Session.OpenFiles) > maxSessionFiles {
-		s.Session.OpenFiles = s.Session.OpenFiles[:maxSessionFiles]
-	}
-	s.Session.Active = strings.TrimSpace(s.Session.Active)
 
 	s.Theme.Mode = normalizeThemeMode(s.Theme.Mode)
 	s.Theme.Light = strings.TrimSpace(s.Theme.Light)

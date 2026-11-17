@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -65,7 +66,7 @@ func TestSetSessionPersistsNormalizedState(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	app := NewApp()
 
-	err := app.SetSession(SessionState{
+	err := app.SetSession("", WindowSession{
 		OpenFiles: []string{"/a.txt", " ", "/a.txt", "/b.txt"},
 		Active:    "  /b.txt ",
 	})
@@ -73,16 +74,24 @@ func TestSetSessionPersistsNormalizedState(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	settings, err := app.GetSettings()
+	path, err := sessionFilePath()
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"/a.txt", "/b.txt"}
-	if !reflect.DeepEqual(settings.Session.OpenFiles, want) {
-		t.Fatalf("Session.OpenFiles = %q, want %q", settings.Session.OpenFiles, want)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if settings.Session.Active != "/b.txt" {
-		t.Fatalf("Session.Active = %q, want /b.txt", settings.Session.Active)
+	var state sessionFile
+	if err := json.Unmarshal(data, &state); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"/a.txt", "/b.txt"}
+	if !reflect.DeepEqual(state.Window.OpenFiles, want) {
+		t.Fatalf("Window.OpenFiles = %q, want %q", state.Window.OpenFiles, want)
+	}
+	if state.Window.Active != "/b.txt" {
+		t.Fatalf("Window.Active = %q, want /b.txt", state.Window.Active)
 	}
 }
 

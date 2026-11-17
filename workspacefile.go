@@ -16,9 +16,10 @@ import (
 // workspace file. Folders are resolved absolute paths; Name is the file's base
 // name without the extension, used as the workspace label.
 type WorkspaceInfo struct {
-	Path    string   `json:"path"`
-	Name    string   `json:"name"`
-	Folders []string `json:"folders"`
+	Path    string           `json:"path"`
+	Name    string           `json:"name"`
+	Folders []string         `json:"folders"`
+	Session WorkspaceSession `json:"session"`
 }
 
 // workspaceFile is the on-disk format. Folders are relative to the workspace
@@ -57,7 +58,20 @@ func (a *App) OpenWorkspaceDialog() (WorkspaceInfo, error) {
 	if err != nil || path == "" {
 		return WorkspaceInfo{}, err
 	}
-	return loadWorkspaceFile(path)
+	return a.LoadWorkspace(path)
+}
+
+// LoadWorkspace reads a workspace file and attaches the tab set parked under
+// it, so opening a workspace from the menu and restoring the last one at
+// launch follow the same path. An empty session means this workspace has not
+// been open since session.json was written.
+func (a *App) LoadWorkspace(path string) (WorkspaceInfo, error) {
+	info, err := loadWorkspaceFile(path)
+	if err != nil {
+		return WorkspaceInfo{}, err
+	}
+	info.Session = a.parkedWorkspace(info)
+	return info, nil
 }
 
 // SaveWorkspaceAs asks where to write the current folder list and writes a

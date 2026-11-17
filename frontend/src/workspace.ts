@@ -3,6 +3,8 @@ import {
     AddRecentFile,
     ClearRecentFiles,
     GetSettings,
+    GetWindowSession,
+    LoadWorkspace,
     OpenWorkspaceDialog,
     SaveWorkspaceAs,
     SetSession,
@@ -13,15 +15,48 @@ import {
 import { onWindowEvent } from './windowstate';
 
 // WorkspaceState is the part of settings.json that outlives a window: the
-// sidebar's visibility and reveal behavior, the Open Recent list and the tabs
-// to restore.
+// sidebar's visibility and reveal behavior plus the Open Recent list. Tabs live
+// in session.json, which is app-written state rather than user settings.
 export interface WorkspaceState {
     sidebarVisible: boolean;
     autoReveal: boolean;
     recentFiles: string[];
-    session: {
-        openFiles: string[];
-        active: string;
+}
+
+// SavedWindowSession is one window's session.json entry, normalized so the rest
+// of the frontend never sees nullable arrays.
+export interface SavedWindowSession {
+    workspace: string;
+    folders: string[];
+    openFiles: string[];
+    active: string;
+    expanded: string[];
+}
+
+// SavedWorkspaceSession is the tab set parked under one workspace file.
+export interface SavedWorkspaceSession {
+    folders: string[];
+    openFiles: string[];
+    active: string;
+    expanded: string[];
+}
+
+export function toWindowSession(session: models.WindowSession): SavedWindowSession {
+    return {
+        workspace: session.workspace ?? '',
+        folders: session.folders ?? [],
+        openFiles: session.open_files ?? [],
+        active: session.active ?? '',
+        expanded: session.expanded ?? [],
+    };
+}
+
+export function toWorkspaceSession(session: models.WorkspaceSession): SavedWorkspaceSession {
+    return {
+        folders: session.folders ?? [],
+        openFiles: session.open_files ?? [],
+        active: session.active ?? '',
+        expanded: session.expanded ?? [],
     };
 }
 
@@ -32,10 +67,6 @@ export async function loadWorkspaceState(): Promise<WorkspaceState> {
             sidebarVisible: settings?.sidebar?.visible ?? true,
             autoReveal: settings?.sidebar?.auto_reveal ?? true,
             recentFiles: settings?.recent?.files ?? [],
-            session: {
-                openFiles: settings?.session?.open_files ?? [],
-                active: settings?.session?.active ?? '',
-            },
         };
     } catch (error) {
         console.error('Failed to load workspace state.', error);
@@ -43,8 +74,18 @@ export async function loadWorkspaceState(): Promise<WorkspaceState> {
             sidebarVisible: true,
             autoReveal: true,
             recentFiles: [],
-            session: { openFiles: [], active: '' },
         };
+    }
+}
+
+// loadWindowSession returns the tabs the first window of a launch should
+// restore. Later windows get an empty session from the backend.
+export async function loadWindowSession(window: string): Promise<SavedWindowSession> {
+    try {
+        return toWindowSession(await GetWindowSession(window));
+    } catch (error) {
+        console.error('Failed to load the window session.', error);
+        return { workspace: '', folders: [], openFiles: [], active: '', expanded: [] };
     }
 }
 
@@ -58,11 +99,22 @@ export async function clearRecentFiles(): Promise<string[]> {
     return (await ClearRecentFiles()) ?? [];
 }
 
-// saveSession records the file-backed tabs and the active one. Untitled
-// buffers have no content on disk, so they are left out of the session.
-export async function saveSession(openFiles: readonly string[], active: string): Promise<void> {
-    const session: models.SessionState = { open_files: openFiles.slice(), active };
-    await SetSession(session);
+// saveSession records this window's file-backed tabs, its workspace binding and
+// the folders the tree is showing. The backend also parks the same tab set
+// under the workspace, so switching back restores it. Untitled buffers have no
+// text on disk and are left out.
+export async function saveSession(
+    window: string,
+    session: SavedWindowSession,
+): Promise<void> {
+    const payload: models.WindowSession = {
+        workspace: session.workspace,
+        folders: session.folders.slice(),
+        open_files: session.openFiles.slice(),
+        active: session.active,
+        expanded: session.expanded.slice(),
+    };
+    await SetSession(window, payload);
 }
 
 export async function saveSidebarVisible(visible: boolean): Promise<void> {
@@ -74,9 +126,17 @@ export async function saveSidebarAutoReveal(autoReveal: boolean): Promise<void> 
 }
 
 // openWorkspaceDialog asks for a workspace file and returns its resolved
-// folders. An empty path means the picker was cancelled.
+// folders plus the tab set parked under it. An empty path means the picker was
+// cancelled.
 export async function openWorkspaceDialog(): Promise<models.WorkspaceInfo> {
     return await OpenWorkspaceDialog();
+}
+
+// loadWorkspace reopens the workspace a saved window was showing, without a
+// picker. It validates the file and returns the parked session, which may be
+// empty.
+export async function loadWorkspace(path: string): Promise<models.WorkspaceInfo> {
+    return await LoadWorkspace(path);
 }
 
 // saveWorkspaceAs writes the current roots to a workspace file. An empty path

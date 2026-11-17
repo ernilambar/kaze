@@ -12,8 +12,9 @@ A minimal text editor for macOS.
 - **Welcome screen** — with no open tab, the editor shows the Kaze icon over
   three actions and their shortcuts: New File, Open File and Add Folder.
 - **Workspaces** — Open, Save As and Close; the workspace file keeps folders
-  relative to itself, so it can be committed with the project. VS Code
-  `.code-workspace` files open too (folders only).
+  relative to itself, so it can be committed with the project. Each workspace
+  has its own tab set parked in `session.json`, restored when you switch back.
+  VS Code `.code-workspace` files open too (folders only).
 - **Multiple windows** — New Window, Close Window, Move Tab to New Window,
   Open Folder in New Window and Bring All to Front, alongside Minimize, Zoom and
   Toggle Full Screen from the Window menu or the command palette. Each window

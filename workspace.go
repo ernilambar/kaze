@@ -5,13 +5,6 @@ import (
 	"strings"
 )
 
-// SessionState is the set of open tabs a relaunch should restore. Only tabs
-// backed by a file are recorded; untitled buffers live only in memory.
-type SessionState struct {
-	OpenFiles []string `json:"open_files"`
-	Active    string   `json:"active"`
-}
-
 // AddRecentFile puts path at the top of the Open Recent list, drops an older
 // entry for the same file and returns the new list. The backend owns the list
 // because it outlives the window.
@@ -62,28 +55,6 @@ func (a *App) updateRecentFiles(change func([]string) []string) ([]string, error
 		return settings.Recent.Files, err
 	}
 	return settings.Recent.Files, nil
-}
-
-// SetSession records the tabs that should reopen on the next launch. The
-// frontend calls it whenever the tab list or the active tab changes.
-func (a *App) SetSession(session SessionState) error {
-	path, err := settingsFilePath()
-	if err != nil {
-		return err
-	}
-
-	a.settingsMu.Lock()
-	defer a.settingsMu.Unlock()
-
-	settings, err := loadSettings(path)
-	if err != nil {
-		return err
-	}
-	before := settings.Session
-	settings.Session.OpenFiles = session.OpenFiles
-	settings.Session.Active = session.Active
-	settings.normalize()
-	return writeSettingsSections(path, settings, settingsSection{"session", before, settings.Session})
 }
 
 // SetSidebarVisible records whether the folder tree is showing, so Cmd+B keeps

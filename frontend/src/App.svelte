@@ -194,6 +194,8 @@
     import {
         clearRecentFiles,
         listenForWatchedChanges,
+        loadWindowSession,
+        loadWorkspace,
         loadWorkspaceState,
         openWorkspaceDialog,
         rememberRecentFile,
@@ -201,8 +203,10 @@
         saveSidebarAutoReveal,
         saveSidebarVisible,
         saveWorkspaceAs,
+        toWorkspaceSession,
         watchPaths,
-        type WorkspaceState,
+        type SavedWindowSession,
+        type SavedWorkspaceSession,
     } from './workspace';
     import { listenForWorkspaceCommands, type CopyPathKind } from './workspacecommands';
     import { resolveWindowName, setWindowName } from './windowstate';
@@ -301,10 +305,16 @@
     let expandedPaths = $state<string[]>([]);
     let treeRefreshToken = $state(0);
     let sessionReady = $state(false);
-    // Only the window that restored the saved tabs writes the session back.
-    // Other windows have their own tabs and must not replace it with an empty
-    // or partial list.
+    // Only the window that restored the saved tabs owns session.json's launch
+    // entry. Later windows have their own tabs and must not replace it, though
+    // they still park their workspace tab sets.
     let sessionOwner = $state(false);
+    // sessionSuspended stops the live session writer while a workspace switch
+    // or close is moving tabs, so the state between the two tab lists is never
+    // written to disk. It is reactive because the save effect returns before it
+    // subscribes to the tab list when suspended; clearing it must run the
+    // effect again.
+    let sessionSuspended = $state(false);
     // closedTabs is the Reopen Closed Tab stack. It is never rendered, so it
     // stays a plain array instead of reactive state.
     let closedTabs: ClosedTab[] = [];
@@ -1781,10 +1791,100 @@
         }
     }
 
-    // openWorkspaceFromDialog replaces the sidebar roots with the folders in
-    // the picked file. Open tabs stay open; a workspace only changes the tree.
+    // restoreWorkspaceTabs opens the file-backed tabs parked under a workspace.
+    // Missing files are skipped, so one deleted file does not stop the rest.
+    async function restoreWorkspaceTabs(session: SavedWorkspaceSession): Promise<void> {
+        for (const path of session.openFiles) {
+            if (findDocumentByPath(tabs, path) !== undefined) {
+                continue;
+            }
+            const opened = await readDocument(path);
+            if (opened === undefined) {
+                continue;
+            }
+            showDocument(opened, false);
+        }
+        const restoredActive = findDocumentByPath(tabs, session.active);
+        if (restoredActive !== undefined) {
+            activeId = restoredActive.id;
+        }
+    }
+
+    // clearWorkspaceTabs drops every document tab and the Find Results tab.
+    // The old set has already been parked in session.json, and the Reopen
+    // Closed Tab stack is cleared so it cannot pull tabs from another
+    // workspace back into this one.
+    function clearWorkspaceTabs(): void {
+        tabs = [];
+        activeId = '';
+        closedTabs = [];
+        if (searchOpen) {
+            closeSearchTab();
+        }
+    }
+
+    // prepareWorkspaceSwitch is the one prompt before a switch replaces the
+    // tab set. Saving all is the default because the parked tab set is a
+    // convenience, not a place to discard edits.
+    async function prepareWorkspaceSwitch(title: string, message: string): Promise<boolean> {
+        const dirty = tabs.filter((tab) => tab.dirty);
+        if (dirty.length === 0) {
+            return true;
+        }
+        const answer = await askUnsaved({
+            title,
+            message,
+            details: dirty.map((tab) => tab.path || tab.name),
+            confirmLabel: 'Save All and Continue',
+        });
+        if (answer === 'cancel') {
+            return false;
+        }
+        if (answer === 'save') {
+            return await saveAll();
+        }
+        return true;
+    }
+
+    // switchWorkspace parks the current tabs, replaces the roots and restores
+    // the target workspace's parked tabs. The two tab lists never coexist in
+    // the live session writer.
+    async function switchWorkspace(target: WorkspaceInfo): Promise<boolean> {
+        await persistSession();
+        if (!(await prepareWorkspaceSwitch(
+            'Switch Workspace',
+            'Switching workspaces closes the open tabs. Save them first?',
+        ))) {
+            return false;
+        }
+
+        sessionSuspended = true;
+        let switched = false;
+        try {
+            folders = await setSidebarFolders(target.folders ?? []);
+            activeWorkspace = target;
+            const parked = toWorkspaceSession(target.session);
+            expandedPaths = parked.expanded;
+            clearWorkspaceTabs();
+            await restoreWorkspaceTabs(parked);
+            switched = true;
+            notice = '';
+        } catch (error) {
+            notice = errorMessage(error);
+        } finally {
+            sessionSuspended = false;
+        }
+        if (switched) {
+            void refreshGitStatus();
+            await persistSession();
+        }
+        return switched;
+    }
+
+    // openWorkspaceFromDialog replaces the window's workspace with the picked
+    // file. The previous tab set stays parked under its own workspace.
     async function openWorkspaceFromDialog(): Promise<void> {
-        if (busy) {
+        if (busy || unsavedPrompt !== null || confirmPrompt !== null) {
             return;
         }
         busy = true;
@@ -1793,11 +1893,7 @@
             if (workspace.path === '') {
                 return;
             }
-            folders = await setSidebarFolders(workspace.folders ?? []);
-            activeWorkspace = workspace;
-            expandedPaths = [];
-            void refreshGitStatus();
-            notice = '';
+            await switchWorkspace(workspace);
         } catch (error) {
             notice = errorMessage(error);
         } finally {
@@ -1805,10 +1901,10 @@
         }
     }
 
-    // saveWorkspaceAsDialog writes the current roots to a workspace file and
-    // remembers its name for the title and status bars.
+    // saveWorkspaceAsDialog writes the current roots to a workspace file, binds
+    // the window to it and parks the current tabs under the new name.
     async function saveWorkspaceAsDialog(): Promise<void> {
-        if (busy) {
+        if (busy || unsavedPrompt !== null || confirmPrompt !== null) {
             return;
         }
         busy = true;
@@ -1818,6 +1914,7 @@
                 return;
             }
             activeWorkspace = workspace;
+            await persistSession();
             notice = `Saved workspace ${workspace.name}`;
         } catch (error) {
             notice = errorMessage(error);
@@ -1826,17 +1923,42 @@
         }
     }
 
-    // closeWorkspace clears the roots just like Close All Folders, and drops
-    // the workspace file's name from the title bar.
+    // closeWorkspace clears the roots and closes the tabs after the save
+    // prompt. The parked tab set stays in session.json, so reopening the
+    // workspace later restores it.
     async function closeWorkspace(): Promise<void> {
+        if (busy || unsavedPrompt !== null || confirmPrompt !== null) {
+            return;
+        }
+        if (activeWorkspace === null && folders.length === 0) {
+            return;
+        }
+        busy = true;
         try {
-            folders = await closeAllSidebarFolders();
-            activeWorkspace = null;
-            expandedPaths = [];
+            await persistSession();
+            if (!(await prepareWorkspaceSwitch(
+                'Close Workspace',
+                'Closing the workspace closes its tabs. Save them first?',
+            ))) {
+                return;
+            }
+
+            sessionSuspended = true;
+            try {
+                folders = await closeAllSidebarFolders();
+                activeWorkspace = null;
+                expandedPaths = [];
+                clearWorkspaceTabs();
+                notice = '';
+            } finally {
+                sessionSuspended = false;
+            }
             void refreshGitStatus();
-            notice = '';
+            await persistSession();
         } catch (error) {
             notice = errorMessage(error);
+        } finally {
+            busy = false;
         }
     }
 
@@ -3038,7 +3160,7 @@
 
     // restoreSession reopens the files the previous run left open. Missing
     // files are skipped, so one deleted file does not stop the rest.
-    async function restoreSession(session: WorkspaceState['session']): Promise<void> {
+    async function restoreSession(session: SavedWindowSession): Promise<void> {
         for (const path of session.openFiles) {
             if (findDocumentByPath(tabs, path) !== undefined) {
                 continue;
@@ -3052,6 +3174,26 @@
         const restoredActive = findDocumentByPath(tabs, session.active);
         if (restoredActive !== undefined) {
             activeId = restoredActive.id;
+        }
+    }
+
+    // persistSession writes the current window state immediately. The live
+    // effect below covers ordinary tab changes; workspace switching and closing
+    // call this so the old set is on disk before the tab list is replaced.
+    async function persistSession(): Promise<void> {
+        if (windowName === '') {
+            return;
+        }
+        try {
+            await saveSession(windowName, {
+                workspace: activeWorkspace?.path ?? '',
+                folders: [...folders],
+                openFiles: [...sessionFiles],
+                active: sessionActive,
+                expanded: [...expandedPaths],
+            });
+        } catch (error) {
+            console.error('Failed to save the session.', error);
         }
     }
 
@@ -3076,17 +3218,30 @@
         );
     });
 
-    // The session is written whenever the set of file-backed tabs or the active
-    // file changes. Gating on sessionReady keeps startup from overwriting the
-    // saved session with the empty list the app begins with; only the window
-    // that restored it writes, so a new window cannot replace it.
+    // The session is written whenever the file-backed tabs, active file,
+    // workspace binding or expanded set changes. Gating on sessionReady keeps
+    // startup from overwriting the saved session with the empty list the app
+    // begins with. A non-owner window parks its workspace set but never
+    // replaces the launch window's tabs.
     $effect(() => {
-        if (!sessionReady || !sessionOwner) {
+        if (!sessionReady || sessionSuspended || windowName === '') {
             return;
         }
         const files = sessionFiles;
         const activePath = sessionActive;
-        void saveSession(files, activePath).catch((error) =>
+        const workspacePath = activeWorkspace?.path ?? '';
+        const currentFolders = folders;
+        const expanded = expandedPaths;
+        if (!sessionOwner && workspacePath === '') {
+            return;
+        }
+        void saveSession(windowName, {
+            workspace: workspacePath,
+            folders: currentFolders,
+            openFiles: files,
+            active: activePath,
+            expanded,
+        }).catch((error) =>
             console.error('Failed to save the session.', error),
         );
     });
@@ -3155,7 +3310,28 @@
             // not wait for it, and the branch appears when the read lands.
             void refreshGitStatus();
             if (sessionOwner) {
-                await restoreSession(workspace.session);
+                const saved = await loadWindowSession(windowName);
+                if (saved.folders.length > 0) {
+                    try {
+                        folders = await setSidebarFolders(saved.folders);
+                    } catch (error) {
+                        console.error('Failed to restore the sidebar folders.', error);
+                    }
+                }
+                if (saved.workspace !== '') {
+                    try {
+                        const info = await loadWorkspace(saved.workspace);
+                        activeWorkspace = info;
+                        folders = await setSidebarFolders(info.folders ?? []);
+                        void refreshGitStatus();
+                    } catch (error) {
+                        // The workspace file may have moved or been deleted;
+                        // the saved tabs are still worth reopening.
+                        console.error('Failed to restore the workspace.', error);
+                    }
+                }
+                expandedPaths = saved.expanded;
+                await restoreSession(saved);
             }
             // From here on tab changes are saved as the session; before this
             // point an empty list is just startup, not the user closing tabs.

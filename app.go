@@ -45,6 +45,13 @@ type App struct {
 	// would be lost.
 	settingsMu sync.Mutex
 
+	// sessionMu serializes session.json, which every window writes its own
+	// workspace tab set into. sessionLoaded makes the file's first read happen
+	// once; the in-memory copy is then updated under this lock.
+	sessionMu     sync.Mutex
+	sessionLoaded bool
+	sessionStore  sessionFile
+
 	// viewItems are the View menu's checkable items by editor option name. They
 	// are rebuilt with the menu and let a toggle made from the command palette
 	// move the menu's checkmark to match.
