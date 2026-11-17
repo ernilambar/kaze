@@ -72,8 +72,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           archive="$APP_NAME-macos-arm64.zip"
-          # The body is only "app name - version"; release notes live in the
-          # changelog file and are edited there after publishing.
+          # The body is only "app name - version"; edit the release on GitHub
+          # to add notes after publishing.
           gh release create "$GITHUB_REF_NAME" \
             --verify-tag \
             --title "$GITHUB_REF_NAME" \

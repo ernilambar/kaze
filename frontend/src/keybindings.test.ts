@@ -46,6 +46,10 @@ describe('normalizeChord', () => {
 });
 
 describe('chordFromEvent', () => {
+    it('ignores a modifier pressed on its own', () => {
+        expect(chordFromEvent(new KeyboardEvent('keydown', { metaKey: true, key: 'Meta', code: 'MetaLeft' }))).toBe('');
+    });
+
     it('uses the physical key for punctuation', () => {
         const event = new KeyboardEvent('keydown', {
             metaKey: true,

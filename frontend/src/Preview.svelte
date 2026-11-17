@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { Browser } from '@wailsio/runtime';
     import { renderMarkdown } from './markdown';
     import { svgDataUrl, type PreviewKind } from './preview';
 
@@ -14,6 +15,21 @@
 
     let html = $derived(kind === 'markdown' ? renderMarkdown(content) : '');
     let src = $derived(kind === 'svg' ? svgDataUrl(content) : '');
+
+    // A link must never navigate the webview: that would unload the editor and
+    // every unsaved buffer with it. Web and mail links open in the default
+    // app; anything else is ignored.
+    function onPreviewClick(event: MouseEvent): void {
+        const target = event.target instanceof Element ? event.target.closest('a') : null;
+        if (target === null) {
+            return;
+        }
+        event.preventDefault();
+        const href = target.getAttribute('href') ?? '';
+        if (/^(https?|mailto):/i.test(href)) {
+            void Browser.OpenURL(href);
+        }
+    }
 </script>
 
 {#if kind === 'svg'}
@@ -22,7 +38,8 @@
     </div>
 {:else}
     <div class="preview">
-        <article class="preview__page">{@html html}</article>
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+        <article class="preview__page" onclick={onPreviewClick}>{@html html}</article>
     </div>
 {/if}
 

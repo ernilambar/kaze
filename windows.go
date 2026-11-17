@@ -132,24 +132,20 @@ func (a *App) registerWindow(name string, request LaunchRequest) *windowSession 
 // session finds one window by name. An empty name means the caller could not
 // read its own window name; the focused window is the best answer then.
 func (a *App) session(name string) *windowSession {
+	if name == "" {
+		return a.focusedSession()
+	}
 	a.windowsMu.Lock()
 	defer a.windowsMu.Unlock()
-
-	if name != "" {
-		return a.windows[name]
-	}
-	return a.focusedSessionLocked()
+	return a.windows[name]
 }
 
 // focusedSession finds the window the user is looking at. Menu commands act on
 // it because the native menu is shared by every window.
+//
+// Window.Current waits for the main thread, so it runs before windowsMu is
+// taken: shouldQuit runs on the main thread and takes the lock itself.
 func (a *App) focusedSession() *windowSession {
-	a.windowsMu.Lock()
-	defer a.windowsMu.Unlock()
-	return a.focusedSessionLocked()
-}
-
-func (a *App) focusedSessionLocked() *windowSession {
 	if a.wails == nil {
 		return nil
 	}
@@ -157,6 +153,8 @@ func (a *App) focusedSessionLocked() *windowSession {
 	if window == nil {
 		return nil
 	}
+	a.windowsMu.Lock()
+	defer a.windowsMu.Unlock()
 	return a.windows[window.Name()]
 }
 
@@ -380,7 +378,9 @@ func (a *App) saveWindowGeometry(session *windowSession) {
 	if window == nil {
 		return
 	}
-	if primary := a.primarySession(); primary != nil && primary != session {
+	// Once the first window has closed, the frame it saved stays: a later
+	// window that becomes the oldest must not replace it.
+	if !session.owner {
 		return
 	}
 
@@ -468,8 +468,14 @@ func (a *App) requestClose(session *windowSession, reason string) {
 // yet. Each window reports its own state, so closing one never asks about
 // another window's buffers.
 func (a *App) SetUnsavedChanges(window string, unsaved bool) {
-	if session := a.session(window); session != nil {
-		session.unsaved.Store(unsaved)
+	session := a.session(window)
+	if session == nil {
+		return
+	}
+	// New edits after a window answered the quit prompt need a new answer,
+	// or a later window's confirmation would quit over them.
+	if !session.unsaved.Swap(unsaved) && unsaved && a.quitInProgress.Load() {
+		session.confirmed.Store(false)
 	}
 }
 
@@ -532,7 +538,7 @@ func (a *App) ResolveClose(window string, quit bool) {
 	session.closeRequested.Store(false)
 
 	if !quit {
-		if reason == "quit" {
+		if reason == "quit" || a.quitInProgress.Load() {
 			// A cancel abandons the whole quit, including windows that already
 			// answered it; the next Cmd+Q must ask all of them again.
 			a.quitInProgress.Store(false)
@@ -554,6 +560,9 @@ func (a *App) ResolveClose(window string, quit bool) {
 		if session.window != nil {
 			session.window.Close()
 		}
+		// A Cmd+Q pressed while this close prompt was open waited for it;
+		// carry on with the other windows.
+		a.askNextQuit()
 	case "quit":
 		session.confirmed.Store(true)
 		a.askNextQuit()

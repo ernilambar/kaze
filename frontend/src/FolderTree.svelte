@@ -13,6 +13,9 @@
 
     interface Props {
         path: string;
+        // root is the sidebar folder this row belongs to; files.exclude
+        // patterns match paths relative to it. A root row leaves it unset.
+        root?: string;
         name: string;
         depth?: number;
         selectedPath?: string;
@@ -43,6 +46,7 @@
 
     let {
         path,
+        root,
         name,
         depth = 0,
         selectedPath = '',
@@ -68,6 +72,7 @@
     let error = $state('');
     let loaded = $state(false);
     let loading = $state(false);
+    let reloadPending = false;
 
     // dropTarget marks the folder a drag is over, which is also the row that
     // draws the highlight. What is being dragged lives in filetree.ts, because a
@@ -144,18 +149,28 @@
     // folder costs one directory read rather than a walk over the whole tree.
     // Re-expanding forces a refresh, because files outside the app come and go.
     async function ensureLoaded(force = false): Promise<void> {
-        if (loading || (loaded && !force)) {
+        if (loading) {
+            // A forced refresh during a read may be for a change that read
+            // missed; run it once the read finishes.
+            reloadPending ||= force;
+            return;
+        }
+        if (loaded && !force) {
             return;
         }
         loading = true;
         try {
-            entries = await readFolder(path);
+            entries = await readFolder(path, root ?? path);
             loaded = true;
             error = '';
         } catch (failure) {
             error = errorMessage(failure);
         } finally {
             loading = false;
+        }
+        if (reloadPending) {
+            reloadPending = false;
+            await ensureLoaded(true);
         }
     }
 
@@ -198,7 +213,12 @@
             if (selected === '' || !isWithin(path, selected)) {
                 return;
             }
-            open = true;
+            // A folder opened to reveal a file is open like any other: it is
+            // watched and saved in the session.
+            if (!open) {
+                open = true;
+                onExpandedChange?.(path, true);
+            }
             void ensureLoaded();
         });
     }
@@ -299,6 +319,7 @@
                             depth={depth + 1}
                             name={entry.name}
                             path={entry.path}
+                            root={root ?? path}
                             {selectedPath}
                             {refreshToken}
                             {busyPath}

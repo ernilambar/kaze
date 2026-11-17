@@ -151,7 +151,14 @@ export function keyFromEvent(event: KeyboardEvent): string {
 }
 
 // chordFromEvent renders a key press the way keybindings.json writes it.
+const MODIFIER_KEYS = new Set(['Meta', 'Control', 'Alt', 'Shift', 'CapsLock', 'Fn']);
+
 export function chordFromEvent(event: KeyboardEvent): string {
+    // A modifier pressed on its own is not a key yet; treating it as one would
+    // reset a pending chord between Cmd+K and its second key.
+    if (MODIFIER_KEYS.has(event.key)) {
+        return '';
+    }
     const modifiers: string[] = [];
     if (event.metaKey) {
         modifiers.push('cmd');

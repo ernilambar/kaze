@@ -115,3 +115,19 @@ describe('replaceNotice', () => {
         expect(notice).toContain('/a.ts, /b.ts');
     });
 });
+
+describe('replaceText matches the backend', () => {
+    const cases: [string, string, string, string][] = [
+        ['fooOld', 'foo(Old)', '$1New', 'OldNew'],
+        ['abc', 'b', '[$&]', 'a[b]c'],
+        ['abc', 'b', '$$', 'a$c'],
+        ['key=value', '(?<k>\\w+)=(?<v>\\w+)', '$<v>=$<k>', 'value=key'],
+        ['abc', 'b', '$9', 'a$9c'],
+        ['  a\n  b\n', '^\\s+', '', 'a\nb\n'],
+        ['a b\nc d;', 'a[^;]*', 'X', 'X\nc d;'],
+        ['a \r\nb \r\n', '\\s+$', '', 'a\r\nb\r\n'],
+    ];
+    it.each(cases)('replaces %j', (text, pattern, replacement, want) => {
+        expect(replaceText(text, new RegExp(pattern, 'g'), replacement, true)).toBe(want);
+    });
+});

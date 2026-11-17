@@ -2028,6 +2028,11 @@
         showDocument({
             ...restored,
             content: closed.content,
+            // The model's clean baseline is the file's text (nothing for an
+            // untitled buffer), not the edited snapshot, or undo could mark
+            // the reopened edits clean.
+            savedContent:
+                restored.path === '' ? '' : (restored.savedContent ?? restored.content),
             dirty:
                 restored.kind === 'text' &&
                 (restored.dirty || (restored.path === '' && closed.content !== '')),
@@ -2814,9 +2819,22 @@
         return false;
     }
 
+    // reloadIfClean applies a read that was started while the tab was clean.
+    // The user may have typed while it was in flight, and those edits win.
+    function reloadIfClean(id: string, opened: OpenDocument): void {
+        const current = findTab(id);
+        if (current === undefined || current.dirty) {
+            return;
+        }
+        applyReload(id, opened);
+    }
+
     async function refreshOpenDocuments(): Promise<void> {
-        for (const tab of tabs) {
-            if (tab.kind !== 'text' || tab.path === '') {
+        for (const snapshot of tabs) {
+            // Earlier reads await, so the tab may have changed or closed since
+            // the loop started.
+            const tab = findTab(snapshot.id);
+            if (tab === undefined || tab.kind !== 'text' || tab.path === '') {
                 continue;
             }
             if (!tab.dirty) {
@@ -2824,7 +2842,7 @@
                 // saved; the next save reports the conflict instead.
                 const opened = await readDocument(tab.path);
                 if (opened !== undefined) {
-                    applyReload(tab.id, opened);
+                    reloadIfClean(tab.id, opened);
                     continue;
                 }
             }
@@ -2871,7 +2889,7 @@
                 await markDeletedIfGone(tab);
                 continue;
             }
-            applyReload(tab.id, opened);
+            reloadIfClean(tab.id, opened);
         }
         if (refreshTree) {
             treeRefreshToken++;
@@ -3038,7 +3056,7 @@
             treeRefreshToken++;
             await refreshGitStatus();
             await refreshDiffTabs();
-            notice = replaceNotice(result.matches, result.files, result.skipped ?? []);
+            notice = replaceNotice(result.matches, result.files, result.skipped ?? [], result.failed ?? []);
             await runSearch();
         } catch (error) {
             searchError = errorMessage(error);

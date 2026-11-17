@@ -101,7 +101,7 @@ func (a *App) LoadDocument(path string) (Document, error) {
 // so only a file that is really gone marks its tab.
 func (a *App) FileExists(path string) bool {
 	_, err := os.Stat(path)
-	return err == nil
+	return !errors.Is(err, os.ErrNotExist)
 }
 
 func loadDocument(path string) (Document, error) {

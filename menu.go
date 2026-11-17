@@ -14,11 +14,22 @@ type menuBuilder struct {
 	app        *App
 	suppressed map[string]bool
 	claimed    map[string]bool
+	// viewItems and appearanceItems collect the checkable items of the menu
+	// being built. They replace App's maps in one step once it is complete,
+	// because bindings read those maps from other goroutines.
+	viewItems       map[string]*application.MenuItem
+	appearanceItems map[string]*application.MenuItem
 }
 
 func newMenuBuilder(app *App, bindings []Keybinding) *menuBuilder {
 	suppressed, claimed := menuSuppression(bindings)
-	return &menuBuilder{app: app, suppressed: suppressed, claimed: claimed}
+	return &menuBuilder{
+		app:             app,
+		suppressed:      suppressed,
+		claimed:         claimed,
+		viewItems:       map[string]*application.MenuItem{},
+		appearanceItems: map[string]*application.MenuItem{},
+	}
 }
 
 // item adds a plain command item. id may be empty for non-command rows such as
@@ -350,7 +361,7 @@ func viewMenu(m *application.Menu, app *App, b *menuBuilder, editor EditorSettin
 		modeValue := mode.id[len("appearance-"):]
 		item := appearance.AddRadio(mode.label, theme.Mode == modeValue)
 		item.OnClick(func(*application.Context) { app.emitAppearance(modeValue) })
-		app.appearanceItems[modeValue] = item
+		b.appearanceItems[modeValue] = item
 	}
 	b.item(appearance, "settings", "Color Theme…", "", func(*application.Context) {
 		app.emitSettingsOverlay()
@@ -364,7 +375,7 @@ func viewMenu(m *application.Menu, app *App, b *menuBuilder, editor EditorSettin
 		item.OnClick(func(ctx *application.Context) {
 			app.emitToggleView(option.name, ctx.IsChecked())
 		})
-		app.viewItems[option.name] = item
+		b.viewItems[option.name] = item
 	}
 }
 
@@ -411,9 +422,6 @@ func buildMenu(
 	theme ThemeSettings,
 	bindings []Keybinding,
 ) *application.Menu {
-	app.viewItems = map[string]*application.MenuItem{}
-	app.appearanceItems = map[string]*application.MenuItem{}
-
 	builder := newMenuBuilder(app, bindings)
 	menu := wailsApp.NewMenu()
 	appMenu(menu.AddSubmenu(app.meta.ProductName), app.meta.ProductName, app, builder)
@@ -422,6 +430,11 @@ func buildMenu(
 	selectionMenu(menu.AddSubmenu("Selection"), app, builder)
 	viewMenu(menu.AddSubmenu("View"), app, builder, editor, theme)
 	windowMenu(menu.AddSubmenu("Window"), app, builder)
+
+	app.menuItemsMu.Lock()
+	app.viewItems = builder.viewItems
+	app.appearanceItems = builder.appearanceItems
+	app.menuItemsMu.Unlock()
 	return menu
 }
 

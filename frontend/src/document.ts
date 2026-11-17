@@ -145,6 +145,36 @@ export const UNTITLED_PREFIX = 'untitled:';
 // own language and read-only mode instead of treating them as files.
 export const DIFF_PREFIX = 'diff:';
 
+// TAB_COPY_SEPARATOR splits a tab id from the counter that keeps it unique. A
+// tab keeps its id through Save As and rename, so a later tab built from the
+// same path or name would otherwise share its Monaco model. NUL cannot appear
+// in a macOS path or a buffer name.
+export const TAB_COPY_SEPARATOR = '\u0000';
+
+// uniqueTabId returns id, or id with the first free counter when another tab
+// already holds it.
+export function uniqueTabId(tabs: readonly { id: string }[], id: string): string {
+    const taken = new Set(tabs.map((tab) => tab.id));
+    if (!taken.has(id)) {
+        return id;
+    }
+    for (let copy = 2; ; copy++) {
+        const candidate = `${id}${TAB_COPY_SEPARATOR}${copy}`;
+        if (!taken.has(candidate)) {
+            return candidate;
+        }
+    }
+}
+
+// splitTabKey separates the id a tab was built from and its uniqueness
+// counter ('' when there is none).
+export function splitTabKey(key: string): { base: string; copy: string } {
+    const index = key.indexOf(TAB_COPY_SEPARATOR);
+    return index === -1
+        ? { base: key, copy: '' }
+        : { base: key.slice(0, index), copy: key.slice(index + TAB_COPY_SEPARATOR.length) };
+}
+
 export function diffTabId(path: string): string {
     return `${DIFF_PREFIX}${path}`;
 }
@@ -183,11 +213,19 @@ const UNTITLED_NAME = /^Untitled-(\d+)$/;
 // open, so closing Untitled-1 and making another one never makes two tabs look
 // alike while both exist.
 export function nextUntitledName(tabs: readonly OpenDocument[]): string {
+    // A buffer saved as a file keeps its untitled id, so ids count as well as
+    // names: a new buffer must not reuse either.
     let highest = 0;
     for (const tab of tabs) {
-        const match = UNTITLED_NAME.exec(tab.name);
-        if (match !== null) {
-            highest = Math.max(highest, Number(match[1]));
+        const candidates = [tab.name, splitTabKey(tab.id).base.slice(UNTITLED_PREFIX.length)];
+        if (!tab.id.startsWith(UNTITLED_PREFIX)) {
+            candidates.pop();
+        }
+        for (const candidate of candidates) {
+            const match = UNTITLED_NAME.exec(candidate);
+            if (match !== null) {
+                highest = Math.max(highest, Number(match[1]));
+            }
         }
     }
     return `Untitled-${highest + 1}`;

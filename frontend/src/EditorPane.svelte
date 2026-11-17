@@ -225,10 +225,12 @@
             // A buffer that was never displayed has no model to disagree with.
             return true;
         }
+        // The file holds saved now, whatever the buffer did meanwhile, so it is
+        // the baseline: undoing back to the older text must read as modified.
+        savedTexts.set(key, saved);
         if (model.getValue() !== saved) {
             return false;
         }
-        savedTexts.set(key, saved);
         onDirtyChange?.(key, false);
         return true;
     }

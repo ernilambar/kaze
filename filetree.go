@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -126,8 +127,10 @@ func (a *App) RenamePath(path, target string) (FileTreeResult, error) {
 			_ = os.RemoveAll(next)
 			return FileTreeResult{}, fmt.Errorf("rename %s: %w", filepath.Base(path), copyErr)
 		}
+		// The complete copy is the file now; tabs must follow it even when
+		// part of the source could not be removed and stays visible.
 		if removeErr := os.RemoveAll(path); removeErr != nil {
-			return FileTreeResult{}, fmt.Errorf("rename %s: %w", filepath.Base(path), removeErr)
+			log.Printf("rename %s: remove source after copy: %v", path, removeErr)
 		}
 	}
 	return treeResult(next)
@@ -197,12 +200,18 @@ func (a *App) CopyPath(path, targetDir string) (FileTreeResult, error) {
 	if source == "" || source == "." {
 		return FileTreeResult{}, errors.New("no path to copy")
 	}
-	if _, err := os.Lstat(source); err != nil {
+	info, err := os.Lstat(source)
+	if err != nil {
 		return FileTreeResult{}, fmt.Errorf("copy %s: %w", filepath.Base(source), err)
 	}
 	dir, err := directoryTarget(targetDir)
 	if err != nil {
 		return FileTreeResult{}, err
+	}
+	// The copy would land inside the tree being read and copy itself again,
+	// without end.
+	if info.IsDir() && isWithinPath(source, dir) {
+		return FileTreeResult{}, errors.New("a folder cannot be copied inside itself")
 	}
 	target, err := uniqueCopyPath(filepath.Join(dir, filepath.Base(source)))
 	if err != nil {
@@ -252,8 +261,10 @@ func (a *App) MovePath(path, targetDir string) (FileTreeResult, error) {
 			_ = os.RemoveAll(target)
 			return FileTreeResult{}, fmt.Errorf("move %s: %w", filepath.Base(source), copyErr)
 		}
+		// The complete copy is the file now; tabs must follow it even when
+		// part of the source could not be removed and stays visible.
 		if removeErr := os.RemoveAll(source); removeErr != nil {
-			return FileTreeResult{}, fmt.Errorf("move %s: %w", filepath.Base(source), removeErr)
+			log.Printf("move %s: remove source after copy: %v", source, removeErr)
 		}
 	}
 	return treeResult(target)
@@ -362,6 +373,10 @@ func isWithinPath(folder, path string) bool {
 func uniqueCopyPath(path string) (string, error) {
 	dir, name := filepath.Split(path)
 	ext := filepath.Ext(name)
+	// A dotfile such as .env is all name: its copy is ".env copy".
+	if ext == name {
+		ext = ""
+	}
 	stem := strings.TrimSuffix(name, ext)
 	for index := 0; index < 1000; index++ {
 		suffix := ""
@@ -407,13 +422,19 @@ func copyPath(source, target string) error {
 		return os.Symlink(link, target)
 	case info.IsDir():
 		return copyTree(source, target, info)
-	default:
+	case info.Mode().IsRegular():
 		return copyFile(source, target, info)
+	default:
+		// Opening a named pipe blocks until a writer appears, and a socket or
+		// device has no contents to copy.
+		return fmt.Errorf("%s is not a regular file", filepath.Base(source))
 	}
 }
 
 func copyTree(source, target string, info os.FileInfo) error {
-	if err := os.MkdirAll(target, info.Mode().Perm()); err != nil {
+	// The folder stays writable while its children are copied in; a read-only
+	// source gets its own mode back afterwards.
+	if err := os.MkdirAll(target, 0o700); err != nil {
 		return err
 	}
 	entries, err := os.ReadDir(source)
@@ -426,7 +447,7 @@ func copyTree(source, target string, info os.FileInfo) error {
 			return err
 		}
 	}
-	return nil
+	return os.Chmod(target, info.Mode().Perm())
 }
 
 func copyFile(source, target string, info os.FileInfo) error {
@@ -441,6 +462,11 @@ func copyFile(source, target string, info os.FileInfo) error {
 		return err
 	}
 	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	// A move deletes the source next; the copy must be on disk first.
+	if err := out.Sync(); err != nil {
 		out.Close()
 		return err
 	}

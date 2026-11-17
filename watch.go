@@ -43,6 +43,11 @@ func (w *fileWatcher) set(window string, paths []string) {
 			owned[path] = true
 		}
 	}
+	// Stat before locking: a stalled volume must not block the poll or a save.
+	fresh := make(map[string]watchState, len(owned))
+	for path := range owned {
+		fresh[path] = statWatch(path)
+	}
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -66,7 +71,7 @@ func (w *fileWatcher) set(window string, paths []string) {
 
 	for path := range owned {
 		if _, watched := w.paths[path]; !watched {
-			w.paths[path] = statWatch(path)
+			w.paths[path] = fresh[path]
 		}
 		owners := w.owners[path]
 		if owners == nil {
@@ -107,17 +112,32 @@ func statWatch(path string) watchState {
 // poll compares every watched path with its baseline and returns the paths that
 // changed, grouped by the windows that asked about them. A deleted or recreated
 // path counts as a change, so a tree refresh sees it.
+//
+// The stats run without the lock, so a slow volume delays only the poll. A
+// path dropped or rebaselined meanwhile is left to the next poll.
 func (w *fileWatcher) poll() map[string][]string {
 	w.mu.Lock()
-	defer w.mu.Unlock()
+	snapshot := make(map[string]watchState, len(w.paths))
+	for path, state := range w.paths {
+		snapshot[path] = state
+	}
+	w.mu.Unlock()
 
+	current := make(map[string]watchState, len(snapshot))
+	for path, previous := range snapshot {
+		if state := statWatch(path); state != previous {
+			current[path] = state
+		}
+	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	changed := make(map[string][]string)
-	for path, previous := range w.paths {
-		current := statWatch(path)
-		if current == previous {
+	for path, state := range current {
+		if baseline, watched := w.paths[path]; !watched || baseline != snapshot[path] {
 			continue
 		}
-		w.paths[path] = current
+		w.paths[path] = state
 		for window := range w.owners[path] {
 			changed[window] = append(changed[window], path)
 		}
@@ -128,18 +148,24 @@ func (w *fileWatcher) poll() map[string][]string {
 // rebaseline records a path's current state. Saving writes a file itself, so
 // the writer tells the watcher its own change is not news.
 func (w *fileWatcher) rebaseline(path string) {
+	state := statWatch(path)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if _, watched := w.paths[path]; !watched {
 		return
 	}
-	w.paths[path] = statWatch(path)
+	w.paths[path] = state
 }
 
 // WatchPaths replaces one window's set of files and directories whose external
 // changes it wants to hear about. Calling it the first time starts the polling
 // loop, which runs for the life of the process.
 func (a *App) WatchPaths(window string, paths []string) {
+	// A call still in flight when its window closed would register paths
+	// after forget, and they would be polled for the rest of the process.
+	if window == "" || a.session(window) == nil {
+		return
+	}
 	a.watcher.set(window, paths)
 	a.watchOnce.Do(func() {
 		go a.watchLoop()

@@ -1,5 +1,5 @@
 import * as monaco from 'monaco-editor';
-import { DIFF_PREFIX, UNTITLED_PREFIX } from './document';
+import { DIFF_PREFIX, UNTITLED_PREFIX, splitTabKey } from './document';
 import type { PaletteItem } from './palette';
 import type { EditorSettings } from './settings';
 import { shebangLanguage } from './shebang';
@@ -22,6 +22,14 @@ const IDLE_URI = 'inmemory://model/idle.txt';
 // models can never claim the same document; untitled buffers have no path, so
 // they live in memory under their tab name.
 function modelURI(key: string): monaco.Uri {
+    // A tab whose id another tab already held carries a counter; the query
+    // keeps its model apart while the path still names the file.
+    const { base, copy } = splitTabKey(key);
+    const uri = baseModelURI(base);
+    return copy === '' ? uri : uri.with({ query: `copy=${copy}` });
+}
+
+function baseModelURI(key: string): monaco.Uri {
     if (key === WELCOME_KEY) {
         return monaco.Uri.parse(IDLE_URI);
     }
@@ -191,7 +199,7 @@ export function createModel(
         ? DIFF_LANGUAGE
         : key === WELCOME_KEY
           ? PLAIN_TEXT_LANGUAGE
-          : languageForDocument(key, content);
+          : languageForDocument(splitTabKey(key).base, content);
     const model = monaco.editor.createModel(content, language, modelURI(key));
     model.setEOL(
         eol === 'crlf' ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF,

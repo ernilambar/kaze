@@ -268,3 +268,12 @@ describe('toBufferDocument', () => {
         expect(moved.sourcePath).toBe('/tmp/notes.txt');
     });
 });
+
+describe('untitled ids', () => {
+    it('skips an untitled id still held by a buffer saved under another name', () => {
+        const saved = { ...createUntitledDocument([]), name: 'foo.txt', path: '/x/foo.txt' };
+        const next = createUntitledDocument([saved]);
+        expect(next.id).not.toBe(saved.id);
+        expect(next.name).toBe('Untitled-2');
+    });
+});

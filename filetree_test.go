@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -514,5 +515,84 @@ func TestIsWithinPath(t *testing.T) {
 		if got := isWithinPath(entry.folder, entry.path); got != entry.want {
 			t.Errorf("isWithinPath(%q, %q) = %v, want %v", entry.folder, entry.path, got, entry.want)
 		}
+	}
+}
+
+func TestCopyPathRefusesFolderIntoItself(t *testing.T) {
+	root := t.TempDir()
+	folder := filepath.Join(root, "a")
+	if err := os.MkdirAll(filepath.Join(folder, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	app := &App{}
+	for _, target := range []string{folder, filepath.Join(folder, "sub")} {
+		if _, err := app.CopyPath(folder, target); err == nil {
+			t.Fatalf("CopyPath(%q, %q) succeeded, want an error", folder, target)
+		}
+	}
+}
+
+func TestCopyPathSkipsNamedPipe(t *testing.T) {
+	root := t.TempDir()
+	folder := filepath.Join(root, "a")
+	if err := os.Mkdir(folder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Mkfifo(filepath.Join(folder, "pipe"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dest := filepath.Join(root, "dest")
+	if err := os.Mkdir(dest, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (&App{}).CopyPath(folder, dest); err == nil {
+		t.Fatal("CopyPath with a FIFO succeeded, want an error")
+	}
+}
+
+func TestCopyPathCopiesReadOnlyFolder(t *testing.T) {
+	root := t.TempDir()
+	folder := filepath.Join(root, "ro")
+	if err := os.Mkdir(folder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(folder, "f.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(folder, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	dest := filepath.Join(root, "dest")
+	if err := os.Mkdir(dest, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		os.Chmod(folder, 0o755)
+		os.Chmod(filepath.Join(dest, "ro"), 0o755)
+	})
+	if _, err := (&App{}).CopyPath(folder, dest); err != nil {
+		t.Fatalf("CopyPath() error = %v", err)
+	}
+	info, err := os.Stat(filepath.Join(dest, "ro"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o555 {
+		t.Fatalf("copy mode = %v, want 0555", info.Mode().Perm())
+	}
+}
+
+func TestUniqueCopyPathDotfile(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, ".env")
+	if err := os.WriteFile(path, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := uniqueCopyPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Base(got) != ".env copy" {
+		t.Fatalf("uniqueCopyPath(.env) = %q, want \".env copy\"", filepath.Base(got))
 	}
 }

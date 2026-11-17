@@ -59,6 +59,9 @@ type App struct {
 	// appearanceItems are the Appearance submenu's radio items by mode, so a
 	// change made in the settings overlay moves the menu's checkmark.
 	appearanceItems map[string]*application.MenuItem
+	// menuItemsMu guards both maps: a menu rebuild swaps them while bindings
+	// read them.
+	menuItemsMu sync.Mutex
 	// meta is the bundle metadata, kept so a menu rebuild after a keybindings
 	// edit can use the same product name.
 	meta appMetadata
@@ -242,7 +245,10 @@ func (a *App) UpdateSearchSettings(search SearchSettings) (SearchSettings, error
 // overlay or a custom keybinding.
 func (a *App) SetAppearanceMode(mode string) {
 	mode = normalizeThemeMode(mode)
-	for id, item := range a.appearanceItems {
+	a.menuItemsMu.Lock()
+	items := a.appearanceItems
+	a.menuItemsMu.Unlock()
+	for id, item := range items {
 		item.SetChecked(id == mode)
 	}
 }
@@ -251,7 +257,10 @@ func (a *App) SetAppearanceMode(mode string) {
 // options, so a toggle that runs from the command palette reports its new value
 // here; the menu's own click already moved the checkmark natively.
 func (a *App) SetViewOption(option string, checked bool) {
-	if item, ok := a.viewItems[option]; ok {
+	a.menuItemsMu.Lock()
+	item, ok := a.viewItems[option]
+	a.menuItemsMu.Unlock()
+	if ok {
 		item.SetChecked(checked)
 	}
 }

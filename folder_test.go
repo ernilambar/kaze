@@ -9,7 +9,7 @@ import (
 )
 
 func readFolder(path string) ([]FolderEntry, error) {
-	return readFolderExcluding(path, excludeMatcher{})
+	return readFolderExcluding(path, path, excludeMatcher{})
 }
 
 func TestReadFolderListsDirectoriesFirstThenNames(t *testing.T) {

@@ -279,11 +279,16 @@ export interface PrintRequest {
  * ReplaceResult reports how much Replace All changed. Skipped lists the files
  * whose mtime moved since the search, so the frontend can report them instead
  * of silently leaving a stale replacement behind.
+ * 
+ * Failed names files that could not be read back or written. One failure does
+ * not stop the rest: by then earlier files are already rewritten, and the
+ * summary must describe what happened.
  */
 export interface ReplaceResult {
     "files": number;
     "matches": number;
     "skipped": string[] | null;
+    "failed": string[] | null;
 }
 
 /**

@@ -29,6 +29,10 @@ describe('renderMarkdown', () => {
         expect(renderMarkdown('[bad](javascript:prompt)')).toBe('<p>bad</p>');
     });
 
+    it('drops a script scheme hidden behind control characters', () => {
+        expect(renderMarkdown('[bad](\u0001javascript:alert%281%29)')).toBe('<p>bad</p>');
+    });
+
     it('renders a fenced code block without interpreting its content', () => {
         expect(renderMarkdown('```go\nfmt.Println("<hi>")\n```')).toBe(
             '<pre><code class="language-go">fmt.Println(&quot;&lt;hi&gt;&quot;)</code></pre>',

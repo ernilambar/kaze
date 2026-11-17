@@ -389,7 +389,7 @@ func gitDiffOutput(root, relative string) ([]byte, error) {
 // case here.
 func gitUntrackedDiff(root, relative string) (string, error) {
 	stdout, _, err := gitCommandAllowingDifferences(root,
-		"diff", "--no-index", "--no-color", "--unified=3", "--", "/dev/null", relative)
+		"diff", "--no-index", "--no-color", "--no-ext-diff", "--no-textconv", "--unified=3", "--", "/dev/null", relative)
 	if err != nil {
 		return "", err
 	}
@@ -407,8 +407,12 @@ func gitCommandAllowingDifferences(dir string, args ...string) (stdout []byte, s
 	return runGit(true, dir, args...)
 }
 
+// A repository's own config is untrusted: a cloned or downloaded folder can
+// name a program in core.fsmonitor that every `git status` would run. Kaze only
+// reads, so the hook is switched off for every call.
 func runGit(allowExitOne bool, dir string, args ...string) (stdout []byte, stderr []byte, err error) {
-	command := exec.Command("git", append([]string{"--no-optional-locks", "-C", dir}, args...)...)
+	prefix := []string{"--no-optional-locks", "-c", "core.fsmonitor=false", "-C", dir}
+	command := exec.Command("git", append(prefix, args...)...)
 	command.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_OPTIONAL_LOCKS=0")
 	var out, errOut bytes.Buffer
 	command.Stdout = &out

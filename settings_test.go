@@ -134,22 +134,26 @@ func TestLoadSettingsMalformedFileKeepsContent(t *testing.T) {
 	}
 }
 
-func TestLoadSettingsRewritesEmptyFile(t *testing.T) {
+func TestLoadSettingsReadsEmptyFileAsDefaultsWithoutWriting(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	if err := os.WriteFile(path, []byte(" \n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := loadSettings(path); err != nil {
+	settings, err := loadSettings(path)
+	if err != nil {
 		t.Fatalf("loadSettings() error = %v", err)
+	}
+	if settings.Editor.FontFamily != defaultSettings().Editor.FontFamily {
+		t.Fatalf("font family = %q, want the default", settings.Editor.FontFamily)
 	}
 
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), `"font_family": "Menlo"`) {
-		t.Fatalf("empty settings file was not rewritten with defaults: %q", data)
+	if string(data) != " \n" {
+		t.Fatalf("empty settings file was rewritten: %q", data)
 	}
 }
 

@@ -69,10 +69,15 @@ type SearchRequest struct {
 // ReplaceResult reports how much Replace All changed. Skipped lists the files
 // whose mtime moved since the search, so the frontend can report them instead
 // of silently leaving a stale replacement behind.
+//
+// Failed names files that could not be read back or written. One failure does
+// not stop the rest: by then earlier files are already rewritten, and the
+// summary must describe what happened.
 type ReplaceResult struct {
 	Files   int      `json:"files"`
 	Matches int      `json:"matches"`
 	Skipped []string `json:"skipped"`
+	Failed  []string `json:"failed"`
 }
 
 // SearchProject finds query across the sidebar roots. files.exclude and
@@ -136,7 +141,7 @@ func (a *App) ReplaceInProject(request SearchRequest) (ReplaceResult, error) {
 	for _, path := range request.OpenPaths {
 		open[path] = true
 	}
-	result := ReplaceResult{Skipped: make([]string, 0)}
+	result := ReplaceResult{Skipped: make([]string, 0), Failed: make([]string, 0)}
 	for _, path := range collectSearchFiles(settings, roots, request) {
 		// Only files the search reported are candidates. Without an expected
 		// mtime the frontend did not offer this file for replacement, so a
@@ -151,7 +156,8 @@ func (a *App) ReplaceInProject(request SearchRequest) (ReplaceResult, error) {
 		if open[path] {
 			changed, matches, err := replaceInFile(path, expression, request, false)
 			if err != nil {
-				return result, err
+				result.Failed = append(result.Failed, path)
+				continue
 			}
 			if changed {
 				result.Files++
@@ -161,21 +167,22 @@ func (a *App) ReplaceInProject(request SearchRequest) (ReplaceResult, error) {
 		}
 		conflict, err := changedOnDisk(path, expected)
 		if err != nil {
-			return result, err
+			result.Failed = append(result.Failed, path)
+			continue
 		}
 		if conflict {
 			result.Skipped = append(result.Skipped, path)
 			continue
 		}
+		// The watcher is not rebaselined: this file is not open here, and
+		// another window that has it open must see the change.
 		changed, matches, err := replaceInFile(path, expression, request, true)
 		if err != nil {
-			return result, err
+			result.Failed = append(result.Failed, path)
+			continue
 		}
 		if changed {
 			result.Files++
-			// The watcher sees this write too; treat it as the new baseline so
-			// the app's own change is not reported back to the window.
-			a.watcher.rebaseline(path)
 		}
 		result.Matches += matches
 	}
@@ -381,27 +388,112 @@ func replaceInFile(
 		return false, 0, nil
 	}
 
-	matches := len(expression.FindAllIndex(data, -1))
-	if matches == 0 {
-		return false, 0, nil
-	}
-
-	var replaced []byte
-	if request.Regex {
-		replaced = expression.ReplaceAll(data, []byte(request.Replacement))
-	} else {
-		// A literal query must treat $ in the replacement as text, not as a
-		// capture-group reference.
-		replaced = expression.ReplaceAllLiteral(data, []byte(request.Replacement))
-	}
-	if bytes.Equal(replaced, data) {
+	replaced, matches := replaceLines(data, expression, request.Replacement, request.Regex)
+	if matches == 0 || bytes.Equal(replaced, data) {
 		return false, matches, nil
 	}
 	if !write {
 		return true, matches, nil
 	}
-	if err := os.WriteFile(path, replaced, 0o644); err != nil {
+	if err := atomicWriteFile(path, replaced); err != nil {
 		return false, 0, fmt.Errorf("replace in %s: %w", filepath.Base(path), err)
 	}
 	return true, matches, nil
+}
+
+// replaceLines replaces matches one line at a time, the way searchFile finds
+// them: a pattern never spans lines, ^ and $ hold at each line, and a CRLF
+// ending is left alone. replaceText in search.ts does the same to open
+// buffers, so the disk and the editor end up with the same text.
+func replaceLines(data []byte, expression *regexp.Regexp, replacement string, regex bool) ([]byte, int) {
+	lines := bytes.Split(data, []byte("\n"))
+	out := make([]byte, 0, len(data))
+	total := 0
+	for index, line := range lines {
+		if index > 0 {
+			out = append(out, '\n')
+		}
+		body := bytes.TrimSuffix(line, []byte("\r"))
+		ending := line[len(body):]
+		locations := expression.FindAllSubmatchIndex(body, -1)
+		total += len(locations)
+		last := 0
+		for _, location := range locations {
+			out = append(out, body[last:location[0]]...)
+			if regex {
+				out = expandReplacement(out, replacement, expression, body, location)
+			} else {
+				out = append(out, replacement...)
+			}
+			last = location[1]
+		}
+		out = append(out, body[last:]...)
+		out = append(out, ending...)
+	}
+	return out, total
+}
+
+// expandReplacement appends one regex replacement using JavaScript's
+// String.prototype.replace template, which open buffers are edited with: $$,
+// $&, $`, $', $1–$99 and $<name>. A reference that names no group stays text,
+// as it does in JavaScript.
+func expandReplacement(out []byte, template string, expression *regexp.Regexp, line []byte, match []int) []byte {
+	groups := len(match)/2 - 1
+	group := func(index int) []byte {
+		if match[2*index] < 0 {
+			return nil
+		}
+		return line[match[2*index]:match[2*index+1]]
+	}
+	for i := 0; i < len(template); i++ {
+		if template[i] != '$' || i+1 == len(template) {
+			out = append(out, template[i])
+			continue
+		}
+		next := template[i+1]
+		switch {
+		case next == '$':
+			out = append(out, '$')
+			i++
+		case next == '&':
+			out = append(out, group(0)...)
+			i++
+		case next == '`':
+			out = append(out, line[:match[0]]...)
+			i++
+		case next == '\'':
+			out = append(out, line[match[1]:]...)
+			i++
+		case next >= '0' && next <= '9':
+			// Two digits win when they name a group, as in JavaScript.
+			if i+2 < len(template) && template[i+2] >= '0' && template[i+2] <= '9' {
+				if two := int(next-'0')*10 + int(template[i+2]-'0'); two >= 1 && two <= groups {
+					out = append(out, group(two)...)
+					i += 2
+					continue
+				}
+			}
+			if one := int(next - '0'); one >= 1 && one <= groups {
+				out = append(out, group(one)...)
+				i++
+				continue
+			}
+			out = append(out, '$')
+		case next == '<':
+			end := strings.IndexByte(template[i+2:], '>')
+			index := -1
+			if end >= 0 {
+				index = expression.SubexpIndex(template[i+2 : i+2+end])
+			}
+			if index < 0 {
+				out = append(out, '$')
+				continue
+			}
+			out = append(out, group(index)...)
+			i += 2 + end
+		default:
+			out = append(out, '$')
+		}
+	}
+	return out
 }

@@ -79,7 +79,8 @@ No frontend linter/formatter is configured; don't add one unprompted.
 - **Sidebar is a multi-root folder tree.** `ReadFolder` lists one level;
   `FolderTree.svelte` loads children on first expansion. Roots persist via
   `AddSidebarFolder`/`RemoveSidebarFolder` in `session.json`;
-  `files.exclude` filters the same read. **View → Toggle Sidebar**
+  `files.exclude` filters the same read, matched relative to the row's root
+  (`ReadFolder(path, root)`). **View → Toggle Sidebar**
   (<kbd>Cmd</kbd>+<kbd>B</kbd>) saves `sidebar.visible`. New windows start from
   the saved roots; **Open Folder in New Window…** makes the chosen folder the
   window's only and saved root.
@@ -99,7 +100,8 @@ No frontend linter/formatter is configured; don't add one unprompted.
   `handleFileDrop` and `queueLaunchTo`; `drop.go` splits files/folders; Option
   (`modifier_darwin.go`) opens a new window with the folder as only root.
 - **Tabs are frontend state.** `App.svelte` holds the list and active id;
-  `tabs.ts` has pure open/close rules. A tab has a stable `id`, on-disk
+  `tabs.ts` has pure open/close rules. A tab has a stable `id` (built from path or name; `uniqueTabId` adds a
+  NUL-separated counter when a renamed tab still holds it), on-disk
   `content`, mtime and dirty flag; Save As moves a buffer without losing its
   Monaco model. Tabs match on `realPath` (`LoadDocument`/`SaveDocument` return
   `real_path` via `EvalSymlinks`); `path` keeps the opened spelling. `EditorPane`
@@ -218,11 +220,14 @@ No frontend linter/formatter is configured; don't add one unprompted.
 - **Find in Files is Go-side.** `SearchProject`/`ReplaceInProject` (`search.go`)
   walk roots with excludes + `.gitignore`, returning capped flat matches;
   `SearchPanel.svelte` is the form and `search.ts` groups/summarizes. Literal
-  queries are quoted; Replace All uses literal replacement unless regex mode,
+  queries are quoted; Replace All works line by line like search, uses literal
+  replacement unless regex mode (JS `$1`/`$&`/`$<name>` templates, expanded
+  identically in Go and `search.ts`),
   confirms counts, edits open files through Monaco unsaved, skips files whose
-  mtime moved, and rebaselines the watcher for written files.
+  mtime moved, and lists unwritable files in `failed` instead of aborting.
 - **Preview is dependency-free.** `markdown.ts` renders a Markdown subset with
-  escaping and limited link schemes; SVG previews use an `<img>` data URL.
+  escaping and limited link schemes; clicks never navigate the webview
+  (http/mailto go to `Browser.OpenURL`); SVG previews use an `<img>` data URL.
   `case.ts`/`text.ts` are covered by Vitest.
 - **Keep Monaco out of Vite pre-bundling.** `optimizeDeps.exclude:
   ['monaco-editor']`; pre-bundling breaks worker URLs.

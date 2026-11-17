@@ -26,7 +26,7 @@ A minimal text editor for macOS.
   <kbd>Option</kbd> opens the drop in a new window.
 - **Folder sidebar** — several folders as roots, children read only on
   expansion, [File Icons](https://github.com/file-icons/icons) glyphs matched
-  by name, and the list persisted in `settings.json`. **Toggle Sidebar**
+  by name, and the list persisted in `session.json`. **Toggle Sidebar**
   (<kbd>Cmd</kbd>+<kbd>B</kbd>) and **Close All Folders** are in the View and
   File menus.
 - **File tree operations** — Open, New File, New Folder, Rename, Duplicate,
@@ -71,6 +71,21 @@ A minimal text editor for macOS.
 - **Native printing** — the macOS print panel for the active buffer, laid out
   in the editor font; images print scaled to one page.
 - **Command line tool** — open files or add folders from a shell.
+
+## Install
+
+Download `Kaze-macos-arm64.zip` from the latest release, unzip it and move
+`Kaze.app` to `/Applications`. Apple silicon and macOS 13 or later only.
+
+The app is not notarized, so macOS blocks the first launch. Clear the
+quarantine flag once:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Kaze.app
+```
+
+Or open it, then choose **Open Anyway** in **System Settings → Privacy &
+Security**.
 
 ## Command line
 

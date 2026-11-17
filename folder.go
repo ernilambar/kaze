@@ -22,8 +22,12 @@ type FolderEntry struct {
 // rest lazily, so only the entries the user can see are read. Entries that
 // files.exclude hides are left out, which keeps the tree and Quick Open
 // agreeing on what exists.
-func (a *App) ReadFolder(path string) ([]FolderEntry, error) {
-	return readFolderExcluding(path, a.filesExcludeMatcher())
+//
+// root is the sidebar folder path belongs to. Patterns match the entry's path
+// relative to it, so an anchored `/build` hides only the top-level folder and
+// `docs/gen` hides a nested one, the same as Quick Open.
+func (a *App) ReadFolder(path, root string) ([]FolderEntry, error) {
+	return readFolderExcluding(path, root, a.filesExcludeMatcher())
 }
 
 // filesExcludeMatcher loads the files.exclude patterns. A missing or broken
@@ -40,7 +44,7 @@ func (a *App) filesExcludeMatcher() excludeMatcher {
 	return newExcludeMatcher(settings.Files.Exclude)
 }
 
-func readFolderExcluding(path string, excludes excludeMatcher) ([]FolderEntry, error) {
+func readFolderExcluding(path, root string, excludes excludeMatcher) ([]FolderEntry, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
@@ -56,10 +60,19 @@ func readFolderExcluding(path string, excludes excludeMatcher) ([]FolderEntry, e
 
 	// A non-nil slice keeps the generated binding encoding an empty array
 	// instead of null, which the sidebar reads as a list.
+	// A root that does not contain path (or none at all) falls back to path
+	// itself, which still applies unanchored patterns by name.
+	prefix := ""
+	if root != "" && isWithinPath(root, path) {
+		if rel, err := filepath.Rel(root, path); err == nil && rel != "." {
+			prefix = filepath.ToSlash(rel) + "/"
+		}
+	}
+
 	entries := make([]FolderEntry, 0, len(dirEntries))
 	for _, entry := range dirEntries {
 		isDir := isDirectory(path, entry)
-		if excludes.matches(entry.Name(), isDir) {
+		if excludes.matches(prefix+entry.Name(), isDir) {
 			continue
 		}
 		entries = append(entries, FolderEntry{

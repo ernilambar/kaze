@@ -398,3 +398,14 @@ describe('retargetDocumentPaths', () => {
         expect(moved[1]).toBe(readme);
     });
 });
+
+describe('openDocumentTab ids', () => {
+    it('gives a new tab a fresh id when a renamed tab still holds its path id', () => {
+        // a.txt was renamed to b.txt: the tab keeps id /x/a.txt.
+        const renamed = { ...document('/x/b.txt'), id: '/x/a.txt' };
+        const opened = openDocumentTab([renamed], document('/x/a.txt'));
+        expect(opened.tabs).toHaveLength(2);
+        expect(opened.activeId).not.toBe('/x/a.txt');
+        expect(new Set(opened.tabs.map((tab) => tab.id)).size).toBe(2);
+    });
+});

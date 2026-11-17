@@ -287,16 +287,20 @@ func settingsFilePath() (string, error) {
 }
 
 // loadSettings reads path and normalizes the result. When the file does not
-// exist (or is empty) the defaults are written there so the user has something
-// to edit.
+// exist the defaults are written there so the user has something to edit. An
+// empty file reads as the defaults without a write: an editor saving in place
+// truncates first, and rewriting it then would race that save.
 func loadSettings(path string) (Settings, error) {
 	data, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) || (err == nil && len(bytes.TrimSpace(data)) == 0) {
+	if errors.Is(err, os.ErrNotExist) {
 		settings := defaultSettings()
 		if err := writeSettings(path, settings); err != nil {
 			return settings, err
 		}
 		return settings, nil
+	}
+	if err == nil && len(bytes.TrimSpace(data)) == 0 {
+		return defaultSettings(), nil
 	}
 	if err != nil {
 		return defaultSettings(), fmt.Errorf("read settings file: %w", err)

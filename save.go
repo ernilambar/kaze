@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -121,8 +122,15 @@ func atomicWriteFile(path string, data []byte) error {
 	}
 
 	mode := os.FileMode(0o644)
+	exists := false
 	if info, err := os.Stat(path); err == nil {
 		mode = info.Mode()
+		exists = true
+		// A rename gives the path a new inode, and the other names of a hard
+		// link would keep the old text. Write those in place instead.
+		if stat, ok := info.Sys().(*syscall.Stat_t); ok && stat.Nlink > 1 {
+			return writeFileInPlace(path, data)
+		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
@@ -130,6 +138,11 @@ func atomicWriteFile(path string, data []byte) error {
 	dir := filepath.Dir(path)
 	temp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
 	if err != nil {
+		// A writable file in a folder that is not writable cannot take a temp
+		// sibling; it can still be saved in place.
+		if exists && errors.Is(err, os.ErrPermission) {
+			return writeFileInPlace(path, data)
+		}
 		return err
 	}
 	tempPath := temp.Name()
@@ -165,6 +178,25 @@ func atomicWriteFile(path string, data []byte) error {
 		dirFile.Close()
 	}
 	return nil
+}
+
+// writeFileInPlace overwrites an existing file through its own inode, keeping
+// hard links, extended attributes and ownership. It is not atomic: a crash
+// mid-write leaves a truncated file, so it is only the fallback.
+func writeFileInPlace(path string, data []byte) error {
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0)
+	if err != nil {
+		return err
+	}
+	if _, err := file.Write(data); err != nil {
+		file.Close()
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		file.Close()
+		return err
+	}
+	return file.Close()
 }
 
 // normalizeEOL rewrites every line ending to the file's chosen sequence. The

@@ -174,3 +174,27 @@ func TestPrivilegedInstallCommandInstallsBothIntermediates(t *testing.T) {
 		t.Fatalf("privilegedInstallCommand() = %q, want %q", got, want)
 	}
 }
+
+func TestLauncherScriptResolvesPathsAfterDoubleDash(t *testing.T) {
+	dir := t.TempDir()
+	echo := filepath.Join(dir, "echo.sh")
+	if err := os.WriteFile(echo, []byte("#!/bin/sh\nfor a in \"$@\"; do echo \"$a\"; done\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	script := filepath.Join(dir, "kaze")
+	if err := os.WriteFile(script, []byte(launcherScript(echo)), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	command := exec.Command(script, "-n", "a.txt", "/abs", "--", "-x.txt", "--")
+	command.Dir = dir
+	out, err := command.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pwd := dir
+	got := strings.Split(strings.TrimSpace(string(out)), "\n")
+	want := []string{"-n", pwd + "/a.txt", "/abs", "--", pwd + "/-x.txt", pwd + "/--"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("launcher args = %q, want %q", got, want)
+	}
+}

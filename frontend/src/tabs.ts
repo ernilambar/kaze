@@ -1,5 +1,5 @@
 import { onWindowEvent } from './windowstate';
-import { DIFF_PREFIX, type OpenDocument } from './document';
+import { DIFF_PREFIX, uniqueTabId, type OpenDocument } from './document';
 
 // findDocumentByPath returns the tab that holds the file at path, matching
 // either the spelling it was opened with or its symlink-resolved path. An empty
@@ -30,7 +30,11 @@ export function openDocumentTab(
     if (existing !== undefined) {
         return { tabs: tabs.slice(), activeId: existing.id };
     }
-    return { tabs: [...tabs, document], activeId: document.id };
+    // An id comes from a path or name, but a renamed or saved-as tab keeps its
+    // old one; a new tab must never take it.
+    const id = uniqueTabId(tabs, document.id);
+    const added = id === document.id ? document : { ...document, id };
+    return { tabs: [...tabs, added], activeId: id };
 }
 
 // closeDocumentTab removes id and picks the next active tab. Closing the active

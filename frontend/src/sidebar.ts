@@ -79,8 +79,8 @@ export async function loadSidebarFolders(): Promise<string[]> {
 
 // readFolder lists one level of a folder. Failures are thrown so the row that
 // triggered the read can show the message in place.
-export async function readFolder(path: string): Promise<FolderEntry[]> {
-    return ((await ReadFolder(path)) ?? []).map(toFolderEntry);
+export async function readFolder(path: string, root: string): Promise<FolderEntry[]> {
+    return ((await ReadFolder(path, root)) ?? []).map(toFolderEntry);
 }
 
 // addSidebarFolder saves a root and returns the new list. The backend rejects

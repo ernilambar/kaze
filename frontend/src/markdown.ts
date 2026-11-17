@@ -18,7 +18,9 @@ export function escapeHtml(text: string): string {
 // safeUrl drops schemes the preview must not follow. Relative paths and
 // fragments stay: they are how a repository's own files are linked.
 function safeUrl(url: string): string {
-    const trimmed = url.trim();
+    // Browsers drop control characters and spaces inside a scheme, so
+    // "\x01javascript:" runs as javascript:. Test the URL the browser will see.
+    const trimmed = url.replace(/[\u0000-\u0020\u007f]/g, '');
     if (trimmed === '') {
         return '';
     }

@@ -93,7 +93,7 @@ func (a *App) SaveWorkspaceAs(folders []string) (WorkspaceInfo, error) {
 	if err != nil || path == "" {
 		return WorkspaceInfo{}, err
 	}
-	if filepath.Ext(path) == "" {
+	if !strings.HasSuffix(path, workspaceExtension) {
 		path += workspaceExtension
 	}
 	return writeWorkspaceFile(path, folders)

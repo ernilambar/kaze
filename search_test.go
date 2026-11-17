@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -249,5 +250,28 @@ func TestUTF16ColumnCountsSurrogates(t *testing.T) {
 	}
 	if got := utf16Column(line, 0); got != 1 {
 		t.Fatalf("utf16Column() at the start = %d, want 1", got)
+	}
+}
+
+func TestReplaceLinesMatchesJavaScriptTemplates(t *testing.T) {
+	cases := []struct {
+		name, data, pattern, replacement, want string
+	}{
+		{"group then text", "fooOld", `foo(Old)`, "$1New", "OldNew"},
+		{"whole match", "abc", `b`, "[$&]", "a[b]c"},
+		{"dollar", "abc", `b`, "$$", "a$c"},
+		{"named group", "key=value", `(?P<k>\w+)=(?P<v>\w+)`, "$<v>=$<k>", "value=key"},
+		{"unknown group stays text", "abc", `b`, "$9", "a$9c"},
+		{"per line anchors", "  a\n  b\n", `^\s+`, "", "a\nb\n"},
+		{"no cross-line match", "a b\nc d;", `a[^;]*`, "X", "X\nc d;"},
+		{"crlf kept", "a \r\nb \r\n", `\s+$`, "", "a\r\nb\r\n"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, _ := replaceLines([]byte(tc.data), regexp.MustCompile(tc.pattern), tc.replacement, true)
+			if string(got) != tc.want {
+				t.Fatalf("replaceLines(%q) = %q, want %q", tc.data, got, tc.want)
+			}
+		})
 	}
 }
