@@ -3908,10 +3908,6 @@
             onSearchExclude={(next) => void changeSearchExclude(next)}
             onSidebarVisible={setSidebarVisible}
             onAutoReveal={setSidebarAutoReveal}
-            onOpenSettings={() => void openSettings()}
-            onOpenDefaults={() => void openDefaultSettings()}
-            onOpenThemes={() => void openThemesFolder()}
-            onOpenKeybindings={() => void openKeybindings()}
             onClose={closeSettingsOverlay}
         />
     {/if}

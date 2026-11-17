@@ -15,7 +15,7 @@
         UISettings,
     } from './settings';
 
-    type Section = 'editor' | 'appearance' | 'interface' | 'files' | 'sidebar' | 'advanced';
+    type Section = 'editor' | 'appearance' | 'interface' | 'files' | 'sidebar';
     type NumericEditorKey =
         | 'fontSize'
         | 'fontWeight'
@@ -46,10 +46,6 @@
         onSearchExclude: (next: string[]) => void;
         onSidebarVisible: (visible: boolean) => void;
         onAutoReveal: (autoReveal: boolean) => void;
-        onOpenSettings: () => void;
-        onOpenDefaults: () => void;
-        onOpenThemes: () => void;
-        onOpenKeybindings: () => void;
         onClose: () => void;
     }
 
@@ -72,10 +68,6 @@
         onSearchExclude,
         onSidebarVisible,
         onAutoReveal,
-        onOpenSettings,
-        onOpenDefaults,
-        onOpenThemes,
-        onOpenKeybindings,
         onClose,
     }: Props = $props();
 
@@ -85,7 +77,6 @@
         { id: 'interface', label: 'Interface' },
         { id: 'files', label: 'Files' },
         { id: 'sidebar', label: 'Sidebar' },
-        { id: 'advanced', label: 'Advanced' },
     ];
 
     const THEME_MODES: readonly { id: ThemeMode; label: string }[] = [
@@ -1231,44 +1222,6 @@
                             {/if}
                         </div>
                     </section>
-                {:else}
-                    <section class="settings__section">
-                        <h3>Settings files</h3>
-                        <p class="settings__hint">
-                            These sections write to settings.json as you change them. The raw
-                            files remain the source of truth.
-                        </p>
-                        <div class="settings__actions">
-                            <button type="button" class="settings__action" onclick={onOpenSettings}>
-                                <span class="settings__action-name">Settings JSON</span>
-                                <span class="settings__action-detail">
-                                    Values, unknown keys and formatting
-                                </span>
-                            </button>
-                            <button type="button" class="settings__action" onclick={onOpenDefaults}>
-                                <span class="settings__action-name">Default Settings</span>
-                                <span class="settings__action-detail">
-                                    Reference file written by Kaze
-                                </span>
-                            </button>
-                            <button type="button" class="settings__action" onclick={onOpenThemes}>
-                                <span class="settings__action-name">Themes Folder</span>
-                                <span class="settings__action-detail">
-                                    Zed theme files, one family per file
-                                </span>
-                            </button>
-                            <button
-                                type="button"
-                                class="settings__action"
-                                onclick={onOpenKeybindings}
-                            >
-                                <span class="settings__action-name">Keybindings</span>
-                                <span class="settings__action-detail">
-                                    VS Code-shaped keys and when clauses
-                                </span>
-                            </button>
-                        </div>
-                    </section>
                 {/if}
 
                 {#if warning !== ''}
@@ -1854,41 +1807,6 @@
 
     .settings__patterns:focus {
         border-color: var(--link, #4daafc);
-    }
-
-    .settings__actions {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
-        gap: 8px;
-    }
-
-    .settings__action {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 2px;
-        padding: 9px 11px;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        background: var(--bg);
-        color: var(--fg);
-        font: inherit;
-        text-align: left;
-        cursor: pointer;
-    }
-
-    .settings__action:hover {
-        background: var(--bg-hover);
-        border-color: var(--fg-muted);
-    }
-
-    .settings__action-name {
-        font-weight: 600;
-    }
-
-    .settings__action-detail {
-        color: var(--fg-muted);
-        font-size: var(--ui-font-small);
     }
 
     .settings__warning {
