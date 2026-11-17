@@ -1,6 +1,4 @@
 <script lang="ts">
-    import { System } from '@wailsio/runtime';
-
     interface Props {
         appName: string;
         filePath: string;
@@ -11,8 +9,10 @@
 
     // macOS hides its native title bar and floats the traffic lights over the
     // content, so this bar leaves room for them. Elsewhere the native bar stays
-    // and no inset is needed.
-    const mac = System.IsMac();
+    // and no inset is needed. System.IsMac() is not used: Wails injects
+    // window._wails.environment only after navigation finishes, so it can
+    // still be unset when this component first renders.
+    const mac = navigator.userAgent.includes('Macintosh');
 </script>
 
 <header class="titlebar" class:titlebar--mac={mac}>
