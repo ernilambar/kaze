@@ -213,44 +213,6 @@ func (a *App) MovePath(path, targetDir string) (FileTreeResult, error) {
 	return treeResult(target)
 }
 
-// MovePathToFolder moves path into a typed destination folder, creating the
-// folder and any missing parents first. Move… is a text prompt rather than a
-// picker, so the destination is not guaranteed to exist the way a drop target
-// is. A relative folder is read from the entry's own folder, which makes "docs"
-// mean the sibling next to the file.
-func (a *App) MovePathToFolder(path, folder string) (FileTreeResult, error) {
-	source := filepath.Clean(strings.TrimSpace(path))
-	if source == "" || source == "." {
-		return FileTreeResult{}, errors.New("no path to move")
-	}
-	info, err := os.Lstat(source)
-	if err != nil {
-		return FileTreeResult{}, fmt.Errorf("move %s: %w", filepath.Base(source), err)
-	}
-	dir, err := resolveInputPath(folder, filepath.Dir(source))
-	if err != nil {
-		return FileTreeResult{}, err
-	}
-	// Check the subtree before creating anything: a folder moved inside itself
-	// must not leave a new empty directory behind on the way to the refusal.
-	if info.IsDir() && isWithinPath(source, dir) {
-		return FileTreeResult{}, errors.New("a folder cannot be moved inside itself")
-	}
-	target, err := os.Stat(dir)
-	switch {
-	case err == nil && !target.IsDir():
-		return FileTreeResult{}, fmt.Errorf("%s is not a folder", filepath.Base(dir))
-	case err == nil:
-	case errors.Is(err, os.ErrNotExist):
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return FileTreeResult{}, fmt.Errorf("create %s: %w", dir, err)
-		}
-	default:
-		return FileTreeResult{}, fmt.Errorf("%s: %w", filepath.Base(dir), err)
-	}
-	return a.MovePath(source, dir)
-}
-
 // resolveInputPath turns what the user typed into an absolute path. A leading
 // ~ means the home folder; anything relative is read from base.
 func resolveInputPath(input, base string) (string, error) {

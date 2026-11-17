@@ -12,6 +12,9 @@
         // selectStem selects only the part before the extension, so typing
         // replaces the name and keeps the file type, the way Finder does.
         selectStem?: boolean;
+        // selectFolder selects everything before the last path separator, so
+        // typing replaces the folder and keeps the file name.
+        selectFolder?: boolean;
         // error is the backend's refusal, shown in place so the dialog can be
         // corrected instead of reopened.
         error?: string;
@@ -26,6 +29,7 @@
         label,
         value = $bindable(''),
         selectStem = false,
+        selectFolder = false,
         error = '',
         hint = '',
         onSubmit,
@@ -45,6 +49,13 @@
             const dot = text.lastIndexOf('.');
             input?.setSelectionRange(base, dot > base ? dot : text.length);
             return;
+        }
+        if (selectFolder) {
+            const slash = Math.max(text.lastIndexOf('/'), text.lastIndexOf('\\'));
+            if (slash > 0) {
+                input?.setSelectionRange(0, slash);
+                return;
+            }
         }
         input?.select();
     });

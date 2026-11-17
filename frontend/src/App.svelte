@@ -89,7 +89,6 @@
         duplicatePath,
         entryName,
         movePath,
-        moveToFolder,
         parentPath,
         renamePath,
         trashPath,
@@ -361,6 +360,7 @@
         label: string;
         value: string;
         selectStem: boolean;
+        selectFolder: boolean;
         submitLabel: string;
         error: string;
         hint: string;
@@ -1941,6 +1941,7 @@
         label: string;
         value?: string;
         selectStem?: boolean;
+        selectFolder?: boolean;
         submitLabel?: string;
         hint?: string;
         run: (value: string) => Promise<string>;
@@ -1960,6 +1961,7 @@
                         label: options.label,
                         value,
                         selectStem: options.selectStem ?? false,
+                        selectFolder: options.selectFolder ?? false,
                         submitLabel: options.submitLabel ?? options.title,
                         error: refusal,
                         hint: options.hint ?? '',
@@ -1976,6 +1978,7 @@
                 label: options.label,
                 value: options.value ?? '',
                 selectStem: options.selectStem ?? false,
+                selectFolder: options.selectFolder ?? false,
                 submitLabel: options.submitLabel ?? options.title,
                 error: '',
                 hint: options.hint ?? '',
@@ -2211,22 +2214,23 @@
         notice = `Moved ${name}`;
     }
 
-    // moveTreeEntry is Move…: the destination is typed rather than picked, so a
-    // file can land in a folder the tree does not list yet. The field starts on
-    // the entry's own folder, a relative name means a sibling there, and the
-    // backend creates whatever is missing. A refusal reopens the prompt on the
-    // same text so a typo is corrected in place.
+    // moveTreeEntry is Move…: the field holds the entry's full path with the
+    // folder selected, so typing replaces where it lives and the file name stays
+    // visible and intact. Move and Rename share the path operation; only the
+    // initial selection differs. A refusal reopens the prompt on the same text
+    // so a typo is corrected in place.
     async function moveTreeEntry(path: string): Promise<void> {
         await askName({
             title: 'Move',
             label: `Move "${entryName(path)}"`,
-            value: parentPath(path),
-            hint: 'Destination folder. Missing folders are created; relative paths start here.',
+            value: path,
+            selectFolder: true,
+            hint: 'Destination path. Missing folders are created; relative paths start here.',
             submitLabel: 'Move',
-            run: async (folder) => {
+            run: async (target) => {
                 busyPath = path;
                 try {
-                    const entry = await moveToFolder(path, folder);
+                    const entry = await renamePath(path, target);
                     finishTreeMove(path, entry.path, entry.name);
                     return '';
                 } catch (error) {
@@ -3500,6 +3504,7 @@
             label={namePrompt.label}
             bind:value={namePrompt.value}
             selectStem={namePrompt.selectStem}
+            selectFolder={namePrompt.selectFolder}
             error={namePrompt.error}
             hint={namePrompt.hint}
             onSubmit={submitName}

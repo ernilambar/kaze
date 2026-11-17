@@ -5,7 +5,6 @@ import {
     CreateFolder,
     DuplicatePath,
     MovePath,
-    MovePathToFolder,
     RenamePath,
     TrashPath,
 } from '../bindings/kaze/app';
@@ -76,13 +75,6 @@ export async function copyPath(path: string, targetDir: string): Promise<FileTre
 // movePath moves into a folder. It is also what a drop on a folder row does.
 export async function movePath(path: string, targetDir: string): Promise<FileTreeEntry> {
     return toFileTreeEntry(await MovePath(path, targetDir));
-}
-
-// moveToFolder moves into a typed destination folder. The backend creates the
-// folder when it does not exist, so Move… can place a file anywhere the user
-// names rather than only in folders the tree already knows.
-export async function moveToFolder(path: string, folder: string): Promise<FileTreeEntry> {
-    return toFileTreeEntry(await MovePathToFolder(path, folder));
 }
 
 // trashPath moves the entry to the platform's Trash. Nothing in the tree deletes
