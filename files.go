@@ -35,7 +35,11 @@ func (a *App) ListFiles() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return listFilesExcluding(settings.Sidebar.Folders, newExcludeMatcher(settings.Files.Exclude)), nil
+	roots, err := a.LoadSidebarFolders()
+	if err != nil {
+		return nil, err
+	}
+	return listFilesExcluding(roots, newExcludeMatcher(settings.Files.Exclude)), nil
 }
 
 // listFilesExcluding walks each root and skips excluded trees, unreadable

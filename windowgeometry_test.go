@@ -47,7 +47,7 @@ func TestDefaultWindowGeometryWithoutScreens(t *testing.T) {
 
 func TestResolveWindowGeometryRestoresVisibleFrame(t *testing.T) {
 	screens := []*application.Screen{screen(0, 25, 1920, 1055, true)}
-	saved := WindowSettings{X: 200, Y: 120, Width: 1000, Height: 700}
+	saved := WindowFrame{X: 200, Y: 120, Width: 1000, Height: 700}
 
 	got := resolveWindowGeometry(saved, screens)
 	if got != (windowGeometry{X: 200, Y: 120, Width: 1000, Height: 700}) {
@@ -58,7 +58,7 @@ func TestResolveWindowGeometryRestoresVisibleFrame(t *testing.T) {
 func TestResolveWindowGeometryRecentersLostWindow(t *testing.T) {
 	// A frame from a monitor that is gone: x=4000 is off the remaining screen.
 	screens := []*application.Screen{screen(0, 25, 1920, 1055, true)}
-	saved := WindowSettings{X: 4000, Y: 120, Width: 1000, Height: 700}
+	saved := WindowFrame{X: 4000, Y: 120, Width: 1000, Height: 700}
 
 	got := resolveWindowGeometry(saved, screens)
 	if want := defaultWindowGeometry(screens); got != want {
@@ -70,7 +70,7 @@ func TestResolveWindowGeometryRejectsFrameUnderMenuBar(t *testing.T) {
 	// The saved frame sits above the work area's top edge, so its title bar is
 	// hidden by the menu bar and cannot be grabbed.
 	screens := []*application.Screen{screen(0, 25, 1920, 1055, true)}
-	saved := WindowSettings{X: 200, Y: 0, Width: 1000, Height: 700}
+	saved := WindowFrame{X: 200, Y: 0, Width: 1000, Height: 700}
 
 	got := resolveWindowGeometry(saved, screens)
 	if want := defaultWindowGeometry(screens); got != want {
@@ -80,7 +80,7 @@ func TestResolveWindowGeometryRejectsFrameUnderMenuBar(t *testing.T) {
 
 func TestResolveWindowGeometryShrinksFrameForNarrowerScreen(t *testing.T) {
 	screens := []*application.Screen{screen(0, 25, 1280, 695, true)}
-	saved := WindowSettings{X: 100, Y: 100, Width: 1800, Height: 1000}
+	saved := WindowFrame{X: 100, Y: 100, Width: 1800, Height: 1000}
 
 	got := resolveWindowGeometry(saved, screens)
 	want := windowGeometry{X: 0, Y: 25, Width: 1280, Height: 695}
@@ -92,7 +92,7 @@ func TestResolveWindowGeometryShrinksFrameForNarrowerScreen(t *testing.T) {
 func TestResolveWindowGeometryIgnoresEmptyFrame(t *testing.T) {
 	screens := []*application.Screen{screen(0, 25, 1920, 1055, true)}
 
-	got := resolveWindowGeometry(WindowSettings{}, screens)
+	got := resolveWindowGeometry(WindowFrame{}, screens)
 	if want := defaultWindowGeometry(screens); got != want {
 		t.Fatalf("resolveWindowGeometry() = %+v, want default %+v", got, want)
 	}

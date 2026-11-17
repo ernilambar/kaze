@@ -37,7 +37,6 @@ export type {
     ThemeSummary,
     UISettings,
     WindowSession,
-    WindowSettings,
     WorkspaceInfo,
     WorkspaceSession
 } from "./models.js";

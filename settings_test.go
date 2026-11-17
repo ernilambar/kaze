@@ -166,38 +166,6 @@ func TestSettingsFilePathUsesConfigDirectory(t *testing.T) {
 	}
 }
 
-func TestLoadSettingsDefaultsToNoSidebarFolders(t *testing.T) {
-	settings, err := loadSettings(filepath.Join(t.TempDir(), "settings.json"))
-	if err != nil {
-		t.Fatalf("loadSettings() error = %v", err)
-	}
-
-	if settings.Sidebar.Folders == nil {
-		t.Fatal("Sidebar.Folders = nil, want an empty slice so the UI receives an array")
-	}
-	if len(settings.Sidebar.Folders) != 0 {
-		t.Fatalf("Sidebar.Folders = %q, want no folders", settings.Sidebar.Folders)
-	}
-}
-
-func TestLoadSettingsReadsSidebarFolders(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "settings.json")
-	content := `{"sidebar":{"folders":["/one","/two"]}}`
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	settings, err := loadSettings(path)
-	if err != nil {
-		t.Fatalf("loadSettings() error = %v", err)
-	}
-
-	want := []string{"/one", "/two"}
-	if !reflect.DeepEqual(settings.Sidebar.Folders, want) {
-		t.Fatalf("Sidebar.Folders = %q, want %q", settings.Sidebar.Folders, want)
-	}
-}
-
 func TestLoadSettingsDefaultsToAutoReveal(t *testing.T) {
 	settings, err := loadSettings(filepath.Join(t.TempDir(), "settings.json"))
 	if err != nil {
@@ -316,10 +284,6 @@ func TestUpdateEditorSettingsPersistsAndRepairs(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	app := NewApp()
-	folder := t.TempDir()
-	if _, err := app.AddSidebarFolder(folder); err != nil {
-		t.Fatalf("AddSidebarFolder() error = %v", err)
-	}
 
 	editor := defaultSettings().Editor
 	editor.TabSize = 0 // repaired to the default
@@ -351,9 +315,6 @@ func TestUpdateEditorSettingsPersistsAndRepairs(t *testing.T) {
 	}
 	if !reflect.DeepEqual(settings.Editor, updated) {
 		t.Fatalf("settings.Editor = %+v, want %+v", settings.Editor, updated)
-	}
-	if !reflect.DeepEqual(settings.Sidebar.Folders, []string{folder}) {
-		t.Fatalf("Sidebar.Folders = %q, want the folder to survive the update", settings.Sidebar.Folders)
 	}
 }
 

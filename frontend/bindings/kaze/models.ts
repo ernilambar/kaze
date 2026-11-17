@@ -400,24 +400,14 @@ export interface Settings {
     "search": SearchSettings;
     "theme": ThemeSettings;
     "ui": UISettings;
-
-    /**
-     * Window is the frame the last window of a launch left behind. It is
-     * written by the backend, not by the settings overlay, and it is state
-     * rather than a user preference. Recent files are state too, kept in
-     * session.json beside the tab sets.
-     */
-    "window": WindowSettings;
 }
 
 /**
- * SidebarSettings is the folder tree's saved state. Opening a workspace
- * replaces the roots with the file's folders; the list is still persisted so a
- * relaunch without the workspace file keeps its tree.
+ * SidebarSettings is the sidebar's saved appearance. The roots themselves are
+ * session state, because a folder list is what the user last had open, not a
+ * preference to edit by hand.
  */
 export interface SidebarSettings {
-    "folders": string[] | null;
-
     /**
      * Visible is whether the sidebar is shown. It survives a relaunch, so
      * Cmd+B keeps the layout the user left behind.
@@ -514,24 +504,6 @@ export interface WindowSession {
     "open_files": string[] | null;
     "active": string;
     "expanded": string[] | null;
-}
-
-/**
- * WindowSettings is the saved frame of the main window. An empty struct means
- * no frame has been saved yet, so the next launch starts from the screen-sized
- * default. The size and position are in DIPs, the units Wails reports.
- * 
- * A maximised or fullscreen window stores the state here but keeps the normal
- * frame in width/height/x/y, so turning the zoom off after a relaunch returns
- * the window the user last sized by hand.
- */
-export interface WindowSettings {
-    "width": number;
-    "height": number;
-    "x": number;
-    "y": number;
-    "maximised": boolean;
-    "fullscreen": boolean;
 }
 
 /**

@@ -213,12 +213,8 @@ func TestSetSidebarVisibleSurvivesFolderChanges(t *testing.T) {
 	if _, err := app.RemoveAllSidebarFolders(); err != nil {
 		t.Fatal(err)
 	}
-	settings, err = app.GetSettings()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(settings.Sidebar.Folders) != 0 {
-		t.Fatalf("Sidebar.Folders = %q after RemoveAllSidebarFolders", settings.Sidebar.Folders)
+	if roots := savedSidebarRoots(t); len(roots) != 0 {
+		t.Fatalf("Sidebar.Roots = %q after RemoveAllSidebarFolders", roots)
 	}
 }
 

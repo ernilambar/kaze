@@ -1,7 +1,7 @@
 import type * as models from '../bindings/kaze/models';
 import {
     AddSidebarFolder,
-    GetSettings,
+    LoadSidebarFolders,
     OpenFolderDialog,
     ReadFolder,
     RemoveAllSidebarFolders,
@@ -66,12 +66,11 @@ export function isWithin(folder: string, path: string): boolean {
     return path.startsWith(base);
 }
 
-// loadSidebarFolders reads the roots saved in settings.json. A failure leaves
+// loadSidebarFolders reads the roots saved in session.json. A failure leaves
 // the sidebar empty rather than blocking startup.
 export async function loadSidebarFolders(): Promise<string[]> {
     try {
-        const settings = await GetSettings();
-        return settings?.sidebar?.folders ?? [];
+        return (await LoadSidebarFolders()) ?? [];
     } catch (error) {
         console.error('Failed to load sidebar folders.', error);
         return [];

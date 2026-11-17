@@ -78,10 +78,11 @@ No frontend linter/formatter is configured; don't add one unprompted.
   emit `app:new-file`/`new-folder`/`new-buffer`.
 - **Sidebar is a multi-root folder tree.** `ReadFolder` lists one level;
   `FolderTree.svelte` loads children on first expansion. Roots persist via
-  `AddSidebarFolder`/`RemoveSidebarFolder`; `files.exclude` filters the same
-  read. **View → Toggle Sidebar** (<kbd>Cmd</kbd>+<kbd>B</kbd>) saves
-  `sidebar.visible`. New windows start from the saved roots; **Open Folder in
-  New Window…** makes the chosen folder the window's only and saved root.
+  `AddSidebarFolder`/`RemoveSidebarFolder` in `session.json`;
+  `files.exclude` filters the same read. **View → Toggle Sidebar**
+  (<kbd>Cmd</kbd>+<kbd>B</kbd>) saves `sidebar.visible`. New windows start from
+  the saved roots; **Open Folder in New Window…** makes the chosen folder the
+  window's only and saved root.
 - **Workspaces are committable.** `workspacefile.go` reads/writes
   `.kaze-workspace`; folders inside its directory are stored relative. Open
   validates all folders before `SetSidebarFolders` replaces the list in one
@@ -108,15 +109,16 @@ No frontend linter/formatter is configured; don't add one unprompted.
 - **Session is app state.** `workspace.ts` persists the window's file-backed
   tabs, active tab, expanded folders and workspace binding in `session.json`
   (`session.go`), never in `settings.json` or a workspace file. The file also
-  holds the Open Recent list: it is shared history, not a setting. Untitled
-  buffers are excluded. Each window parks its current tab set under its
-  workspace path; switching workspaces saves the current set, prompts to save
-  dirty tabs, closes them, and restores the target's parked set. Close Workspace
-  closes tabs and roots but keeps the parked set. Only the first window of a
-  launch restores and writes the launch entry; later windows still park
-  workspace sets. Moving or renaming a workspace file is handled by adopting a
-  unique parked set with the same canonical folders when the old file no longer
-  exists; ambiguous matches and workspaces whose file still exists are ignored.
+  holds the sidebar roots, the last window frame and the Open Recent list: they
+  are state, not settings. Untitled buffers are excluded. Each window parks its
+  current tab set under its workspace path; switching workspaces saves the
+  current set, prompts to save dirty tabs, closes them, and restores the target's
+  parked set. Close Workspace closes tabs and roots but keeps the parked set.
+  Only the first window of a launch restores and writes the launch entry; later
+  windows still park workspace sets. Moving or renaming a workspace file is
+  handled by adopting a unique parked set with the same canonical folders when
+  the old file no longer exists; ambiguous matches and workspaces whose file
+  still exists are ignored.
   The map is capped at 50 workspaces, and a corrupt session file is moved to
   `session.json.bak`. Loading a version-1 file migrates the legacy `recent`
   section out of `settings.json` and removes the key. Unknown settings sections
@@ -133,7 +135,7 @@ No frontend linter/formatter is configured; don't add one unprompted.
   traffic lights; `TitleBar.svelte` (32px, 2px top padding, draggable) is the only
   title bar.
 - **Window geometry is saved and validated.** `windowgeometry.go`: the first
-  window restores `settings.json`'s `window` frame; new windows cascade 24px
+  window restores `session.json`'s `frame`; new windows cascade 24px
   from the oldest. A saved frame is used only while ≥120×48 points of its title
   bar land on a screen's `WorkArea`; otherwise the window is centred at 1200×800
   capped to the primary work area. Windows are created hidden and placed on
@@ -166,11 +168,11 @@ No frontend linter/formatter is configured; don't add one unprompted.
 - **Settings live in `settings.json`** (`Kaze/settings.json`), created with
   defaults. Keep `frontend/src/settings.ts` defaults in sync with Go (TS is only
   the fallback); `loadSettings` decodes over defaults so absent keys keep theirs.
-  Sections: editor, sidebar, files, search, theme, ui, window.
+  Sections: editor, sidebar, files, search, theme, ui.
   Write paths use `settingsMu` and `settingswrite.go`, which rewrites only
   changed keys so unknown keys and formatting survive. The overlay edits
-  configurable sections; the window frame is state kept here, while recent
-  files, tabs and workspace sessions live in `session.json`.
+  configurable sections; machine-written state (roots, window frame, recent
+  files, tabs and workspace sessions) lives in `session.json`.
 - **Appearance is a Zed theme family.** `themes.go` embeds `themes/kaze.json` and
   reads `<config>/Kaze/themes`. UI keys become CSS variables, `editor.*` Monaco
   colors, `syntax` token rules (`theme.ts`). Missing keys fall back; malformed

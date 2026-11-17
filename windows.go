@@ -35,10 +35,10 @@ type windowSession struct {
 	closeRequested atomic.Bool
 
 	// restoreGeometry marks the first window of a launch: it adopts the frame
-	// saved in settings.json, while later windows cascade from the first.
+	// saved in session.json, while later windows cascade from the first.
 	// savedFrame is that stored frame, read once when the window is created.
 	restoreGeometry bool
-	savedFrame      WindowSettings
+	savedFrame      WindowFrame
 	// owner marks the one window whose tabs session.json restores and writes
 	// on the next launch. Later windows park workspace tab sets but do not
 	// replace the launch session with their own.
@@ -355,17 +355,16 @@ func (a *App) cascadeOriginGeometry() windowGeometry {
 }
 
 // savedWindowGeometry reads the frame stored for the last launch. A missing or
-// broken settings file is not fatal: the caller falls back to the default.
-func (a *App) savedWindowGeometry() WindowSettings {
-	path, err := settingsFilePath()
+// broken session file is not fatal: the caller falls back to the default.
+func (a *App) savedWindowGeometry() WindowFrame {
+	a.sessionMu.Lock()
+	defer a.sessionMu.Unlock()
+
+	state, err := a.loadSessionLocked()
 	if err != nil {
-		return WindowSettings{}
+		return WindowFrame{}
 	}
-	settings, err := loadSettings(path)
-	if err != nil {
-		return WindowSettings{}
-	}
-	return settings.Window
+	return state.Frame
 }
 
 // saveWindowGeometry records the frame a window is leaving with. Only the
@@ -385,7 +384,7 @@ func (a *App) saveWindowGeometry(session *windowSession) {
 		return
 	}
 
-	saved := WindowSettings{
+	saved := WindowFrame{
 		Maximised:  window.IsMaximised(),
 		Fullscreen: window.IsFullscreen(),
 	}
@@ -398,34 +397,30 @@ func (a *App) saveWindowGeometry(session *windowSession) {
 	a.storeWindowGeometry(saved)
 }
 
-// storeWindowGeometry writes the window section alone, through the same
-// surgical path as the other settings sections, so a hand-edited file keeps
-// its unknown keys and formatting. Geometry loss is cosmetic, so a failed
-// write is not reported to the user.
-func (a *App) storeWindowGeometry(windowSettings WindowSettings) {
-	path, err := settingsFilePath()
+// storeWindowGeometry writes the frame into session.json. A zoomed window keeps
+// the normal size and position already stored, so the only fields that change
+// are the state flags. Geometry loss is cosmetic, so a failed write is not
+// reported to the user.
+func (a *App) storeWindowGeometry(frame WindowFrame) {
+	a.sessionMu.Lock()
+	defer a.sessionMu.Unlock()
+
+	state, err := a.loadSessionLocked()
 	if err != nil {
 		return
 	}
-
-	a.settingsMu.Lock()
-	defer a.settingsMu.Unlock()
-
-	settings, err := loadSettings(path)
-	if err != nil {
-		return
+	next := state.Frame
+	if frame.Width > 0 && frame.Height > 0 {
+		next.Width = frame.Width
+		next.Height = frame.Height
+		next.X = frame.X
+		next.Y = frame.Y
 	}
-	before := settings.Window
-	if windowSettings.Width > 0 && windowSettings.Height > 0 {
-		settings.Window.Width = windowSettings.Width
-		settings.Window.Height = windowSettings.Height
-		settings.Window.X = windowSettings.X
-		settings.Window.Y = windowSettings.Y
-	}
-	settings.Window.Maximised = windowSettings.Maximised
-	settings.Window.Fullscreen = windowSettings.Fullscreen
-	settings.normalize()
-	_ = writeSettingsSections(path, settings, settingsSection{"window", before, settings.Window})
+	next.Maximised = frame.Maximised
+	next.Fullscreen = frame.Fullscreen
+	state.Frame = normalizeWindowFrame(next)
+	a.sessionStore = state
+	_ = writeSessionFile(state)
 }
 
 // windowClosing gives a window the same unsaved-buffer guard as quitting. A

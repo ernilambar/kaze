@@ -57,13 +57,22 @@ type RecentFiles struct {
 	Files []string `json:"files"`
 }
 
-// sessionFile is the on-disk shape of session.json. Window belongs to the one
-// window that owns the launch session; every window may park a workspace tab
-// set in Workspaces. Teak's per-window array is not used because Kaze still
-// restores only the first window of a launch.
+// sidebarRoots is the folder tree's open folders. The list is what the user
+// last had open rather than a preference, so it lives in session.json.
+type sidebarRoots struct {
+	Roots []string `json:"roots"`
+}
+
+// sessionFile is the on-disk shape of session.json. Roots and Frame are
+// app-written state shared by the launch; Window belongs to the one window that
+// owns the launch session; every window may park a workspace tab set in
+// Workspaces. Teak's per-window array is not used because Kaze still restores
+// only the first window of a launch.
 type sessionFile struct {
 	Version    int                         `json:"version"`
 	Recent     RecentFiles                 `json:"recent"`
+	Sidebar    sidebarRoots                `json:"sidebar"`
+	Frame      WindowFrame                 `json:"frame"`
 	Window     WindowSession               `json:"window"`
 	Workspaces map[string]WorkspaceSession `json:"workspaces"`
 }
@@ -82,6 +91,7 @@ func emptySession() sessionFile {
 	return sessionFile{
 		Version:    sessionVersion,
 		Recent:     RecentFiles{Files: []string{}},
+		Sidebar:    sidebarRoots{Roots: []string{}},
 		Window:     WindowSession{},
 		Workspaces: map[string]WorkspaceSession{},
 	}
@@ -161,6 +171,8 @@ func (a *App) adoptLegacyRecentLocked() {
 func normalizeSession(state sessionFile) sessionFile {
 	state.Version = sessionVersion
 	state.Recent.Files = normalizeRecentFiles(state.Recent.Files)
+	state.Sidebar.Roots = normalizeFolderList(state.Sidebar.Roots)
+	state.Frame = normalizeWindowFrame(state.Frame)
 	state.Window = normalizeWindowSession(state.Window)
 	if state.Workspaces == nil {
 		state.Workspaces = map[string]WorkspaceSession{}

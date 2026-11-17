@@ -49,7 +49,6 @@ describe('loadEditorSettings', () => {
     it('maps settings.json values onto editor options', async () => {
         getSettings.mockResolvedValue({
             editor: storedEditor,
-            sidebar: { folders: [] },
         });
 
         await expect(loadEditorSettings()).resolves.toEqual({

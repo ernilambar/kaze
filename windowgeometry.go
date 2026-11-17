@@ -22,6 +22,33 @@ const (
 	titleBarVisibleHeight = 48
 )
 
+// WindowFrame is the saved frame of the main window, held in session.json.
+// An empty struct means no frame has been saved yet, so the next launch starts
+// from the screen-sized default. The size and position are in DIPs, the units
+// Wails reports.
+//
+// A maximised or fullscreen window stores the state here but keeps the normal
+// frame in width/height/x/y, so turning the zoom off after a relaunch returns
+// the window the user last sized by hand.
+type WindowFrame struct {
+	Width      int  `json:"width"`
+	Height     int  `json:"height"`
+	X          int  `json:"x"`
+	Y          int  `json:"y"`
+	Maximised  bool `json:"maximised"`
+	Fullscreen bool `json:"fullscreen"`
+}
+
+// normalizeWindowFrame drops a frame too small to hold the window, or one whose
+// size was cleared by hand, whole (including the state flags) so the next
+// launch falls back to the screen-sized default.
+func normalizeWindowFrame(frame WindowFrame) WindowFrame {
+	if frame.Width < minWindowWidth || frame.Height < minWindowHeight {
+		return WindowFrame{}
+	}
+	return frame
+}
+
 // windowGeometry is a resolved frame in DIPs, in the Y-down screen space Wails
 // reports: X and Y are the window's top-left corner, matching Screen.WorkArea.
 type windowGeometry struct {
@@ -35,7 +62,7 @@ type windowGeometry struct {
 // saved frame is used only when its title bar is still reachable; otherwise the
 // frame was left on a display that changed or went away, and the window starts
 // centred at the screen-sized default instead.
-func resolveWindowGeometry(saved WindowSettings, screens []*application.Screen) windowGeometry {
+func resolveWindowGeometry(saved WindowFrame, screens []*application.Screen) windowGeometry {
 	if saved.Width >= minWindowWidth && saved.Height >= minWindowHeight {
 		frame := windowGeometry{
 			X:      saved.X,

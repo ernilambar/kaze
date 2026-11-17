@@ -14,6 +14,17 @@ func useTempSettingsDir(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 }
 
+// savedSidebarRoots reads the roots through a fresh App, which is what the
+// next launch sees.
+func savedSidebarRoots(t *testing.T) []string {
+	t.Helper()
+	roots, err := NewApp().LoadSidebarFolders()
+	if err != nil {
+		t.Fatalf("LoadSidebarFolders() error = %v", err)
+	}
+	return roots
+}
+
 func TestAddSidebarFolderSavesFolder(t *testing.T) {
 	useTempSettingsDir(t)
 	folder := t.TempDir()
@@ -30,16 +41,9 @@ func TestAddSidebarFolderSavesFolder(t *testing.T) {
 	}
 
 	// The list must survive a restart, which means it is on disk.
-	path, err := settingsFilePath()
-	if err != nil {
-		t.Fatalf("settingsFilePath() error = %v", err)
-	}
-	settings, err := loadSettings(path)
-	if err != nil {
-		t.Fatalf("loadSettings() error = %v", err)
-	}
-	if !reflect.DeepEqual(settings.Sidebar.Folders, want) {
-		t.Fatalf("saved folders = %q, want %q", settings.Sidebar.Folders, want)
+	roots := savedSidebarRoots(t)
+	if !reflect.DeepEqual(roots, want) {
+		t.Fatalf("saved folders = %q, want %q", roots, want)
 	}
 }
 
@@ -179,16 +183,8 @@ func TestAddSidebarFolderKeepsConcurrentAdditions(t *testing.T) {
 		}
 	}
 
-	path, err := settingsFilePath()
-	if err != nil {
-		t.Fatalf("settingsFilePath() error = %v", err)
-	}
-	settings, err := loadSettings(path)
-	if err != nil {
-		t.Fatalf("loadSettings() error = %v", err)
-	}
-	if len(settings.Sidebar.Folders) != len(folders) {
-		t.Fatalf("saved folders = %q, want all %d additions", settings.Sidebar.Folders, len(folders))
+	if roots := savedSidebarRoots(t); len(roots) != len(folders) {
+		t.Fatalf("saved folders = %q, want all %d additions", roots, len(folders))
 	}
 }
 
@@ -224,12 +220,8 @@ func TestSetSidebarFoldersKeepsOldListOnMissingFolder(t *testing.T) {
 		t.Fatal("SetSidebarFolders() error = nil, want a missing folder error")
 	}
 
-	settings, err := app.GetSettings()
-	if err != nil {
-		t.Fatal(err)
-	}
 	want := []string{folder}
-	if !reflect.DeepEqual(settings.Sidebar.Folders, want) {
-		t.Fatalf("saved folders = %q, want %q", settings.Sidebar.Folders, want)
+	if roots := savedSidebarRoots(t); !reflect.DeepEqual(roots, want) {
+		t.Fatalf("saved folders = %q, want %q", roots, want)
 	}
 }

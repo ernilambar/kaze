@@ -33,13 +33,12 @@ The View menu's checkboxes write these last seven keys.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `sidebar.folders` | string[] | `[]` | Absolute root folders, in display order. |
 | `sidebar.visible` | boolean | `true` | Show the sidebar; **Toggle Sidebar** (`⌘B`) writes it. |
 | `sidebar.auto_reveal` | boolean | `true` | Expand the tree to the active file on tab change. |
 
-Adding a folder with the sidebar's `+`, **File → Add Folder to Sidebar…**
-(`⌃⌘O`), or `kaze .` writes this list. Hand edits are normalized: entries are
-trimmed, blanks dropped, and duplicates removed.
+The open folders themselves are not settings; `session.json` keeps them, and
+adding a folder with the sidebar's `+`, **File → Add Folder to Sidebar…**
+(`⌃⌘O`), or `kaze .` updates that list.
 
 ## Excludes
 
@@ -85,15 +84,13 @@ appearance.
 
 ## App-written state
 
-`settings.json` also holds `window`, the last window frame. It is written when
-the first window closes or the app quits, not by the settings panel; a frame
-that is too small or would put the title bar off-screen is ignored.
-
-Tabs, workspaces, and the Open Recent list live in `session.json` beside the
-settings file:
+`settings.json` holds user configuration only. What the app records about the
+last run lives in `session.json` beside it:
 
 | Key | Description |
 | --- | --- |
+| `sidebar.roots` | Open sidebar folders, in display order. |
+| `frame` | Last window frame, written when the first window closes or the app quits. A frame that is too small or would put the title bar off-screen is ignored. |
 | `recent.files` | Open Recent history, newest first, capped at 20. |
 | `window` | Launch window's workspace, folders, open files, active tab, expanded folders. |
 | `workspaces` | One parked tab set per workspace file, keyed by canonical path, capped at 50. |
@@ -104,8 +101,9 @@ it is read. Version 1 kept the Open Recent list in `settings.json`: reading a
 version-1 file moves that `recent` section here and drops the key. The cleanup
 runs only while `session.json` is missing, empty, corrupt or older than version
 2; a `recent` key sitting beside a current session file, and a `session` key
-written by even older builds, are ignored. Delete those sections by hand if you
-still have them.
+written by even older builds, are ignored. The same holds for the `window` frame
+and the `sidebar.folders` list that older builds kept here: both are ignored,
+so delete them by hand if they are still in the file.
 
 ## Behaviour
 

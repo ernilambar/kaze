@@ -82,13 +82,7 @@ func TestAppListFilesReadsSidebarFolders(t *testing.T) {
 	root := t.TempDir()
 	writeTempFile(t, root, "notes.txt", "hello\n")
 
-	path, err := settingsFilePath()
-	if err != nil {
-		t.Fatal(err)
-	}
-	settings := defaultSettings()
-	settings.Sidebar.Folders = []string{root}
-	if err := writeSettings(path, settings); err != nil {
+	if err := writeSessionFile(sessionFile{Sidebar: sidebarRoots{Roots: []string{root}}}); err != nil {
 		t.Fatal(err)
 	}
 

@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-// searchFixture writes a small project plus settings that point at it, and
-// returns the root. HOME is redirected so settings.json lands in the test.
+// searchFixture writes a small project plus session state that points at it,
+// and returns the root. HOME is redirected so session.json lands in the test.
 func searchFixture(t *testing.T) string {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
@@ -27,13 +27,7 @@ func searchFixture(t *testing.T) string {
 	writeTempFile(t, filepath.Join(root, "src"), "helper.go", "// TODO helper\n")
 	writeTempFile(t, root, ".gitignore", "ignored.go\n")
 
-	path, err := settingsFilePath()
-	if err != nil {
-		t.Fatal(err)
-	}
-	settings := defaultSettings()
-	settings.Sidebar.Folders = []string{root}
-	if err := writeSettings(path, settings); err != nil {
+	if err := writeSessionFile(sessionFile{Sidebar: sidebarRoots{Roots: []string{root}}}); err != nil {
 		t.Fatal(err)
 	}
 	return root

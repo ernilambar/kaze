@@ -33,27 +33,6 @@ type Settings struct {
 	Search  SearchSettings  `json:"search"`
 	Theme   ThemeSettings   `json:"theme"`
 	UI      UISettings      `json:"ui"`
-	// Window is the frame the last window of a launch left behind. It is
-	// written by the backend, not by the settings overlay, and it is state
-	// rather than a user preference. Recent files are state too, kept in
-	// session.json beside the tab sets.
-	Window WindowSettings `json:"window"`
-}
-
-// WindowSettings is the saved frame of the main window. An empty struct means
-// no frame has been saved yet, so the next launch starts from the screen-sized
-// default. The size and position are in DIPs, the units Wails reports.
-//
-// A maximised or fullscreen window stores the state here but keeps the normal
-// frame in width/height/x/y, so turning the zoom off after a relaunch returns
-// the window the user last sized by hand.
-type WindowSettings struct {
-	Width      int  `json:"width"`
-	Height     int  `json:"height"`
-	X          int  `json:"x"`
-	Y          int  `json:"y"`
-	Maximised  bool `json:"maximised"`
-	Fullscreen bool `json:"fullscreen"`
 }
 
 // EditorSettings tunes the Monaco editor instance. Booleans that default to
@@ -86,11 +65,10 @@ type EditorSettings struct {
 	SmartIndent         bool `json:"smart_indent"`
 }
 
-// SidebarSettings is the folder tree's saved state. Opening a workspace
-// replaces the roots with the file's folders; the list is still persisted so a
-// relaunch without the workspace file keeps its tree.
+// SidebarSettings is the sidebar's saved appearance. The roots themselves are
+// session state, because a folder list is what the user last had open, not a
+// preference to edit by hand.
 type SidebarSettings struct {
-	Folders []string `json:"folders"`
 	// Visible is whether the sidebar is shown. It survives a relaunch, so
 	// Cmd+B keeps the layout the user left behind.
 	Visible bool `json:"visible"`
@@ -161,7 +139,7 @@ func defaultSettings() Settings {
 			AutoCloseBrackets:   true,
 			SmartIndent:         true,
 		},
-		Sidebar: SidebarSettings{Folders: []string{}, Visible: true, AutoReveal: true},
+		Sidebar: SidebarSettings{Visible: true, AutoReveal: true},
 		Files:   FilesSettings{Exclude: defaultExcludePatterns()},
 		Search:  SearchSettings{Exclude: defaultExcludePatterns()},
 		Theme: ThemeSettings{
@@ -176,7 +154,6 @@ func defaultSettings() Settings {
 			IconStyle:       defaultUIIconStyle,
 			SidebarPosition: defaultSidebarPlace,
 		},
-		Window: WindowSettings{},
 	}
 }
 
@@ -204,7 +181,6 @@ func (s *Settings) normalize() {
 		s.Editor.CursorSurroundingLines = 0
 	}
 
-	s.Sidebar.Folders = normalizeFolderList(s.Sidebar.Folders)
 	s.Files.Exclude = normalizePatternList(s.Files.Exclude)
 	s.Search.Exclude = normalizePatternList(s.Search.Exclude)
 
@@ -237,13 +213,6 @@ func (s *Settings) normalize() {
 		s.UI.SidebarPosition = defaultSidebarPlace
 	} else {
 		s.UI.SidebarPosition = "right"
-	}
-
-	// A frame too small to hold the window, or one whose size was cleared by
-	// hand, is not a frame: drop it whole (including the state flags) so the
-	// next launch falls back to the screen-sized default.
-	if s.Window.Width < minWindowWidth || s.Window.Height < minWindowHeight {
-		s.Window = WindowSettings{}
 	}
 }
 

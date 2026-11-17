@@ -92,8 +92,12 @@ func (a *App) SearchProject(request SearchRequest) (SearchResult, error) {
 	if err != nil {
 		return SearchResult{}, err
 	}
+	roots, err := a.LoadSidebarFolders()
+	if err != nil {
+		return SearchResult{}, err
+	}
 
-	files := collectSearchFiles(settings, request)
+	files := collectSearchFiles(settings, roots, request)
 	result := SearchResult{Matches: make([]SearchMatch, 0), Files: len(files)}
 	for _, path := range files {
 		searchFile(path, expression, &result)
@@ -123,13 +127,17 @@ func (a *App) ReplaceInProject(request SearchRequest) (ReplaceResult, error) {
 	if err != nil {
 		return ReplaceResult{}, err
 	}
+	roots, err := a.LoadSidebarFolders()
+	if err != nil {
+		return ReplaceResult{}, err
+	}
 
 	open := make(map[string]bool, len(request.OpenPaths))
 	for _, path := range request.OpenPaths {
 		open[path] = true
 	}
 	result := ReplaceResult{Skipped: make([]string, 0)}
-	for _, path := range collectSearchFiles(settings, request) {
+	for _, path := range collectSearchFiles(settings, roots, request) {
 		// Only files the search reported are candidates. Without an expected
 		// mtime the frontend did not offer this file for replacement, so a
 		// search run earlier cannot turn into a write here.
@@ -205,7 +213,7 @@ func searchExpression(request SearchRequest) (*regexp.Regexp, error) {
 // collectSearchFiles walks every root and returns the files a search should
 // read. The filters are applied while walking, so an excluded tree is never
 // descended into.
-func collectSearchFiles(settings Settings, request SearchRequest) []string {
+func collectSearchFiles(settings Settings, roots []string, request SearchRequest) []string {
 	excludes := newExcludeMatcher(mergePatterns(
 		settings.Files.Exclude,
 		settings.Search.Exclude,
@@ -215,7 +223,7 @@ func collectSearchFiles(settings Settings, request SearchRequest) []string {
 
 	files := make([]string, 0)
 	seen := make(map[string]bool)
-	for _, root := range settings.Sidebar.Folders {
+	for _, root := range roots {
 		root = filepath.Clean(root)
 		if info, err := os.Stat(root); err != nil || !info.IsDir() {
 			continue

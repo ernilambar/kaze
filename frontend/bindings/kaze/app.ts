@@ -245,6 +245,13 @@ export function LoadDocument(path: string): $CancellablePromise<$models.Document
 }
 
 /**
+ * LoadSidebarFolders returns the open sidebar roots from session.json.
+ */
+export function LoadSidebarFolders(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(114113604);
+}
+
+/**
  * LoadTheme resolves one variant and returns the CSS and Monaco values that
  * apply it. Missing style keys fall back to the matching built-in palette.
  */

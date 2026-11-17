@@ -309,29 +309,36 @@ func (a *App) RemoveSidebarFolder(folder string) ([]string, error) {
 	})
 }
 
-// updateSidebarFolders reads settings.json, applies change to the folder list
-// and writes the result back. The list is normalized on both sides, so the
-// backend and the frontend agree on what a valid root is.
-func (a *App) updateSidebarFolders(change func([]string) []string) ([]string, error) {
-	path, err := settingsFilePath()
+// LoadSidebarFolders returns the open sidebar roots from session.json.
+func (a *App) LoadSidebarFolders() ([]string, error) {
+	a.sessionMu.Lock()
+	defer a.sessionMu.Unlock()
+
+	state, err := a.loadSessionLocked()
 	if err != nil {
 		return nil, err
 	}
+	return state.Sidebar.Roots, nil
+}
 
-	a.settingsMu.Lock()
-	defer a.settingsMu.Unlock()
+// updateSidebarFolders reads session.json, applies change to the folder list
+// and writes the result back. The list is normalized on both sides, so the
+// backend and the frontend agree on what a valid root is.
+func (a *App) updateSidebarFolders(change func([]string) []string) ([]string, error) {
+	a.sessionMu.Lock()
+	defer a.sessionMu.Unlock()
 
-	settings, err := loadSettings(path)
+	state, err := a.loadSessionLocked()
 	if err != nil {
-		return settings.Sidebar.Folders, err
+		return state.Sidebar.Roots, err
 	}
 
-	before := settings.Sidebar
-	settings.Sidebar.Folders = normalizeFolderList(change(settings.Sidebar.Folders))
-	if err := writeSettingsSections(path, settings, settingsSection{"sidebar", before, settings.Sidebar}); err != nil {
-		return settings.Sidebar.Folders, err
+	state.Sidebar.Roots = normalizeFolderList(change(state.Sidebar.Roots))
+	a.sessionStore = state
+	if err := writeSessionFile(state); err != nil {
+		return state.Sidebar.Roots, err
 	}
-	return settings.Sidebar.Folders, nil
+	return state.Sidebar.Roots, nil
 }
 
 // openSettingsFile opens settings.json in the editor named by the user's
