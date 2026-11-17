@@ -90,9 +90,9 @@ Default shortcuts and `keybindings.json`: see [docs/keymaps.md](docs/keymaps.md)
 
 ## Settings
 
-Kaze creates `settings.json` in the platform config directory on first launch
-and reads editor settings from it. See [docs/settings.md](docs/settings.md) for
-locations, supported fields and validation rules.
+Kaze creates `settings.json` in `~/Library/Application Support/Kaze/` on first
+launch and reads editor settings from it. See [docs/settings.md](docs/settings.md)
+for the supported fields and validation rules.
 
 ## Development
 

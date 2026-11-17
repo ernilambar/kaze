@@ -4,7 +4,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -93,10 +92,6 @@ func TestWriteFileAtomicReplacesContentAndKeepsMode(t *testing.T) {
 }
 
 func TestInstallLauncherWritesRunnableScript(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("the launcher is a POSIX shell script")
-	}
-
 	path := filepath.Join(t.TempDir(), "bin", "editor")
 	target := "/Applications/Editor.app/Contents/MacOS/editor"
 
@@ -128,10 +123,6 @@ func TestInstallLauncherWritesRunnableScript(t *testing.T) {
 }
 
 func TestInstalledLauncherRunsTargetWithAbsolutePaths(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("the launcher is a POSIX shell script")
-	}
-
 	dir := t.TempDir()
 	target := filepath.Join(dir, "Editor.app", "Contents", "MacOS", "editor")
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {

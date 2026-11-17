@@ -38,16 +38,6 @@ describe('toQuickOpenFiles', () => {
 
         expect(entry).toEqual({ path: '/elsewhere/notes.txt', name: 'notes.txt', detail: '/elsewhere' });
     });
-
-    it('accepts Windows separators', () => {
-        const entry = toQuickOpenFile('C:\\repo\\src\\App.svelte', ['C:\\repo']);
-
-        expect(entry).toEqual({
-            path: 'C:\\repo\\src\\App.svelte',
-            name: 'App.svelte',
-            detail: 'repo/src',
-        });
-    });
 });
 
 describe('fuzzyScore', () => {

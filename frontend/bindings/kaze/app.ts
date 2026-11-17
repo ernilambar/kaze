@@ -331,7 +331,7 @@ export function OpenKeybindings(): $CancellablePromise<void> {
 
 /**
  * OpenSettings opens settings.json in the editor named by the user's
- * environment, falling back to the platform's default file handler. The command
+ * environment, falling back to macOS's default file handler. The command
  * palette reports the error; the menu logs it.
  */
 export function OpenSettings(): $CancellablePromise<void> {
@@ -355,9 +355,9 @@ export function OpenWorkspaceDialog(): $CancellablePromise<$models.WorkspaceInfo
 }
 
 /**
- * PrintDocument opens the platform's print panel for a buffer. Printing is done
- * by the native toolkit so the panel, page setup and printer list are the ones
- * the user already knows.
+ * PrintDocument opens the macOS print panel for a buffer. Printing is done by
+ * AppKit so the panel, page setup and printer list are the ones the user
+ * already knows.
  */
 export function PrintDocument(request: $models.PrintRequest): $CancellablePromise<void> {
     return $Call.ByID(3607023689, request);
@@ -420,8 +420,7 @@ export function ResolveClose(window: string, quit: boolean): $CancellablePromise
 }
 
 /**
- * RevealFile shows path in the platform's file manager, selecting it when the
- * platform supports that.
+ * RevealFile shows path in Finder with the file selected.
  */
 export function RevealFile(path: string): $CancellablePromise<void> {
     return $Call.ByID(3499415518, path);
@@ -542,9 +541,8 @@ export function ToggleFullScreen(window: string): $CancellablePromise<void> {
 }
 
 /**
- * TrashPath moves path to the platform's Trash. Deleting for good is not
- * offered by the tree, so a mistyped rename or drop can still be undone in
- * Finder.
+ * TrashPath moves path to the macOS Trash. Deleting for good is not offered by
+ * the tree, so a mistyped rename or drop can still be undone in Finder.
  */
 export function TrashPath(path: string): $CancellablePromise<void> {
     return $Call.ByID(1861979214, path);

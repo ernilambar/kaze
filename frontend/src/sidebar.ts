@@ -57,15 +57,13 @@ export function errorMessage(error: unknown): string {
 }
 
 // isWithin reports whether path sits inside folder. The trailing separator
-// keeps /projects from matching /projects-old, and both separators are accepted
-// so a Windows path works the same way.
+// keeps /projects from matching /projects-old.
 export function isWithin(folder: string, path: string): boolean {
     if (folder === '' || path === '') {
         return false;
     }
-    const base = /[\\/]$/.test(folder) ? folder : `${folder}/`;
-    const candidate = path.replace(/\\/g, '/');
-    return candidate.startsWith(base.replace(/\\/g, '/'));
+    const base = folder.endsWith('/') ? folder : `${folder}/`;
+    return path.startsWith(base);
 }
 
 // loadSidebarFolders reads the roots saved in settings.json. A failure leaves
@@ -116,7 +114,7 @@ export function listenForAddFolder(handler: () => void): () => void {
 export function relativePath(path: string, roots: readonly string[]): string {
     let innermost = '';
     for (const candidate of roots) {
-        const root = candidate.length > 1 ? candidate.replace(/[\\/]+$/, '') : candidate;
+        const root = candidate.length > 1 ? candidate.replace(/\/+$/, '') : candidate;
         if (root.length > innermost.length && isWithin(root, path)) {
             innermost = root;
         }
@@ -124,7 +122,7 @@ export function relativePath(path: string, roots: readonly string[]): string {
     if (innermost === '') {
         return path;
     }
-    return path.slice(innermost.length).replace(/^[\\/]+/, '').replace(/\\/g, '/');
+    return path.slice(innermost.length).replace(/^\/+/, '');
 }
 
 // closeAllSidebarFolders drops every root and returns the empty list.

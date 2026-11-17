@@ -117,7 +117,7 @@ export function changedLines(before: string, after: string): ChangedLine[] {
         return [];
     }
 
-    // Normalizing CRLF keeps a file stored with Windows line endings from
+    // Normalizing CRLF keeps a file stored with CRLF line endings from
     // comparing every line against a blob that git stores with LF.
     const beforeLines = before.replace(/\r\n/g, '\n').split('\n');
     const afterLines = after.replace(/\r\n/g, '\n').split('\n');

@@ -78,9 +78,8 @@ Without those exports cgo compiles per the host macOS version, so the linker
 warns that the objects are newer than the 13.0 target. Keep the target in sync
 with `LSMinimumSystemVersion` in both `build/darwin/Info.plist` files.
 
-If your change affects app startup, Wails configuration, or platform
-packaging, also run `wails3 task darwin:package` and launch the resulting app
-from `bin`.
+If your change affects app startup, Wails configuration, or packaging, also
+run `wails3 task darwin:package` and launch the resulting app from `bin`.
 
 Tests are colocated with the code they cover: Go tests use `testing`
 (`app_test.go`) and frontend tests use Vitest (`src/*.test.ts`). TypeScript
@@ -107,6 +106,6 @@ darwin:package`), then tags and pushes. The tag triggers
 `.github/workflows/release.yml`, which rebuilds on an Apple silicon runner and
 attaches `Kaze-macos-arm64.zip` and `SHA256SUMS` to the GitHub release.
 
-`bundle.sh` fails on non-macOS hosts and on Intel Macs, and verifies the built
-binary is `arm64`. The app is signed ad hoc; if Developer ID signing and
-notarization are added later, update the release workflow accordingly.
+`bundle.sh` requires macOS on Apple silicon and verifies the built binary is
+`arm64`. The app is signed ad hoc; if Developer ID signing and notarization are
+added later, update the release workflow accordingly.

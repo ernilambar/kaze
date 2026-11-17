@@ -4,12 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"testing"
 )
 
 func TestEditorArgsPrefersVisual(t *testing.T) {
-	got, err := editorArgs("/tmp/settings.json", "code -w", "vim", "darwin")
+	got, err := editorArgs("/tmp/settings.json", "code -w", "vim")
 	if err != nil {
 		t.Fatalf("editorArgs() error = %v", err)
 	}
@@ -21,7 +20,7 @@ func TestEditorArgsPrefersVisual(t *testing.T) {
 }
 
 func TestEditorArgsFallsBackToEditor(t *testing.T) {
-	got, err := editorArgs("/tmp/settings.json", "  ", "nano", "darwin")
+	got, err := editorArgs("/tmp/settings.json", "  ", "nano")
 	if err != nil {
 		t.Fatalf("editorArgs() error = %v", err)
 	}
@@ -34,7 +33,7 @@ func TestEditorArgsFallsBackToEditor(t *testing.T) {
 
 func TestEditorArgsQuotedPathKeepsSpaces(t *testing.T) {
 	command := `"/Applications/My Editor.app/Contents/MacOS/editor" -n`
-	got, err := editorArgs("/tmp/settings.json", command, "", "darwin")
+	got, err := editorArgs("/tmp/settings.json", command, "")
 	if err != nil {
 		t.Fatalf("editorArgs() error = %v", err)
 	}
@@ -45,22 +44,15 @@ func TestEditorArgsQuotedPathKeepsSpaces(t *testing.T) {
 	}
 }
 
-func TestEditorArgsDefaultOpenerPerPlatform(t *testing.T) {
-	for _, tc := range []struct {
-		goos string
-		want []string
-	}{
-		{"darwin", []string{"open", "/tmp/settings.json"}},
-		{"windows", []string{"rundll32", "url.dll,FileProtocolHandler", "/tmp/settings.json"}},
-		{"linux", []string{"xdg-open", "/tmp/settings.json"}},
-	} {
-		got, err := editorArgs("/tmp/settings.json", "", "", tc.goos)
-		if err != nil {
-			t.Fatalf("editorArgs(%s) error = %v", tc.goos, err)
-		}
-		if !reflect.DeepEqual(got, tc.want) {
-			t.Errorf("editorArgs(%s) = %q, want %q", tc.goos, got, tc.want)
-		}
+func TestEditorArgsDefaultOpener(t *testing.T) {
+	got, err := editorArgs("/tmp/settings.json", "", "")
+	if err != nil {
+		t.Fatalf("editorArgs() error = %v", err)
+	}
+
+	want := []string{"open", "/tmp/settings.json"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("editorArgs() = %q, want %q", got, want)
 	}
 }
 
@@ -71,10 +63,6 @@ func TestSplitCommandRejectsUnbalancedQuote(t *testing.T) {
 }
 
 func TestOpenSettingsFileCreatesAndLaunches(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("test relies on the POSIX true command")
-	}
-
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("VISUAL", "true")
@@ -86,9 +74,6 @@ func TestOpenSettingsFileCreatesAndLaunches(t *testing.T) {
 	}
 
 	path := filepath.Join(home, "Library", "Application Support", appMeta.ProductName, "settings.json")
-	if runtime.GOOS != "darwin" {
-		path = filepath.Join(home, ".config", appMeta.ProductName, "settings.json")
-	}
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("settings file was not created: %v", err)
 	}

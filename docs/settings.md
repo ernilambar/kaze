@@ -1,14 +1,9 @@
 # Settings
 
-Kaze reads user settings from `settings.json` in the platform config
-directory. The file is created with defaults the first time settings are
-loaded (at app startup), so no manual setup is required.
-
-| Platform | Path |
-| --- | --- |
-| macOS | `~/Library/Application Support/Kaze/settings.json` |
-| Windows | `%AppData%\Kaze\settings.json` |
-| Linux | `~/.config/Kaze/settings.json` (`$XDG_CONFIG_HOME` is honored) |
+Kaze reads user settings from
+`~/Library/Application Support/Kaze/settings.json`. The file is created with
+defaults the first time settings are loaded (at app startup), so no manual
+setup is required.
 
 ## Example
 

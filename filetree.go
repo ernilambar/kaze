@@ -279,9 +279,8 @@ func resolveInputPath(input, base string) (string, error) {
 	return filepath.Clean(input), nil
 }
 
-// TrashPath moves path to the platform's Trash. Deleting for good is not
-// offered by the tree, so a mistyped rename or drop can still be undone in
-// Finder.
+// TrashPath moves path to the macOS Trash. Deleting for good is not offered by
+// the tree, so a mistyped rename or drop can still be undone in Finder.
 func (a *App) TrashPath(path string) error {
 	path = filepath.Clean(strings.TrimSpace(path))
 	if path == "" || path == "." {

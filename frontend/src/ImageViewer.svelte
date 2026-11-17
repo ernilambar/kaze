@@ -80,9 +80,9 @@
     }
 
     function handleWheel(event: WheelEvent): void {
-        // Cmd on macOS, Ctrl elsewhere (and for trackpad pinch, which reports
-        // Ctrl). A plain wheel is left to the scroll container so tall images
-        // can be panned without a modifier.
+        // Cmd zooms on macOS; Ctrl also works for trackpad pinch, which
+        // reports Ctrl. A plain wheel is left to the scroll container so tall
+        // images can be panned without a modifier.
         if (!event.metaKey && !event.ctrlKey) {
             return;
         }

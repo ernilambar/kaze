@@ -53,8 +53,8 @@ No frontend linter/formatter is configured; don't add one unprompted.
   takes the same typed target and refuses a folder copied into itself;
   `DuplicatePathSuggestion` supplies the dialog's prefilled `name copy.ext`.
   Nothing deletes permanently: `TrashPath` uses AppKit on the main thread
-  (`trash_darwin.go`); `trash_other.go` fails loudly. Results carry `path` and
-  symlink-resolved `real_path`; tabs match on the latter.
+  (`trash_darwin.go`). Results carry `path` and symlink-resolved `real_path`;
+  tabs match on the latter.
 - **Rename/move keeps tabs open.** `retargetDocumentPaths` (`tabs.ts`) rewrites
   `path`/`realPath` for the tab, its diff tab and tabs under a renamed folder;
   the `id` survives, so Monaco keeps model, undo and dirty state. `applyTreeMove`
@@ -126,7 +126,7 @@ No frontend linter/formatter is configured; don't add one unprompted.
   window's dirty buffers; the last window quits; Cmd+Q asks each dirty window.
 - **Title bar is the frontend's.** `MacTitleBarHidden` extends content under the
   traffic lights; `TitleBar.svelte` (32px, 2px top padding, draggable) is the only
-  title bar on macOS. Other platforms keep the native bar above it.
+  title bar.
 - **Window geometry is saved and validated.** `windowgeometry.go`: the first
   window restores `settings.json`'s `window` frame; new windows cascade 24px
   from the oldest. A saved frame is used only while ≥120×48 points of its title
@@ -154,7 +154,7 @@ No frontend linter/formatter is configured; don't add one unprompted.
   Changes view and status bar; baseline feeds gutter diff; diff tabs are
   read-only and excluded from the session.
 - **Printing is native.** `PrintDocument` → AppKit print panel as a sheet
-  (`print_darwin.go`); `print_unsupported.go` covers other builds.
+  (`print_darwin.go`).
 - **`kaze` is a shell launcher.** `install.go` writes `/usr/local/bin/kaze`
   execing the bundle (escalating via `osascript` when needed); a single-instance
   lock forwards later invocations to the running window.

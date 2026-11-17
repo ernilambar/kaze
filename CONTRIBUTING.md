@@ -19,7 +19,7 @@ rest of this guide covers conventions and review.
 | `frontend/src/` | Svelte UI (`App.svelte` and components, `main.ts`, `style.css`) |
 | `frontend/bindings/` | Generated bindings; never edit by hand |
 | `docs/` | User documentation (`settings.md`) and developer documentation (`development.md`) |
-| `build/` | Platform packaging assets (`config.yml` holds product metadata) |
+| `build/` | macOS packaging assets (`config.yml` holds product metadata) |
 | `Taskfile.yml` | Build, package and dev tasks (Wails v3) |
 
 ## Coding guidelines
@@ -50,8 +50,8 @@ info:
   version: "0.1.0"
 ```
 
-That value populates the macOS bundle version (`CFBundleShortVersionString`,
-`CFBundleVersion`), the Windows executable version, and the installer metadata.
+That value populates the macOS bundle version (`CFBundleShortVersionString` and
+`CFBundleVersion`).
 To release a new version, bump `info.version` there, run `wails3 task
 common:update:build-assets`, and tag the commit (for example `v0.2.0`).
 `about.go` embeds the same file, so `kaze --version`, the app menu and the
@@ -81,6 +81,6 @@ Releases are macOS arm64 only; Intel Macs are not supported.
 
 ## Reporting issues
 
-Include the operating system, Go/Node/pnpm/Wails versions, reproduction
-steps, and any terminal or developer-console output. Screenshots help for UI
+Include the macOS version, Go/Node/pnpm/Wails versions, reproduction steps, and
+any terminal or developer-console output. Screenshots help for UI
 issues.

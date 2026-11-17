@@ -17,9 +17,9 @@ type PrintRequest struct {
 	Image bool `json:"image"`
 }
 
-// PrintDocument opens the platform's print panel for a buffer. Printing is done
-// by the native toolkit so the panel, page setup and printer list are the ones
-// the user already knows.
+// PrintDocument opens the macOS print panel for a buffer. Printing is done by
+// AppKit so the panel, page setup and printer list are the ones the user
+// already knows.
 func (a *App) PrintDocument(request PrintRequest) error {
 	if a.wails == nil {
 		return errors.New("printing is not available before startup")

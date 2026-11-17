@@ -5,16 +5,15 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime"
 	"strings"
 )
 
 // openInEditor launches the user's editor on path. $VISUAL is preferred over
-// $EDITOR, following the usual Unix convention; with neither set the platform's
+// $EDITOR, following the usual Unix convention; with neither set macOS's
 // default file handler opens the file. The editor is not waited for, so it
 // outlives the app.
 func openInEditor(path string) error {
-	argv, err := editorArgs(path, os.Getenv("VISUAL"), os.Getenv("EDITOR"), runtime.GOOS)
+	argv, err := editorArgs(path, os.Getenv("VISUAL"), os.Getenv("EDITOR"))
 	if err != nil {
 		return err
 	}
@@ -29,13 +28,13 @@ func openInEditor(path string) error {
 // editorArgs builds the argv that opens path. visual and editor are the raw
 // environment values; they may carry arguments ("code -w"), so they are split
 // with shell-like quoting. Empty values count as unset.
-func editorArgs(path, visual, editor, goos string) ([]string, error) {
+func editorArgs(path, visual, editor string) ([]string, error) {
 	command := strings.TrimSpace(visual)
 	if command == "" {
 		command = strings.TrimSpace(editor)
 	}
 	if command == "" {
-		return defaultOpener(path, goos), nil
+		return defaultOpener(path), nil
 	}
 
 	argv, err := splitCommand(command)
@@ -45,17 +44,10 @@ func editorArgs(path, visual, editor, goos string) ([]string, error) {
 	return append(argv, path), nil
 }
 
-// defaultOpener is the platform's file handler, used when no editor is
-// configured in the environment.
-func defaultOpener(path, goos string) []string {
-	switch goos {
-	case "windows":
-		return []string{"rundll32", "url.dll,FileProtocolHandler", path}
-	case "darwin":
-		return []string{"open", path}
-	default:
-		return []string{"xdg-open", path}
-	}
+// defaultOpener is macOS's file handler, used when no editor is configured in
+// the environment.
+func defaultOpener(path string) []string {
+	return []string{"open", path}
 }
 
 // splitCommand splits a command line on whitespace, honouring single quotes,

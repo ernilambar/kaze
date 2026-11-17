@@ -35,14 +35,14 @@ export function toQuickOpenFiles(
 }
 
 export function toQuickOpenFile(path: string, roots: readonly string[]): QuickOpenFile {
-    const normalizedPath = stripTrailingSeparators(path.replace(/\\/g, '/'));
+    const normalizedPath = stripTrailingSeparators(path);
     const name = normalizedPath.slice(normalizedPath.lastIndexOf('/') + 1);
     const root = innermostRoot(path, roots);
     if (root === '') {
-        return { path, name, detail: parentOf(path.replace(/\\/g, '/')) };
+        return { path, name, detail: parentOf(path) };
     }
 
-    const relative = path.slice(root.length).replace(/^[\\/]+/, '').replace(/\\/g, '/');
+    const relative = path.slice(root.length).replace(/^\/+/, '');
     const parent = parentOf(relative);
     const label = folderName(root);
     return { path, name, detail: parent === '' ? label : `${label}/${parent}` };

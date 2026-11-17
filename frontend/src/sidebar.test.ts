@@ -50,8 +50,6 @@ describe('isWithin', () => {
         ['/projects', '/projects', false],
         ['', '/projects/a.txt', false],
         ['/projects', '', false],
-        ['C:\\projects', 'C:\\projects\\a.txt', true],
-        ['C:\\projects', 'C:\\projects-old\\a.txt', false],
     ])('reports whether %j contains %j', (folder, path, expected) => {
         expect(isWithin(folder, path)).toBe(expected);
     });
@@ -75,12 +73,6 @@ describe('errorMessage', () => {
 describe('relativePath', () => {
     it('removes the innermost root', () => {
         expect(relativePath('/projects/app/src/app.ts', ['/projects', '/projects/app'])).toBe(
-            'src/app.ts',
-        );
-    });
-
-    it('normalizes Windows separators', () => {
-        expect(relativePath('C:\\projects\\app\\src\\app.ts', ['C:\\projects\\app'])).toBe(
             'src/app.ts',
         );
     });

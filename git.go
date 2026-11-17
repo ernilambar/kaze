@@ -340,7 +340,7 @@ func gitRepoRootForFile(path string) string {
 }
 
 // gitRelativePath is the repository-relative, slash-separated name git expects
-// on the command line. Git always speaks forward slashes, even on Windows.
+// on the command line. Git always speaks forward slashes.
 func gitRelativePath(root, path string) (string, error) {
 	relative, err := filepath.Rel(root, canonicalPath(path))
 	if err != nil || relative == "." || relative == ".." ||

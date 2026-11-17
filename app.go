@@ -335,8 +335,8 @@ func (a *App) updateSidebarFolders(change func([]string) []string) ([]string, er
 }
 
 // openSettingsFile opens settings.json in the editor named by the user's
-// environment ($VISUAL, then $EDITOR), falling back to the platform's default
-// file handler. A missing file is created with defaults first; a malformed one
+// environment ($VISUAL, then $EDITOR), falling back to macOS's default file
+// handler. A missing file is created with defaults first; a malformed one
 // is opened as-is so the user can repair it.
 func (a *App) openSettingsFile() error {
 	path, err := settingsFilePath()
@@ -350,7 +350,7 @@ func (a *App) openSettingsFile() error {
 }
 
 // OpenSettings opens settings.json in the editor named by the user's
-// environment, falling back to the platform's default file handler. The command
+// environment, falling back to macOS's default file handler. The command
 // palette reports the error; the menu logs it.
 func (a *App) OpenSettings() error {
 	return a.openSettingsFile()

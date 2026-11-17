@@ -116,8 +116,7 @@ func (a *App) CopyText(text string) error {
 	return nil
 }
 
-// RevealFile shows path in the platform's file manager, selecting it when the
-// platform supports that.
+// RevealFile shows path in Finder with the file selected.
 func (a *App) RevealFile(path string) error {
 	return revealFile(path)
 }

@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -112,7 +111,7 @@ func TestLoadDocumentResolvesSymlinkedFile(t *testing.T) {
 }
 
 func TestLoadDocumentStripsBOMAndDetectsCRLF(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "windows.txt")
+	path := filepath.Join(t.TempDir(), "crlf.txt")
 	original := "\uFEFFfirst\r\nsecond\r\n"
 	if err := os.WriteFile(path, []byte(original), 0o644); err != nil {
 		t.Fatalf("write file: %v", err)
@@ -277,10 +276,6 @@ func TestLoadDocumentRejectsOversizedImage(t *testing.T) {
 }
 
 func TestLoadDocumentRejectsSpecialFile(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("test relies on the POSIX null device")
-	}
-
 	path := filepath.Join(t.TempDir(), "null")
 	if err := os.Symlink("/dev/null", path); err != nil {
 		t.Skipf("cannot create a symlink: %v", err)

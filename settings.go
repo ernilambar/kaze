@@ -322,9 +322,8 @@ func normalizeFolderList(folders []string) []string {
 	return uniquePaths(normalized)
 }
 
-// settingsFilePath returns the per-user settings location, following the
-// platform config directory: ~/Library/Application Support/<product
-// name>/settings.json on macOS.
+// settingsFilePath returns the per-user settings location:
+// ~/Library/Application Support/<product name>/settings.json.
 func settingsFilePath() (string, error) {
 	dir, err := os.UserConfigDir()
 	if err != nil {

@@ -128,7 +128,7 @@ func TestSaveDocumentReportsResolvedPath(t *testing.T) {
 // its buffer is saved unchanged: the editor strips the BOM to show the text and
 // normalizes the model to the file's EOL, and the save restores both.
 func TestSaveDocumentRestoresBOMAndCRLF(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "windows.txt")
+	path := filepath.Join(t.TempDir(), "crlf.txt")
 	original := []byte("\uFEFFfirst\r\nsecond\r\n")
 	if err := os.WriteFile(path, original, 0o644); err != nil {
 		t.Fatalf("write file: %v", err)
