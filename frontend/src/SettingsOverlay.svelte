@@ -72,8 +72,8 @@
     }: Props = $props();
 
     const SECTIONS: readonly { id: Section; label: string }[] = [
-        { id: 'editor', label: 'Editor' },
         { id: 'appearance', label: 'Appearance' },
+        { id: 'editor', label: 'Editor' },
         { id: 'interface', label: 'Interface' },
         { id: 'files', label: 'Files' },
         { id: 'sidebar', label: 'Sidebar' },
@@ -127,7 +127,7 @@
     const SIDEBAR_DEFAULTS = { visible: true, autoReveal: true } as const;
 
     let dialog = $state<HTMLElement>();
-    let section = $state<Section>('editor');
+    let section = $state<Section>('appearance');
 
     let lightThemes = $derived(themes.filter((entry) => entry.appearance === 'light'));
     let darkThemes = $derived(themes.filter((entry) => entry.appearance === 'dark'));
