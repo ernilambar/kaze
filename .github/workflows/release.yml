@@ -72,20 +72,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           archive="$APP_NAME-macos-arm64.zip"
-          bundle="$APP_NAME.app"
-          notes="macOS on Apple silicon (arm64) only. Intel Macs are not supported.
-
-          The app is signed ad hoc only (no Developer ID), so Gatekeeper quarantines it after download:
-
-          \`\`\`sh
-          unzip $archive
-          xattr -dr com.apple.quarantine $bundle
-          mv $bundle /Applications/
-          open /Applications/$bundle
-          \`\`\`"
+          # The body is only "app name - version"; release notes live in the
+          # changelog file and are edited there after publishing.
           gh release create "$GITHUB_REF_NAME" \
             --verify-tag \
             --title "$GITHUB_REF_NAME" \
-            --generate-notes \
-            --notes "$notes" \
+            --notes "$APP_NAME - $GITHUB_REF_NAME" \
             "dist/$archive" dist/SHA256SUMS
