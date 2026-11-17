@@ -86,6 +86,15 @@ export interface EditorSettings {
 }
 
 /**
+ * FileList is what Quick Open reads: every regular file under one window's
+ * sidebar roots, sorted by path, and whether the walk hit the cap.
+ */
+export interface FileList {
+    "files": string[] | null;
+    "truncated": boolean;
+}
+
+/**
  * FileTreeResult is one path a tree command produced: the spelling that was
  * written and the same path with symlinks resolved. Open tabs match on the
  * resolved one, so a rename through a symlinked root retargets the tab that was

@@ -203,16 +203,39 @@ func TestSessionStoresSidebarRoots(t *testing.T) {
 	folder := t.TempDir()
 
 	app := NewApp()
-	if _, err := app.AddSidebarFolder(folder); err != nil {
+	if _, err := app.AddSidebarFolder(defaultWindowName, folder); err != nil {
 		t.Fatal(err)
 	}
 
-	roots, err := NewApp().LoadSidebarFolders()
+	roots, err := NewApp().LoadSidebarFolders(defaultWindowName)
 	if err != nil {
 		t.Fatalf("LoadSidebarFolders() error = %v", err)
 	}
 	want := []string{folder}
 	if !reflect.DeepEqual(roots, want) {
+		t.Fatalf("roots = %q, want %q", roots, want)
+	}
+}
+
+// A session written before roots were keyed by window must still restore its
+// sidebar; otherwise the upgrade silently empties the folder tree.
+func TestSessionAdoptsLegacySidebarRoots(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	root := t.TempDir()
+
+	var state sessionFile
+	if err := json.Unmarshal([]byte(`{"version":2,"sidebar":{"roots":["`+root+`"]}}`), &state); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if err := writeSessionFile(normalizeSession(state)); err != nil {
+		t.Fatal(err)
+	}
+
+	roots, err := NewApp().LoadSidebarFolders(defaultWindowName)
+	if err != nil {
+		t.Fatalf("LoadSidebarFolders() error = %v", err)
+	}
+	if want := []string{root}; !reflect.DeepEqual(roots, want) {
 		t.Fatalf("roots = %q, want %q", roots, want)
 	}
 }

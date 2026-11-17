@@ -25,14 +25,14 @@ export function AddRecentFile(path: string): $CancellablePromise<string[] | null
 }
 
 /**
- * AddSidebarFolder adds one folder to the sidebar's saved list and returns the
- * new list. Opening a folder the user already added is a no-op, so launching
+ * AddSidebarFolder adds one folder to a window's sidebar and returns the new
+ * list. Opening a folder the user already added is a no-op, so launching
  * `<command> .` twice does not duplicate the root. The path is checked here rather
  * than trusted from the caller, because a sidebar root is only useful while it
  * is a real folder.
  */
-export function AddSidebarFolder(folder: string): $CancellablePromise<string[] | null> {
-    return $Call.ByID(2797738300, folder);
+export function AddSidebarFolder(window: string, folder: string): $CancellablePromise<string[] | null> {
+    return $Call.ByID(2797738300, window, folder);
 }
 
 /**
@@ -215,13 +215,14 @@ export function InstallCommandLineTool(): $CancellablePromise<void> {
 }
 
 /**
- * ListFiles returns every regular file under the sidebar roots, sorted by
- * path. The frontend filters this list locally, so each keystroke in Quick Open
- * costs nothing. files.exclude decides what is walked, so a folder hidden in
- * the tree is hidden here too.
+ * ListFiles returns every regular file under one window's sidebar roots,
+ * sorted by path. The frontend filters this list locally, so each keystroke in
+ * Quick Open costs nothing. files.exclude decides what is walked, so a folder
+ * hidden in the tree is hidden here too; .gitignore files and VCS directories
+ * are skipped as well.
  */
-export function ListFiles(): $CancellablePromise<string[] | null> {
-    return $Call.ByID(3557170708);
+export function ListFiles(window: string): $CancellablePromise<$models.FileList> {
+    return $Call.ByID(3557170708, window);
 }
 
 /**
@@ -245,10 +246,12 @@ export function LoadDocument(path: string): $CancellablePromise<$models.Document
 }
 
 /**
- * LoadSidebarFolders returns the open sidebar roots from session.json.
+ * LoadSidebarFolders returns a window's open sidebar roots. The launch window
+ * reads its saved list; every other window starts empty until a launch request
+ * adds folders, because one window's roots must never leak into another.
  */
-export function LoadSidebarFolders(): $CancellablePromise<string[] | null> {
-    return $Call.ByID(114113604);
+export function LoadSidebarFolders(window: string): $CancellablePromise<string[] | null> {
+    return $Call.ByID(114113604, window);
 }
 
 /**
@@ -393,19 +396,19 @@ export function ReadFolder(path: string, root: string): $CancellablePromise<$mod
 }
 
 /**
- * RemoveAllSidebarFolders drops every root from the sidebar and returns the
- * empty list. Open tabs stay open: they hold their own buffers.
+ * RemoveAllSidebarFolders drops every root from one window's sidebar and
+ * returns the empty list. Open tabs stay open: they hold their own buffers.
  */
-export function RemoveAllSidebarFolders(): $CancellablePromise<string[] | null> {
-    return $Call.ByID(4095382629);
+export function RemoveAllSidebarFolders(window: string): $CancellablePromise<string[] | null> {
+    return $Call.ByID(4095382629, window);
 }
 
 /**
- * RemoveSidebarFolder drops one folder from the sidebar's saved list and
- * returns the new list.
+ * RemoveSidebarFolder drops one folder from a window's sidebar and returns the
+ * new list.
  */
-export function RemoveSidebarFolder(folder: string): $CancellablePromise<string[] | null> {
-    return $Call.ByID(1753677811, folder);
+export function RemoveSidebarFolder(window: string, folder: string): $CancellablePromise<string[] | null> {
+    return $Call.ByID(1753677811, window, folder);
 }
 
 /**
@@ -425,8 +428,8 @@ export function RenamePath(path: string, target: string): $CancellablePromise<$m
  * overwritten: someone may have edited it, and Replace All must not discard
  * that change. Skipped paths are reported so the frontend can say so.
  */
-export function ReplaceInProject(request: $models.SearchRequest): $CancellablePromise<$models.ReplaceResult> {
-    return $Call.ByID(2481749581, request);
+export function ReplaceInProject(window: string, request: $models.SearchRequest): $CancellablePromise<$models.ReplaceResult> {
+    return $Call.ByID(2481749581, window, request);
 }
 
 /**
@@ -473,12 +476,12 @@ export function SaveWorkspaceAs(folders: string[] | null): $CancellablePromise<$
 }
 
 /**
- * SearchProject finds query across the sidebar roots. files.exclude and
- * search.exclude decide what is read, and every .gitignore file on the way is
- * honoured, so generated and ignored trees stay out of the results.
+ * SearchProject finds query across one window's sidebar roots. files.exclude
+ * and search.exclude decide what is read, and every .gitignore file on the way
+ * is honoured, so generated and ignored trees stay out of the results.
  */
-export function SearchProject(request: $models.SearchRequest): $CancellablePromise<$models.SearchResult> {
-    return $Call.ByID(2238777482, request);
+export function SearchProject(window: string, request: $models.SearchRequest): $CancellablePromise<$models.SearchResult> {
+    return $Call.ByID(2238777482, window, request);
 }
 
 /**
@@ -508,11 +511,11 @@ export function SetSidebarAutoReveal(autoReveal: boolean): $CancellablePromise<v
 }
 
 /**
- * SetSidebarFolders replaces the sidebar roots in one write. Opening a
- * workspace uses it so a half-applied list never survives a failed folder.
+ * SetSidebarFolders replaces one window's sidebar roots in one write. Opening
+ * a workspace uses it so a half-applied list never survives a failed folder.
  */
-export function SetSidebarFolders(folders: string[] | null): $CancellablePromise<string[] | null> {
-    return $Call.ByID(1107392794, folders);
+export function SetSidebarFolders(window: string, folders: string[] | null): $CancellablePromise<string[] | null> {
+    return $Call.ByID(1107392794, window, folders);
 }
 
 /**

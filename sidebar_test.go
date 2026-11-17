@@ -18,7 +18,7 @@ func useTempSettingsDir(t *testing.T) {
 // next launch sees.
 func savedSidebarRoots(t *testing.T) []string {
 	t.Helper()
-	roots, err := NewApp().LoadSidebarFolders()
+	roots, err := NewApp().LoadSidebarFolders(defaultWindowName)
 	if err != nil {
 		t.Fatalf("LoadSidebarFolders() error = %v", err)
 	}
@@ -30,7 +30,7 @@ func TestAddSidebarFolderSavesFolder(t *testing.T) {
 	folder := t.TempDir()
 	app := NewApp()
 
-	got, err := app.AddSidebarFolder(folder)
+	got, err := app.AddSidebarFolder(defaultWindowName, folder)
 	if err != nil {
 		t.Fatalf("AddSidebarFolder() error = %v", err)
 	}
@@ -54,12 +54,12 @@ func TestAddSidebarFolderKeepsOrderAndIgnoresRepeats(t *testing.T) {
 	app := NewApp()
 
 	for _, folder := range []string{first, second, first} {
-		if _, err := app.AddSidebarFolder(folder); err != nil {
+		if _, err := app.AddSidebarFolder(defaultWindowName, folder); err != nil {
 			t.Fatalf("AddSidebarFolder(%q) error = %v", folder, err)
 		}
 	}
 
-	got, err := app.AddSidebarFolder(second)
+	got, err := app.AddSidebarFolder(defaultWindowName, second)
 	if err != nil {
 		t.Fatalf("AddSidebarFolder() error = %v", err)
 	}
@@ -74,16 +74,16 @@ func TestAddSidebarFolderRejectsFile(t *testing.T) {
 	useTempSettingsDir(t)
 	path := writeTempFile(t, t.TempDir(), "notes.txt", "hello")
 
-	if _, err := NewApp().AddSidebarFolder(path); err == nil {
-		t.Fatal("AddSidebarFolder() error = nil, want a not a folder error")
+	if _, err := NewApp().AddSidebarFolder(defaultWindowName, path); err == nil {
+		t.Fatal("AddSidebarFolder(defaultWindowName, ) error = nil, want a not a folder error")
 	}
 }
 
 func TestAddSidebarFolderRejectsBlankPath(t *testing.T) {
 	useTempSettingsDir(t)
 
-	if _, err := NewApp().AddSidebarFolder("   "); err == nil {
-		t.Fatal("AddSidebarFolder() error = nil, want an empty folder error")
+	if _, err := NewApp().AddSidebarFolder(defaultWindowName, "   "); err == nil {
+		t.Fatal("AddSidebarFolder(defaultWindowName, ) error = nil, want an empty folder error")
 	}
 }
 
@@ -117,14 +117,14 @@ func TestRemoveSidebarFolderDropsOneRoot(t *testing.T) {
 	second := t.TempDir()
 	app := NewApp()
 
-	if _, err := app.AddSidebarFolder(first); err != nil {
+	if _, err := app.AddSidebarFolder(defaultWindowName, first); err != nil {
 		t.Fatalf("AddSidebarFolder() error = %v", err)
 	}
-	if _, err := app.AddSidebarFolder(second); err != nil {
+	if _, err := app.AddSidebarFolder(defaultWindowName, second); err != nil {
 		t.Fatalf("AddSidebarFolder() error = %v", err)
 	}
 
-	got, err := app.RemoveSidebarFolder(first)
+	got, err := app.RemoveSidebarFolder(defaultWindowName, first)
 	if err != nil {
 		t.Fatalf("RemoveSidebarFolder() error = %v", err)
 	}
@@ -140,11 +140,11 @@ func TestRemoveSidebarFolderIgnoresUnknownRoot(t *testing.T) {
 	folder := t.TempDir()
 	app := NewApp()
 
-	if _, err := app.AddSidebarFolder(folder); err != nil {
+	if _, err := app.AddSidebarFolder(defaultWindowName, folder); err != nil {
 		t.Fatalf("AddSidebarFolder() error = %v", err)
 	}
 
-	got, err := app.RemoveSidebarFolder(filepath.Join(folder, "elsewhere"))
+	got, err := app.RemoveSidebarFolder(defaultWindowName, filepath.Join(folder, "elsewhere"))
 	if err != nil {
 		t.Fatalf("RemoveSidebarFolder() error = %v", err)
 	}
@@ -172,7 +172,7 @@ func TestAddSidebarFolderKeepsConcurrentAdditions(t *testing.T) {
 		wg.Add(1)
 		go func(i int, folder string) {
 			defer wg.Done()
-			_, errs[i] = app.AddSidebarFolder(folder)
+			_, errs[i] = app.AddSidebarFolder(defaultWindowName, folder)
 		}(i, folder)
 	}
 	wg.Wait()
@@ -194,10 +194,10 @@ func TestSetSidebarFoldersReplacesSavedRoots(t *testing.T) {
 	second := t.TempDir()
 	app := NewApp()
 
-	if _, err := app.AddSidebarFolder(first); err != nil {
+	if _, err := app.AddSidebarFolder(defaultWindowName, first); err != nil {
 		t.Fatalf("AddSidebarFolder() error = %v", err)
 	}
-	got, err := app.SetSidebarFolders([]string{second, second})
+	got, err := app.SetSidebarFolders(defaultWindowName, []string{second, second})
 	if err != nil {
 		t.Fatalf("SetSidebarFolders() error = %v", err)
 	}
@@ -213,15 +213,67 @@ func TestSetSidebarFoldersKeepsOldListOnMissingFolder(t *testing.T) {
 	folder := t.TempDir()
 	app := NewApp()
 
-	if _, err := app.AddSidebarFolder(folder); err != nil {
+	if _, err := app.AddSidebarFolder(defaultWindowName, folder); err != nil {
 		t.Fatalf("AddSidebarFolder() error = %v", err)
 	}
-	if _, err := app.SetSidebarFolders([]string{filepath.Join(folder, "missing")}); err == nil {
+	if _, err := app.SetSidebarFolders(defaultWindowName, []string{filepath.Join(folder, "missing")}); err == nil {
 		t.Fatal("SetSidebarFolders() error = nil, want a missing folder error")
 	}
 
 	want := []string{folder}
 	if roots := savedSidebarRoots(t); !reflect.DeepEqual(roots, want) {
 		t.Fatalf("saved folders = %q, want %q", roots, want)
+	}
+}
+
+func TestSidebarRootsAreIsolatedPerWindow(t *testing.T) {
+	useTempSettingsDir(t)
+	app := NewApp()
+	app.registerWindow(defaultWindowName, emptyLaunchRequest())
+	app.registerWindow("window-2", emptyLaunchRequest())
+	first := t.TempDir()
+	second := t.TempDir()
+
+	if _, err := app.AddSidebarFolder(defaultWindowName, first); err != nil {
+		t.Fatalf("AddSidebarFolder(main) error = %v", err)
+	}
+	if _, err := app.AddSidebarFolder("window-2", second); err != nil {
+		t.Fatalf("AddSidebarFolder(window-2) error = %v", err)
+	}
+
+	main, err := app.LoadSidebarFolders(defaultWindowName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{first}; !reflect.DeepEqual(main, want) {
+		t.Fatalf("main roots = %q, want %q", main, want)
+	}
+	other, err := app.LoadSidebarFolders("window-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{second}; !reflect.DeepEqual(other, want) {
+		t.Fatalf("window-2 roots = %q, want %q", other, want)
+	}
+}
+
+func TestOnlyLaunchWindowSavesSidebarRoots(t *testing.T) {
+	useTempSettingsDir(t)
+	app := NewApp()
+	app.registerWindow(defaultWindowName, emptyLaunchRequest())
+	app.registerWindow("window-2", emptyLaunchRequest())
+	second := t.TempDir()
+
+	if _, err := app.SetSidebarFolders("window-2", []string{second}); err != nil {
+		t.Fatalf("SetSidebarFolders(window-2) error = %v", err)
+	}
+
+	// A relaunch only restores the launch window, so a later window's roots
+	// must not be what session.json holds.
+	if roots := savedSidebarRoots(t); len(roots) != 0 {
+		t.Fatalf("saved folders = %q, want none from window-2", roots)
+	}
+	if roots, err := app.LoadSidebarFolders("window-2"); err != nil || !reflect.DeepEqual(roots, []string{second}) {
+		t.Fatalf("window-2 roots = %q (err %v), want %q", roots, err, second)
 	}
 }

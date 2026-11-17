@@ -14,9 +14,17 @@ export interface QuickOpenFile {
 // virtualized list would be necessary.
 export const QUICK_OPEN_LIMIT = 50;
 
-// listFiles asks Go for every regular file under the sidebar roots.
-export async function listFiles(): Promise<string[]> {
-    return (await ListFiles()) ?? [];
+// FileList mirrors the backend's Quick Open read: the files it found and
+// whether the walk stopped at the cap.
+export interface FileList {
+    files: string[];
+    truncated: boolean;
+}
+
+// listFiles asks Go for every regular file under one window's sidebar roots.
+export async function listFiles(window: string): Promise<FileList> {
+    const list = await ListFiles(window);
+    return { files: list?.files ?? [], truncated: list?.truncated ?? false };
 }
 
 // listenForQuickOpen runs handler when the File menu asks for the palette.

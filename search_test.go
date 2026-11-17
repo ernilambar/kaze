@@ -28,7 +28,9 @@ func searchFixture(t *testing.T) string {
 	writeTempFile(t, filepath.Join(root, "src"), "helper.go", "// TODO helper\n")
 	writeTempFile(t, root, ".gitignore", "ignored.go\n")
 
-	if err := writeSessionFile(sessionFile{Sidebar: sidebarRoots{Roots: []string{root}}}); err != nil {
+	if err := writeSessionFile(sessionFile{Sidebar: sidebarRootsByWindow{
+		defaultWindowName: {Roots: []string{root}},
+	}}); err != nil {
 		t.Fatal(err)
 	}
 	return root
@@ -37,7 +39,7 @@ func searchFixture(t *testing.T) string {
 func TestSearchProjectRespectsExcludesAndGitignore(t *testing.T) {
 	root := searchFixture(t)
 
-	result, err := NewApp().SearchProject(SearchRequest{Query: "TODO"})
+	result, err := NewApp().SearchProject(defaultWindowName, SearchRequest{Query: "TODO"})
 	if err != nil {
 		t.Fatalf("SearchProject() error = %v", err)
 	}
@@ -58,7 +60,7 @@ func TestSearchProjectRespectsExcludesAndGitignore(t *testing.T) {
 func TestSearchProjectHonoursIncludeGlobs(t *testing.T) {
 	searchFixture(t)
 
-	result, err := NewApp().SearchProject(SearchRequest{Query: "TODO", Include: "*.go"})
+	result, err := NewApp().SearchProject(defaultWindowName, SearchRequest{Query: "TODO", Include: "*.go"})
 	if err != nil {
 		t.Fatalf("SearchProject() error = %v", err)
 	}
@@ -75,7 +77,7 @@ func TestSearchProjectHonoursIncludeGlobs(t *testing.T) {
 func TestSearchProjectLiteralQueryIsNotARegex(t *testing.T) {
 	searchFixture(t)
 
-	result, err := NewApp().SearchProject(SearchRequest{Query: "TODO f"})
+	result, err := NewApp().SearchProject(defaultWindowName, SearchRequest{Query: "TODO f"})
 	if err != nil {
 		t.Fatalf("SearchProject() error = %v", err)
 	}
@@ -83,7 +85,7 @@ func TestSearchProjectLiteralQueryIsNotARegex(t *testing.T) {
 		t.Fatalf("matches = %+v, want the literal TODO in main.go", result.Matches)
 	}
 
-	if _, err := NewApp().SearchProject(SearchRequest{Query: "(", Regex: true}); err == nil {
+	if _, err := NewApp().SearchProject(defaultWindowName, SearchRequest{Query: "(", Regex: true}); err == nil {
 		t.Fatal("SearchProject() error = nil for an invalid regex")
 	}
 }
@@ -91,13 +93,13 @@ func TestSearchProjectLiteralQueryIsNotARegex(t *testing.T) {
 func TestReplaceInProjectRewritesMatches(t *testing.T) {
 	root := searchFixture(t)
 	app := NewApp()
-	search, err := app.SearchProject(SearchRequest{Query: "TODO", Include: "*.go"})
+	search, err := app.SearchProject(defaultWindowName, SearchRequest{Query: "TODO", Include: "*.go"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	expected := searchExpected(search.Matches)
 
-	result, err := app.ReplaceInProject(SearchRequest{
+	result, err := app.ReplaceInProject(defaultWindowName, SearchRequest{
 		Query:            "TODO",
 		Include:          "*.go",
 		Replacement:      "DONE",
@@ -145,7 +147,7 @@ func searchExpected(matches []SearchMatch) map[string]int64 {
 func TestReplaceInProjectSkipsFilesChangedSinceSearch(t *testing.T) {
 	root := searchFixture(t)
 	app := NewApp()
-	search, err := app.SearchProject(SearchRequest{Query: "TODO", Include: "*.go"})
+	search, err := app.SearchProject(defaultWindowName, SearchRequest{Query: "TODO", Include: "*.go"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +157,7 @@ func TestReplaceInProjectSkipsFilesChangedSinceSearch(t *testing.T) {
 	// Replace All must leave it alone and report it as skipped.
 	writeTempFile(t, root, "main.go", "package main\n// TODO edited elsewhere\n")
 
-	result, err := app.ReplaceInProject(SearchRequest{
+	result, err := app.ReplaceInProject(defaultWindowName, SearchRequest{
 		Query:            "TODO",
 		Include:          "*.go",
 		Replacement:      "DONE",
@@ -191,7 +193,7 @@ func TestReplaceInProjectSkipsFilesChangedSinceSearch(t *testing.T) {
 func TestReplaceInProjectLeavesOpenFilesOnDisk(t *testing.T) {
 	root := searchFixture(t)
 	app := NewApp()
-	search, err := app.SearchProject(SearchRequest{Query: "TODO", Include: "*.go"})
+	search, err := app.SearchProject(defaultWindowName, SearchRequest{Query: "TODO", Include: "*.go"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +201,7 @@ func TestReplaceInProjectLeavesOpenFilesOnDisk(t *testing.T) {
 
 	// main.go is open as a buffer, so Replace All edits it in the editor
 	// instead. Go leaves the bytes on disk alone but still counts the match.
-	result, err := app.ReplaceInProject(SearchRequest{
+	result, err := app.ReplaceInProject(defaultWindowName, SearchRequest{
 		Query:            "TODO",
 		Include:          "*.go",
 		Replacement:      "DONE",

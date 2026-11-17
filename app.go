@@ -51,6 +51,10 @@ type App struct {
 	sessionMu     sync.Mutex
 	sessionLoaded bool
 	sessionStore  sessionFile
+	// sidebarRoots caches each window's open folders. The launch window's list
+	// is mirrored in session.json; every other window keeps its roots here
+	// only, so closing it cannot replace the folders restored next launch.
+	sidebarRoots map[string][]string
 
 	// viewItems are the View menu's checkable items by editor option name. They
 	// are rebuilt with the menu and let a toggle made from the command palette
@@ -93,6 +97,7 @@ func NewApp() *App {
 	return &App{
 		windows:         map[string]*windowSession{},
 		pending:         emptyLaunchRequest(),
+		sidebarRoots:    map[string][]string{},
 		viewItems:       map[string]*application.MenuItem{},
 		appearanceItems: map[string]*application.MenuItem{},
 	}
@@ -265,12 +270,12 @@ func (a *App) SetViewOption(option string, checked bool) {
 	}
 }
 
-// AddSidebarFolder adds one folder to the sidebar's saved list and returns the
-// new list. Opening a folder the user already added is a no-op, so launching
+// AddSidebarFolder adds one folder to a window's sidebar and returns the new
+// list. Opening a folder the user already added is a no-op, so launching
 // `<command> .` twice does not duplicate the root. The path is checked here rather
 // than trusted from the caller, because a sidebar root is only useful while it
 // is a real folder.
-func (a *App) AddSidebarFolder(folder string) ([]string, error) {
+func (a *App) AddSidebarFolder(window string, folder string) ([]string, error) {
 	folder = strings.TrimSpace(folder)
 	if folder == "" {
 		return nil, errors.New("no folder to add")
@@ -283,14 +288,14 @@ func (a *App) AddSidebarFolder(folder string) ([]string, error) {
 		return nil, fmt.Errorf("%s is not a folder", filepath.Base(folder))
 	}
 
-	return a.updateSidebarFolders(func(folders []string) []string {
+	return a.updateSidebarFolders(window, func(folders []string) []string {
 		return append(folders, folder)
 	})
 }
 
-// SetSidebarFolders replaces the sidebar roots in one write. Opening a
-// workspace uses it so a half-applied list never survives a failed folder.
-func (a *App) SetSidebarFolders(folders []string) ([]string, error) {
+// SetSidebarFolders replaces one window's sidebar roots in one write. Opening
+// a workspace uses it so a half-applied list never survives a failed folder.
+func (a *App) SetSidebarFolders(window string, folders []string) ([]string, error) {
 	normalized := normalizeFolderList(folders)
 	for _, folder := range normalized {
 		info, err := os.Stat(folder)
@@ -301,13 +306,13 @@ func (a *App) SetSidebarFolders(folders []string) ([]string, error) {
 			return nil, fmt.Errorf("%s is not a folder", filepath.Base(folder))
 		}
 	}
-	return a.updateSidebarFolders(func([]string) []string { return normalized })
+	return a.updateSidebarFolders(window, func([]string) []string { return normalized })
 }
 
-// RemoveSidebarFolder drops one folder from the sidebar's saved list and
-// returns the new list.
-func (a *App) RemoveSidebarFolder(folder string) ([]string, error) {
-	return a.updateSidebarFolders(func(folders []string) []string {
+// RemoveSidebarFolder drops one folder from a window's sidebar and returns the
+// new list.
+func (a *App) RemoveSidebarFolder(window string, folder string) ([]string, error) {
+	return a.updateSidebarFolders(window, func(folders []string) []string {
 		kept := make([]string, 0, len(folders))
 		for _, existing := range folders {
 			if existing != folder {
@@ -318,36 +323,84 @@ func (a *App) RemoveSidebarFolder(folder string) ([]string, error) {
 	})
 }
 
-// LoadSidebarFolders returns the open sidebar roots from session.json.
-func (a *App) LoadSidebarFolders() ([]string, error) {
+// LoadSidebarFolders returns a window's open sidebar roots. The launch window
+// reads its saved list; every other window starts empty until a launch request
+// adds folders, because one window's roots must never leak into another.
+func (a *App) LoadSidebarFolders(window string) ([]string, error) {
+	key, owner := a.sidebarWindow(window)
+
 	a.sessionMu.Lock()
 	defer a.sessionMu.Unlock()
 
-	state, err := a.loadSessionLocked()
-	if err != nil {
-		return nil, err
-	}
-	return state.Sidebar.Roots, nil
+	return a.sidebarFoldersLocked(key, owner)
 }
 
-// updateSidebarFolders reads session.json, applies change to the folder list
-// and writes the result back. The list is normalized on both sides, so the
-// backend and the frontend agree on what a valid root is.
-func (a *App) updateSidebarFolders(change func([]string) []string) ([]string, error) {
+// sidebarWindow resolves which saved key a window's roots use and whether that
+// window writes them to session.json. A call without a registered window comes
+// from a unit test, which acts as the launch window.
+func (a *App) sidebarWindow(window string) (key string, owner bool) {
+	session := a.session(window)
+	if session == nil {
+		if window == "" {
+			window = defaultWindowName
+		}
+		return window, window == defaultWindowName
+	}
+	return session.name, session.owner
+}
+
+// sidebarFoldersLocked returns the cached roots for one window, loading the
+// launch window's list from session.json on first use. sessionMu is held.
+func (a *App) sidebarFoldersLocked(key string, owner bool) ([]string, error) {
+	if roots, ok := a.sidebarRoots[key]; ok {
+		return roots, nil
+	}
+	roots := []string{}
+	if owner {
+		state, err := a.loadSessionLocked()
+		if err != nil {
+			return nil, err
+		}
+		roots = normalizeFolderList(state.Sidebar[key].Roots)
+	}
+	a.sidebarRoots[key] = roots
+	return roots, nil
+}
+
+// updateSidebarFolders applies change to one window's roots and writes the
+// result back. Only the launch window writes session.json; other windows keep
+// their list in memory, so a second window can never replace the folders the
+// next launch restores. The list is normalized on both sides, so the backend
+// and the frontend agree on what a valid root is.
+func (a *App) updateSidebarFolders(window string, change func([]string) []string) ([]string, error) {
+	key, owner := a.sidebarWindow(window)
+
 	a.sessionMu.Lock()
 	defer a.sessionMu.Unlock()
 
-	state, err := a.loadSessionLocked()
+	current, err := a.sidebarFoldersLocked(key, owner)
 	if err != nil {
-		return state.Sidebar.Roots, err
+		return current, err
+	}
+	updated := normalizeFolderList(change(append([]string(nil), current...)))
+	a.sidebarRoots[key] = updated
+	if !owner {
+		return updated, nil
 	}
 
-	state.Sidebar.Roots = normalizeFolderList(change(state.Sidebar.Roots))
+	state, err := a.loadSessionLocked()
+	if err != nil {
+		return updated, err
+	}
+	if state.Sidebar == nil {
+		state.Sidebar = sidebarRootsByWindow{}
+	}
+	state.Sidebar[key] = sidebarRoots{Roots: updated}
 	a.sessionStore = state
 	if err := writeSessionFile(state); err != nil {
-		return state.Sidebar.Roots, err
+		return updated, err
 	}
-	return state.Sidebar.Roots, nil
+	return updated, nil
 }
 
 // openSettingsFile opens settings.json in the editor named by the user's

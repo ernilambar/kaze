@@ -295,6 +295,7 @@
     let quickOpen = $state(false);
     let quickOpenFiles = $state<QuickOpenFile[]>([]);
     let quickOpenLoading = $state(false);
+    let quickOpenTruncated = $state(false);
     let commandPalette = $state(false);
     let recentOpen = $state(false);
 
@@ -510,7 +511,7 @@
         let latest = folders;
         for (const path of paths) {
             try {
-                latest = await addSidebarFolder(path);
+                latest = await addSidebarFolder(windowName, path);
             } catch (error) {
                 if (failure === '') {
                     failure = errorMessage(error);
@@ -528,7 +529,7 @@
             // Open Folder in New Window: the new window starts with exactly the
             // chosen folder, and the roots are saved for the next launch.
             try {
-                folders = await setSidebarFolders(request.folders);
+                folders = await setSidebarFolders(windowName, request.folders);
                 void refreshGitStatus();
             } catch (error) {
                 failure = errorMessage(error);
@@ -1450,8 +1451,11 @@
         languagePalette = false;
         quickOpen = true;
         quickOpenLoading = true;
+        quickOpenTruncated = false;
         try {
-            quickOpenFiles = toQuickOpenFiles(await listFiles(), folders);
+            const list = await listFiles(windowName);
+            quickOpenFiles = toQuickOpenFiles(list.files, folders);
+            quickOpenTruncated = list.truncated;
         } catch (error) {
             quickOpenFiles = [];
             notice = errorMessage(error);
@@ -1796,7 +1800,7 @@
             if (path === '') {
                 return;
             }
-            folders = await addSidebarFolder(path);
+            folders = await addSidebarFolder(windowName, path);
             void refreshGitStatus();
             notice = '';
         } catch (error) {
@@ -1876,7 +1880,7 @@
         sessionSuspended = true;
         let switched = false;
         try {
-            folders = await setSidebarFolders(target.folders ?? []);
+            folders = await setSidebarFolders(windowName, target.folders ?? []);
             activeWorkspace = target;
             const parked = toWorkspaceSession(target.session);
             expandedPaths = parked.expanded;
@@ -1960,7 +1964,7 @@
 
             sessionSuspended = true;
             try {
-                folders = await closeAllSidebarFolders();
+                folders = await closeAllSidebarFolders(windowName);
                 activeWorkspace = null;
                 expandedPaths = [];
                 clearWorkspaceTabs();
@@ -1981,7 +1985,7 @@
     // they hold their own buffers and are closed from the tab bar.
     async function removeFolder(path: string): Promise<void> {
         try {
-            folders = await removeSidebarFolder(path);
+            folders = await removeSidebarFolder(windowName, path);
             if (folders.length === 0) {
                 activeWorkspace = null;
             }
@@ -2769,7 +2773,7 @@
 
     async function closeAllFolders(): Promise<void> {
         try {
-            folders = await closeAllSidebarFolders();
+            folders = await closeAllSidebarFolders(windowName);
             activeWorkspace = null;
             expandedPaths = [];
             void refreshGitStatus();
@@ -2939,7 +2943,7 @@
         searchBusy = true;
         searchError = '';
         try {
-            const result = await SearchProject({
+            const result = await SearchProject(windowName, {
                 query,
                 regex: searchRegex,
                 case_sensitive: searchCaseSensitive,
@@ -3017,7 +3021,7 @@
                     }
                 }
             }
-            const result = await ReplaceInProject({
+            const result = await ReplaceInProject(windowName, {
                 query,
                 regex: searchedParams.regex,
                 case_sensitive: searchedParams.caseSensitive,
@@ -3338,7 +3342,7 @@
             sidebarVisible = workspace.sidebarVisible;
             sidebarAutoReveal = workspace.autoReveal;
             recentFiles = workspace.recentFiles;
-            folders = await loadSidebarFolders();
+            folders = await loadSidebarFolders(windowName);
             // Git status may walk a large repository; the session restore does
             // not wait for it, and the branch appears when the read lands.
             void refreshGitStatus();
@@ -3346,7 +3350,7 @@
                 const saved = await loadWindowSession(windowName);
                 if (saved.folders.length > 0) {
                     try {
-                        folders = await setSidebarFolders(saved.folders);
+                        folders = await setSidebarFolders(windowName, saved.folders);
                     } catch (error) {
                         console.error('Failed to restore the sidebar folders.', error);
                     }
@@ -3355,7 +3359,7 @@
                     try {
                         const info = await loadWorkspace(saved.workspace);
                         activeWorkspace = info;
-                        folders = await setSidebarFolders(info.folders ?? []);
+                        folders = await setSidebarFolders(windowName, info.folders ?? []);
                         void refreshGitStatus();
                     } catch (error) {
                         // The workspace file may have moved or been deleted;
@@ -3643,6 +3647,7 @@
             placeholder="Search files by name or path"
             rank={rankFiles}
             empty={quickOpenEmpty}
+            note={quickOpenTruncated ? 'The file list hit its size limit; not every file is shown.' : ''}
             onSelect={(path) => void openFromQuickOpen(path)}
             onClose={closeQuickOpen}
         />

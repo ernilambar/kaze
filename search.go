@@ -80,10 +80,10 @@ type ReplaceResult struct {
 	Failed  []string `json:"failed"`
 }
 
-// SearchProject finds query across the sidebar roots. files.exclude and
-// search.exclude decide what is read, and every .gitignore file on the way is
-// honoured, so generated and ignored trees stay out of the results.
-func (a *App) SearchProject(request SearchRequest) (SearchResult, error) {
+// SearchProject finds query across one window's sidebar roots. files.exclude
+// and search.exclude decide what is read, and every .gitignore file on the way
+// is honoured, so generated and ignored trees stay out of the results.
+func (a *App) SearchProject(window string, request SearchRequest) (SearchResult, error) {
 	request.Query = strings.TrimSpace(request.Query)
 	if request.Query == "" {
 		return SearchResult{Matches: []SearchMatch{}}, nil
@@ -97,7 +97,7 @@ func (a *App) SearchProject(request SearchRequest) (SearchResult, error) {
 	if err != nil {
 		return SearchResult{}, err
 	}
-	roots, err := a.LoadSidebarFolders()
+	roots, err := a.LoadSidebarFolders(window)
 	if err != nil {
 		return SearchResult{}, err
 	}
@@ -118,7 +118,7 @@ func (a *App) SearchProject(request SearchRequest) (SearchResult, error) {
 // writing. A file whose mtime moved since the search is skipped rather than
 // overwritten: someone may have edited it, and Replace All must not discard
 // that change. Skipped paths are reported so the frontend can say so.
-func (a *App) ReplaceInProject(request SearchRequest) (ReplaceResult, error) {
+func (a *App) ReplaceInProject(window string, request SearchRequest) (ReplaceResult, error) {
 	request.Query = strings.TrimSpace(request.Query)
 	if request.Query == "" {
 		return ReplaceResult{}, errors.New("nothing to replace")
@@ -132,7 +132,7 @@ func (a *App) ReplaceInProject(request SearchRequest) (ReplaceResult, error) {
 	if err != nil {
 		return ReplaceResult{}, err
 	}
-	roots, err := a.LoadSidebarFolders()
+	roots, err := a.LoadSidebarFolders(window)
 	if err != nil {
 		return ReplaceResult{}, err
 	}

@@ -7,11 +7,14 @@
         placeholder: string;
         rank: (query: string) => PaletteItem[];
         empty: string;
+        // note is shown under the results, for state the rows cannot say:
+        // Quick Open uses it when the file walk stopped at its cap.
+        note?: string;
         onSelect: (id: string) => void;
         onClose: () => void;
     }
 
-    let { title, placeholder, rank, empty, onSelect, onClose }: Props = $props();
+    let { title, placeholder, rank, empty, note = '', onSelect, onClose }: Props = $props();
 
     let query = $state('');
     let selected = $state(0);
@@ -110,6 +113,9 @@
         </ul>
         {#if results.length === 0}
             <p class="palette__empty">{empty}</p>
+        {/if}
+        {#if note !== ''}
+            <p class="palette__note">{note}</p>
         {/if}
     </div>
 </div>
@@ -229,5 +235,12 @@
         margin: 0;
         padding: 12px;
         color: var(--fg-muted);
+    }
+
+    .palette__note {
+        margin: 0;
+        padding: 0 12px 12px;
+        color: var(--fg-muted);
+        font-size: 0.85em;
     }
 </style>

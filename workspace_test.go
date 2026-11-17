@@ -198,7 +198,7 @@ func TestSetSidebarVisibleSurvivesFolderChanges(t *testing.T) {
 	if err := app.SetSidebarVisible(false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.AddSidebarFolder(folder); err != nil {
+	if _, err := app.AddSidebarFolder(defaultWindowName, folder); err != nil {
 		t.Fatal(err)
 	}
 
@@ -210,11 +210,11 @@ func TestSetSidebarVisibleSurvivesFolderChanges(t *testing.T) {
 		t.Fatal("Sidebar.Visible = true after it was hidden")
 	}
 
-	if _, err := app.RemoveAllSidebarFolders(); err != nil {
+	if _, err := app.RemoveAllSidebarFolders(defaultWindowName); err != nil {
 		t.Fatal(err)
 	}
 	if roots := savedSidebarRoots(t); len(roots) != 0 {
-		t.Fatalf("Sidebar.Roots = %q after RemoveAllSidebarFolders", roots)
+		t.Fatalf("sidebar roots = %q after RemoveAllSidebarFolders", roots)
 	}
 }
 

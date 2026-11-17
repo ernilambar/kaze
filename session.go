@@ -57,21 +57,56 @@ type RecentFiles struct {
 	Files []string `json:"files"`
 }
 
-// sidebarRoots is the folder tree's open folders. The list is what the user
-// last had open rather than a preference, so it lives in session.json.
+// sidebarRoots is the folder tree's open folders in one window. The list is
+// what the user last had open rather than a preference, so it lives in
+// session.json.
 type sidebarRoots struct {
 	Roots []string `json:"roots"`
 }
 
-// sessionFile is the on-disk shape of session.json. Roots and Frame are
-// app-written state shared by the launch; Window belongs to the one window that
-// owns the launch session; every window may park a workspace tab set in
-// Workspaces. Teak's per-window array is not used because Kaze still restores
-// only the first window of a launch.
+// sidebarRootsByWindow keys each window's open folders by its name. Only the
+// launch window's entry is restored, but the key keeps the saved file honest
+// about which window the roots belong to.
+type sidebarRootsByWindow map[string]sidebarRoots
+
+// UnmarshalJSON accepts both the keyed shape and the single list older builds
+// wrote, which is adopted as the launch window's roots. A corrupt sidebar
+// section must not cost the user the rest of the session file.
+func (s *sidebarRootsByWindow) UnmarshalJSON(data []byte) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	roots := sidebarRootsByWindow{}
+	if legacy, ok := fields["roots"]; ok {
+		var list []string
+		if err := json.Unmarshal(legacy, &list); err != nil {
+			return err
+		}
+		roots[defaultWindowName] = sidebarRoots{Roots: list}
+		*s = roots
+		return nil
+	}
+	for name, raw := range fields {
+		var entry sidebarRoots
+		if err := json.Unmarshal(raw, &entry); err != nil {
+			return err
+		}
+		roots[name] = entry
+	}
+	*s = roots
+	return nil
+}
+
+// sessionFile is the on-disk shape of session.json. Sidebar, Recent and Frame
+// are app-written state; Sidebar is keyed by window because a second window
+// must never replace the roots the launch restores. Window belongs to the one
+// window that owns the launch session; every window may park a workspace tab
+// set in Workspaces.
 type sessionFile struct {
 	Version    int                         `json:"version"`
 	Recent     RecentFiles                 `json:"recent"`
-	Sidebar    sidebarRoots                `json:"sidebar"`
+	Sidebar    sidebarRootsByWindow        `json:"sidebar"`
 	Frame      WindowFrame                 `json:"frame"`
 	Window     WindowSession               `json:"window"`
 	Workspaces map[string]WorkspaceSession `json:"workspaces"`
@@ -91,7 +126,7 @@ func emptySession() sessionFile {
 	return sessionFile{
 		Version:    sessionVersion,
 		Recent:     RecentFiles{Files: []string{}},
-		Sidebar:    sidebarRoots{Roots: []string{}},
+		Sidebar:    sidebarRootsByWindow{},
 		Window:     WindowSession{},
 		Workspaces: map[string]WorkspaceSession{},
 	}
@@ -171,7 +206,15 @@ func (a *App) adoptLegacyRecentLocked() {
 func normalizeSession(state sessionFile) sessionFile {
 	state.Version = sessionVersion
 	state.Recent.Files = normalizeRecentFiles(state.Recent.Files)
-	state.Sidebar.Roots = normalizeFolderList(state.Sidebar.Roots)
+	roots := make(sidebarRootsByWindow, len(state.Sidebar))
+	for name, entry := range state.Sidebar {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		roots[name] = sidebarRoots{Roots: normalizeFolderList(entry.Roots)}
+	}
+	state.Sidebar = roots
 	state.Frame = normalizeWindowFrame(state.Frame)
 	state.Window = normalizeWindowSession(state.Window)
 	if state.Workspaces == nil {

@@ -66,11 +66,12 @@ export function isWithin(folder: string, path: string): boolean {
     return path.startsWith(base);
 }
 
-// loadSidebarFolders reads the roots saved in session.json. A failure leaves
-// the sidebar empty rather than blocking startup.
-export async function loadSidebarFolders(): Promise<string[]> {
+// loadSidebarFolders reads one window's roots. The launch window restores its
+// saved list; a later window starts empty. A failure leaves the sidebar empty
+// rather than blocking startup.
+export async function loadSidebarFolders(window: string): Promise<string[]> {
     try {
-        return (await LoadSidebarFolders()) ?? [];
+        return (await LoadSidebarFolders(window)) ?? [];
     } catch (error) {
         console.error('Failed to load sidebar folders.', error);
         return [];
@@ -83,15 +84,16 @@ export async function readFolder(path: string, root: string): Promise<FolderEntr
     return ((await ReadFolder(path, root)) ?? []).map(toFolderEntry);
 }
 
-// addSidebarFolder saves a root and returns the new list. The backend rejects
-// paths that are not folders and ignores folders already in the list.
-export async function addSidebarFolder(folder: string): Promise<string[]> {
-    return (await AddSidebarFolder(folder)) ?? [];
+// addSidebarFolder saves a root in one window and returns the new list. The
+// backend rejects paths that are not folders and ignores folders already in
+// the list.
+export async function addSidebarFolder(window: string, folder: string): Promise<string[]> {
+    return (await AddSidebarFolder(window, folder)) ?? [];
 }
 
-// removeSidebarFolder drops a root and returns the new list.
-export async function removeSidebarFolder(folder: string): Promise<string[]> {
-    return (await RemoveSidebarFolder(folder)) ?? [];
+// removeSidebarFolder drops a root from one window and returns the new list.
+export async function removeSidebarFolder(window: string, folder: string): Promise<string[]> {
+    return (await RemoveSidebarFolder(window, folder)) ?? [];
 }
 
 // openFolderDialog asks the user for a folder. An empty string means the dialog
@@ -124,13 +126,17 @@ export function relativePath(path: string, roots: readonly string[]): string {
     return path.slice(innermost.length).replace(/^\/+/, '');
 }
 
-// closeAllSidebarFolders drops every root and returns the empty list.
-export async function closeAllSidebarFolders(): Promise<string[]> {
-    return (await RemoveAllSidebarFolders()) ?? [];
+// closeAllSidebarFolders drops every root in one window and returns the empty
+// list.
+export async function closeAllSidebarFolders(window: string): Promise<string[]> {
+    return (await RemoveAllSidebarFolders(window)) ?? [];
 }
 
-// setSidebarFolders replaces every root in one write. Opening a workspace uses
-// it so the sidebar and settings.json change together.
-export async function setSidebarFolders(folders: readonly string[]): Promise<string[]> {
-    return (await SetSidebarFolders(folders.slice())) ?? [];
+// setSidebarFolders replaces every root in one window. Opening a workspace
+// uses it so the sidebar and session.json change together.
+export async function setSidebarFolders(
+    window: string,
+    folders: readonly string[],
+): Promise<string[]> {
+    return (await SetSidebarFolders(window, folders.slice())) ?? [];
 }

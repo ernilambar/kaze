@@ -91,10 +91,10 @@ func (a *App) SetSidebarAutoReveal(autoReveal bool) error {
 	return writeSettingsSections(path, settings, settingsSection{"sidebar", before, settings.Sidebar})
 }
 
-// RemoveAllSidebarFolders drops every root from the sidebar and returns the
-// empty list. Open tabs stay open: they hold their own buffers.
-func (a *App) RemoveAllSidebarFolders() ([]string, error) {
-	return a.updateSidebarFolders(func([]string) []string { return nil })
+// RemoveAllSidebarFolders drops every root from one window's sidebar and
+// returns the empty list. Open tabs stay open: they hold their own buffers.
+func (a *App) RemoveAllSidebarFolders(window string) ([]string, error) {
+	return a.updateSidebarFolders(window, func([]string) []string { return nil })
 }
 
 // CopyText puts text on the system clipboard. A menu click has no caller to

@@ -209,11 +209,15 @@ func (a *App) dirtySessions() []*windowSession {
 	return dirty
 }
 
+// defaultWindowName is the first window of a launch. It owns the saved session
+// and is the one whose sidebar roots a relaunch restores.
+const defaultWindowName = "main"
+
 // nextWindowName numbers windows so a frontend can address its own session.
 func (a *App) nextWindowName() string {
 	number := a.windowSeq.Add(1)
 	if number == 1 {
-		return "main"
+		return defaultWindowName
 	}
 	return fmt.Sprintf("window-%d", number)
 }
@@ -450,6 +454,12 @@ func (a *App) forgetWindow(session *windowSession) {
 	}
 	a.windowsMu.Unlock()
 	a.watcher.forget(session.name)
+
+	// A non-owner window's roots live only in memory; the launch window's copy
+	// stays on disk, so forgetting it here costs nothing but a reload.
+	a.sessionMu.Lock()
+	delete(a.sidebarRoots, session.name)
+	a.sessionMu.Unlock()
 }
 
 // requestClose asks one window's frontend to confirm before unsaved edits are
