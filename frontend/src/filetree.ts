@@ -5,6 +5,7 @@ import {
     CreateFolder,
     DuplicatePath,
     MovePath,
+    MovePathDialog,
     RenamePath,
     TrashPath,
 } from '../bindings/kaze/app';
@@ -74,6 +75,13 @@ export async function copyPath(path: string, targetDir: string): Promise<FileTre
 // movePath moves into a folder. It is also what a drop on a folder row does.
 export async function movePath(path: string, targetDir: string): Promise<FileTreeEntry> {
     return toFileTreeEntry(await MovePath(path, targetDir));
+}
+
+// moveToFolderDialog asks for a destination folder and moves path into it. An
+// undefined result means the dialog was cancelled, so nothing moved.
+export async function moveToFolderDialog(path: string): Promise<FileTreeEntry | undefined> {
+    const result = await MovePathDialog(path);
+    return result.path === '' ? undefined : toFileTreeEntry(result);
 }
 
 // trashPath moves the entry to the platform's Trash. Nothing in the tree deletes

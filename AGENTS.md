@@ -55,13 +55,14 @@ No frontend linter/formatter is configured; don't add one unprompted.
   the `id` survives, so Monaco keeps model, undo and dirty state. `applyTreeMove`
   rereads git baseline/diff. Cutting is cleared if it held the moved entry.
 - **Row menu is the tree's only file-manager UI.** `FolderTree.svelte` reports
-  `isDir` via `onContextMenu`; `ContextMenu.svelte` offers tree actions (new
-  file/folder, cut/copy/paste, duplicate, rename, trash) and tab actions (close
-  variants, move to new window, reveal in Finder). `tabsToClose` picks the
-  group; `closeTabsInOrder` goes through the dirty prompt. Folder rows and empty
-  space are drop targets; drag state lives in `filetree.ts`; a folder can't be
-  dropped into its own subtree. `NamePrompt.svelte` stays open with the backend
-  error so a taken name is corrected in place.
+  `isDir` via `onContextMenu`; `ContextMenu.svelte` offers tree actions (open,
+  new file/folder, cut/copy/paste, copy name/path/relative path, duplicate,
+  rename, move, trash) and tab actions (close variants, move to new window,
+  reveal in Finder). `tabsToClose` picks the group; `closeTabsInOrder` goes
+  through the dirty prompt. Folder rows and empty space are drop targets; drag
+  state lives in `filetree.ts`; a folder can't be dropped into its own subtree.
+  `NamePrompt.svelte` stays open with the backend error so a taken name is
+  corrected in place.
 - **New File creates on disk; New Buffer is untitled.**
   <kbd>Cmd</kbd>+<kbd>N</kbd> asks for a name in the selected folder, creates and
   opens it; **File → New Folder…** does the same for a directory;

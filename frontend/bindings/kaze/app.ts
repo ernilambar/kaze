@@ -240,6 +240,15 @@ export function MovePath(path: string, targetDir: string): $CancellablePromise<$
 }
 
 /**
+ * MovePathDialog asks for a destination folder and moves path into it, so a
+ * move does not need a drag or a cut-and-paste round trip. A zero result means
+ * the user cancelled, which is not an error.
+ */
+export function MovePathDialog(path: string): $CancellablePromise<$models.FileTreeResult> {
+    return $Call.ByID(3618004343, path);
+}
+
+/**
  * MoveTabToNewWindow hands one buffer to a new window. The frontend removes the
  * tab from its own list once this returns, because the buffer now lives in the
  * new window.

@@ -51,6 +51,7 @@
     import TitleBar from './TitleBar.svelte';
     import Welcome from './Welcome.svelte';
     import { COMMANDS, listenForCommandPalette, rankCommands } from './commands';
+    import { treeMenuItems, type ContextMenuItem } from './contextmenu';
     import {
         createDiffDocument,
         createUntitledDocument,
@@ -88,6 +89,7 @@
         duplicatePath,
         entryName,
         movePath,
+        moveToFolderDialog,
         parentPath,
         renamePath,
         trashPath,
@@ -2181,10 +2183,35 @@
         try {
             const entry = await movePath(source, folder);
             applyTreeMove(source, entry.path);
-            refreshTree();
-            revealInTree(entry.path);
-            await refreshGitStatus();
-            notice = `Moved ${entry.name}`;
+            finishTreeMove(source, entry.path, entry.name);
+        } catch (error) {
+            treeError(error);
+        } finally {
+            busyPath = '';
+        }
+    }
+
+    // finishTreeMove rereads what a move invalidated: the tree, because the
+    // entry left one folder and landed in another, and git, because a repository
+    // may have gained or lost a path. The moved entry is revealed so it never
+    // lands out of sight.
+    function finishTreeMove(source: string, target: string, name: string): void {
+        applyTreeMove(source, target);
+        refreshTree();
+        revealInTree(target);
+        void refreshGitStatus();
+        notice = `Moved ${name}`;
+    }
+
+    // moveTreeEntry is Move…: the destination comes from a folder dialog rather
+    // than from a drop or from Cut and Paste.
+    async function moveTreeEntry(path: string): Promise<void> {
+        busyPath = path;
+        try {
+            const entry = await moveToFolderDialog(path);
+            if (entry !== undefined) {
+                finishTreeMove(path, entry.path, entry.name);
+            }
         } catch (error) {
             treeError(error);
         } finally {
@@ -2244,11 +2271,7 @@
     // the folder it lives in, which is why it offers the same items; a tab row
     // offers the tab commands. A separator is an item with an empty id, which
     // the menu draws as a line.
-    function contextMenuItems(): Array<{
-        id: string;
-        label: string;
-        disabled?: boolean;
-    }> {
+    function contextMenuItems(): ContextMenuItem[] {
         const target = contextMenu;
         if (target === null) {
             return [];
@@ -2256,36 +2279,19 @@
         if (target.tabId !== undefined) {
             return tabContextMenuItems(target.tabId);
         }
-        return [
-            { id: 'reveal', label: 'Reveal in Finder' },
-            { id: '', label: '' },
-            { id: 'new-file', label: 'New File…' },
-            { id: 'new-folder', label: 'New Folder…' },
-            { id: '', label: '' },
-            { id: 'cut', label: 'Cut' },
-            { id: 'copy', label: 'Copy' },
-            { id: 'paste', label: 'Paste', disabled: clipboardPath === '' },
-            { id: 'duplicate', label: 'Duplicate' },
-            { id: '', label: '' },
-            { id: 'rename', label: 'Rename…' },
-            { id: 'trash', label: 'Move to Trash' },
-        ];
+        return treeMenuItems(clipboardPath);
     }
 
     // tabContextMenuItems is the menu for the tab under the pointer. Commands
     // are relative to that tab, not to whichever tab happens to be active.
-    function tabContextMenuItems(tabId: string): Array<{
-        id: string;
-        label: string;
-        disabled?: boolean;
-    }> {
+    function tabContextMenuItems(tabId: string): ContextMenuItem[] {
         const tab = findTab(tabId);
         if (tab === undefined) {
             return [];
         }
         const reveal = tab.path || tab.sourcePath || '';
         const index = tabs.findIndex((entry) => entry.id === tabId);
-        const items: Array<{ id: string; label: string; disabled?: boolean }> = [
+        const items: ContextMenuItem[] = [
             { id: 'close-tab', label: 'Close Tab' },
             { id: 'move-tab-new-window', label: 'Move to New Window' },
             { id: '', label: '' },
@@ -2419,6 +2425,9 @@
         // folder it lives in.
         const folder = isDir ? path : parentPath(path);
         switch (id) {
+            case 'open':
+                await openTreeEntry(path, isDir);
+                break;
             case 'new-file':
                 await newFileInFolder(folder);
                 break;
@@ -2434,15 +2443,56 @@
             case 'paste':
                 await pasteInto(folder);
                 break;
+            case 'copy-name':
+                await copyTreeText('name', path);
+                break;
+            case 'copy-path':
+                await copyTreeText('file', path);
+                break;
+            case 'copy-relative-path':
+                await copyTreeText('relative', path);
+                break;
             case 'duplicate':
                 await duplicateEntry(path);
                 break;
             case 'rename':
                 await renameEntry(path);
                 break;
+            case 'move':
+                await moveTreeEntry(path);
+                break;
             case 'trash':
                 await trashEntry(path);
                 break;
+        }
+    }
+
+    // openTreeEntry is the row's primary action: a file opens in the editor, a
+    // folder expands in the tree. A file that is already open is focused rather
+    // than reread, so edits in its buffer survive.
+    async function openTreeEntry(path: string, isDir: boolean): Promise<void> {
+        if (isDir) {
+            revealInTree(path);
+            return;
+        }
+        await openFile(path);
+    }
+
+    // copyTreeText copies a path spelling of one tree entry. The variants match
+    // the Copy Path items that act on the active buffer, so the same three
+    // strings are reachable from the tree.
+    async function copyTreeText(kind: CopyPathKind, path: string): Promise<void> {
+        const text =
+            kind === 'file'
+                ? path
+                : kind === 'relative'
+                  ? relativePath(path, folders)
+                  : entryName(path);
+        try {
+            await CopyText(text);
+            notice = `Copied ${text}`;
+        } catch (error) {
+            notice = errorMessage(error);
         }
     }
 

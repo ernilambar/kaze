@@ -189,6 +189,31 @@ func (a *App) MovePath(path, targetDir string) (FileTreeResult, error) {
 	return treeResult(target)
 }
 
+// MovePathDialog asks for a destination folder and moves path into it, so a
+// move does not need a drag or a cut-and-paste round trip. A zero result means
+// the user cancelled, which is not an error.
+func (a *App) MovePathDialog(path string) (FileTreeResult, error) {
+	source := filepath.Clean(strings.TrimSpace(path))
+	if source == "" || source == "." {
+		return FileTreeResult{}, errors.New("no path to move")
+	}
+	if a.wails == nil {
+		return FileTreeResult{}, errors.New("the move dialog is not available before startup")
+	}
+	target, err := a.wails.Dialog.OpenFile().
+		SetTitle(fmt.Sprintf("Move %s to Folder", filepath.Base(source))).
+		CanChooseFiles(false).
+		CanChooseDirectories(true).
+		PromptForSingleSelection()
+	if err != nil {
+		return FileTreeResult{}, err
+	}
+	if target == "" {
+		return FileTreeResult{}, nil
+	}
+	return a.MovePath(source, target)
+}
+
 // TrashPath moves path to the platform's Trash. Deleting for good is not
 // offered by the tree, so a mistyped rename or drop can still be undone in
 // Finder.

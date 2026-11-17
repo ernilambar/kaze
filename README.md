@@ -28,10 +28,11 @@ A minimal text editor for macOS.
   by name, and the list persisted in `settings.json`. **Toggle Sidebar**
   (<kbd>Cmd</kbd>+<kbd>B</kbd>) and **Close All Folders** are in the View and
   File menus.
-- **File tree operations** — New File, New Folder, Rename, Duplicate,
-  Cut/Copy/Paste, Move to Trash (the macOS Trash, not an unlink) and drag to
-  move, from each row's context menu or a drop on a folder row. A renamed or
-  moved file keeps its tab open, with its edits and undo history.
+- **File tree operations** — Open, New File, New Folder, Rename, Duplicate,
+  Cut/Copy/Paste, Move, Copy Name/Path/Relative Path, Move to Trash (the macOS
+  Trash, not an unlink) and drag to move, from each row's context menu or a drop
+  on a folder row. A renamed or moved file keeps its tab open, with its edits
+  and undo history.
 - **Quick Open** (<kbd>Cmd</kbd>+<kbd>P</kbd>) — fuzzy-find a file by name or
   path across the sidebar folders, skipping whatever `files.exclude` hides.
 - **Find in Files** (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>) — search the

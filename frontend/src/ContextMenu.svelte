@@ -1,20 +1,11 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-
-    interface Item {
-        // id is what onSelect receives. It is empty for a separator, which is
-        // never clickable and only groups the items around it.
-        id: string;
-        label: string;
-        // disabled greys an item out, for a command that cannot run on the
-        // entry that was right-clicked.
-        disabled?: boolean;
-    }
+    import type { ContextMenuItem } from './contextmenu';
 
     interface Props {
         x: number;
         y: number;
-        items: Item[];
+        items: ContextMenuItem[];
         onSelect: (id: string) => void;
         onClose: () => void;
     }
