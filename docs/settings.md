@@ -100,8 +100,12 @@ settings file:
 
 Only file-backed tabs are recorded; untitled buffers are not restored. Missing
 files are skipped. A corrupt `session.json` is moved to `session.json.bak` when
-it is read. On first run after upgrading, a `recent` section left in
-`settings.json` is moved here and removed from the settings file.
+it is read. Version 1 kept the Open Recent list in `settings.json`: reading a
+version-1 file moves that `recent` section here and drops the key. The cleanup
+runs only while `session.json` is missing, empty, corrupt or older than version
+2; a `recent` key sitting beside a current session file, and a `session` key
+written by even older builds, are ignored. Delete those sections by hand if you
+still have them.
 
 ## Behaviour
 

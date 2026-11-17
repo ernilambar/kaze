@@ -118,8 +118,10 @@ No frontend linter/formatter is configured; don't add one unprompted.
   unique parked set with the same canonical folders when the old file no longer
   exists; ambiguous matches and workspaces whose file still exists are ignored.
   The map is capped at 50 workspaces, and a corrupt session file is moved to
-  `session.json.bak`. Loading a version-1 file migrates a legacy
-  `recent` section out of `settings.json` and removes the key.
+  `session.json.bak`. Loading a version-1 file migrates the legacy `recent`
+  section out of `settings.json` and removes the key. Unknown settings sections
+  such as the older `session` key are ignored, so stale ones linger until
+  deleted by hand.
 - **Windows are independent editors in one process.** `windows.go` keeps one
   `windowSession` per window; each owns tabs, roots, search results and dirty
   flag, while settings and theme stay shared and the Open Recent list is shared
