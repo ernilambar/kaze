@@ -84,6 +84,10 @@ kaze --help     # usage without opening a window
 
 Argument rules and current limitations: [docs/cli.md](docs/cli.md).
 
+## Keyboard shortcuts
+
+Default shortcuts and `keybindings.json`: see [docs/keymaps.md](docs/keymaps.md).
+
 ## Settings
 
 Kaze creates `settings.json` in the platform config directory on first launch

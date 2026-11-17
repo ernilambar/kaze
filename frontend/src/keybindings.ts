@@ -312,6 +312,36 @@ export function matchesWhen(expression: string | undefined, context: KeyContext)
     return index === tokens.length ? result : false;
 }
 
+// DEFAULT_KEYBINDINGS are keys a native menu item cannot hold: second keys,
+// chords, and commands with no menu item. keybindings.json entries win.
+export const DEFAULT_KEYBINDINGS: readonly Keybinding[] = [
+    { key: 'f1', command: 'command-palette' },
+    { key: 'cmd+shift+e', command: 'show-explorer' },
+    { key: 'ctrl+shift+g', command: 'show-changes' },
+    // Inside the editor Monaco runs these (installEditorKeybindings), so its
+    // own Cmd+K chords keep working.
+    { key: 'cmd+k cmd+w', command: 'close-all-tabs', when: '!editorFocus' },
+    { key: 'cmd+k f', command: 'close-all-folders', when: '!editorFocus' },
+    { key: 'cmd+shift+]', command: 'next-tab' },
+    { key: 'cmd+shift+[', command: 'previous-tab' },
+    // F4 is Launchpad on Apple keyboards unless fn is held.
+    { key: 'cmd+alt+g', command: 'find-next-result' },
+    { key: 'cmd+alt+shift+g', command: 'find-previous-result' },
+];
+
+// withDefaultKeybindings appends the defaults the user has not removed with a
+// "-command" entry or taken by binding the same first chord.
+export function withDefaultKeybindings(user: readonly Keybinding[]): Keybinding[] {
+    const removed = new Set(
+        user.filter((binding) => binding.command.startsWith('-')).map((binding) => binding.command.slice(1)),
+    );
+    const claimed = new Set(user.map((binding) => normalizeSequence(binding.key)[0]));
+    const defaults = DEFAULT_KEYBINDINGS.filter(
+        (binding) => !removed.has(binding.command) && !claimed.has(normalizeSequence(binding.key)[0]),
+    );
+    return [...user, ...defaults];
+}
+
 export interface KeybindingHandlers {
     run: (command: string) => void;
     context: () => KeyContext;
@@ -371,10 +401,14 @@ export function installKeybindings(
         }
 
         const next = [...pending, chord];
+        const context = handlers.context();
+        // when is tested on every prefix: a chord that does not apply here must
+        // not swallow its first key.
         const continuations = candidates.filter(
             (candidate) =>
                 candidate.sequence.length >= next.length &&
-                candidate.sequence.slice(0, next.length).every((part, index) => part === next[index]),
+                candidate.sequence.slice(0, next.length).every((part, index) => part === next[index]) &&
+                matchesWhen(candidate.when, context),
         );
         if (continuations.length === 0) {
             reset();
@@ -394,11 +428,7 @@ export function installKeybindings(
             return;
         }
 
-        const exactMatches = continuations.filter(
-            (candidate) => candidate.sequence.length === next.length,
-        );
-        const context = handlers.context();
-        const exact = exactMatches.find((candidate) => matchesWhen(candidate.when, context));
+        const exact = continuations.find((candidate) => candidate.sequence.length === next.length);
         reset();
         if (exact === undefined) {
             return;

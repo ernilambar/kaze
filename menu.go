@@ -31,11 +31,17 @@ func (b *menuBuilder) item(
 	onClick func(*application.Context),
 ) *application.MenuItem {
 	item := parent.Add(label)
+	b.accelerate(item, id, accelerator)
+	item.OnClick(onClick)
+	return item
+}
+
+// accelerate sets an item's default accelerator unless keybindings.json
+// rebinds the command or claims the key.
+func (b *menuBuilder) accelerate(item *application.MenuItem, id string, accelerator string) {
 	if accelerator != "" && !b.suppressed[id] && !b.claimed[normalizeAccelerator(accelerator)] {
 		item.SetAccelerator(accelerator)
 	}
-	item.OnClick(onClick)
-	return item
 }
 
 // reportMenuError surfaces a failure from an app-menu item, which has no caller
@@ -105,13 +111,13 @@ func fileMenu(m *application.Menu, app *App, b *menuBuilder) {
 	m.AddSeparator()
 	// New File creates a file in the sidebar and New Buffer is the untitled
 	// buffer: creating a file needs a folder, which only the tree knows.
-	b.item(m, "new-file", "New File", "CmdOrCtrl+n", func(*application.Context) {
+	b.item(m, "new-file", "New File", "CmdOrCtrl+Ctrl+Alt+n", func(*application.Context) {
 		app.emitNewFile()
 	})
 	b.item(m, "new-folder", "New Folder…", "", func(*application.Context) {
 		app.emitNewFolder()
 	})
-	b.item(m, "new-buffer", "New Buffer", "CmdOrCtrl+Alt+n", func(*application.Context) {
+	b.item(m, "new-buffer", "New Buffer", "CmdOrCtrl+n", func(*application.Context) {
 		app.emitNewBuffer()
 	})
 	b.item(m, "open-file", "Open…", "CmdOrCtrl+o", func(*application.Context) {
@@ -155,9 +161,10 @@ func fileMenu(m *application.Menu, app *App, b *menuBuilder) {
 		app.emitFindInFiles()
 	})
 	m.AddSeparator()
-	b.item(m, "add-folder", "Add Folder to Sidebar…", "CmdOrCtrl+Shift+o", func(*application.Context) {
+	b.item(m, "add-folder", "Add Folder to Sidebar…", "CmdOrCtrl+Ctrl+o", func(*application.Context) {
 		app.emitAddFolder()
 	})
+	// Close All Folders is Cmd+K F, a chord a native accelerator cannot hold.
 	b.item(m, "close-all-folders", "Close All Folders", "", func(*application.Context) {
 		app.emitCloseAllFolders()
 	})
@@ -176,20 +183,25 @@ func fileMenu(m *application.Menu, app *App, b *menuBuilder) {
 	for index := 1; index <= 9; index++ {
 		id := fmt.Sprintf("go-to-tab-%d", index)
 		position := index
-		b.item(goToTab, id, fmt.Sprintf("Tab %d", index), fmt.Sprintf("CmdOrCtrl+%d", index), func(*application.Context) {
+		label := fmt.Sprintf("Tab %d", index)
+		if index == 9 {
+			// Cmd+9 is the last tab, as in Safari and Chrome.
+			label = "Last Tab"
+		}
+		b.item(goToTab, id, label, fmt.Sprintf("CmdOrCtrl+%d", index), func(*application.Context) {
 			app.emitGoToTab(position)
 		})
 	}
 	m.AddSeparator()
-	b.item(m, "reveal-file", "Reveal in Finder", "", func(*application.Context) { app.emitRevealFile() })
+	b.item(m, "reveal-file", "Reveal in Finder", "CmdOrCtrl+Alt+r", func(*application.Context) { app.emitRevealFile() })
 	copyPath := m.AddSubmenu("Copy Path")
-	for _, entry := range []struct{ id, label, kind string }{
-		{"copy-file-path", "File Path", "file"},
-		{"copy-relative-path", "Relative Path", "relative"},
-		{"copy-file-name", "File Name", "name"},
+	for _, entry := range []struct{ id, label, kind, accelerator string }{
+		{"copy-file-path", "File Path", "file", "CmdOrCtrl+Alt+c"},
+		{"copy-relative-path", "Relative Path", "relative", "CmdOrCtrl+Alt+Shift+c"},
+		{"copy-file-name", "File Name", "name", ""},
 	} {
 		kind := entry.kind
-		b.item(copyPath, entry.id, entry.label, "", func(*application.Context) {
+		b.item(copyPath, entry.id, entry.label, entry.accelerator, func(*application.Context) {
 			app.emitCopyPath(kind)
 		})
 	}
@@ -290,21 +302,23 @@ func selectionMenu(m *application.Menu, app *App, b *menuBuilder) {
 // viewOption is one checkable View menu item. name is the editor settings field
 // the frontend applies; label is what the menu prints.
 type viewOption struct {
-	name    string
-	label   string
-	checked bool
+	name        string
+	label       string
+	checked     bool
+	accelerator string
 }
 
 // viewOptions lists the View menu checkboxes in display order.
 func viewOptions(editor EditorSettings) []viewOption {
 	return []viewOption{
-		{"wordWrap", "Word Wrap", editor.WordWrap},
-		{"invisibleCharacters", "Invisible Characters", editor.InvisibleCharacters},
-		{"lineNumbers", "Line Numbers", editor.LineNumbers},
-		{"indentGuides", "Indent Guides", editor.IndentGuides},
-		{"codeFolding", "Code Folding", editor.CodeFolding},
-		{"autoCloseBrackets", "Auto-Close Brackets", editor.AutoCloseBrackets},
-		{"smartIndent", "Smart Indent", editor.SmartIndent},
+		// Word Wrap is Cmd+Alt+Z, not Alt+Z: Option+letter types a character.
+		{"wordWrap", "Word Wrap", editor.WordWrap, "CmdOrCtrl+Alt+z"},
+		{"invisibleCharacters", "Invisible Characters", editor.InvisibleCharacters, "CmdOrCtrl+Alt+i"},
+		{"lineNumbers", "Line Numbers", editor.LineNumbers, ""},
+		{"indentGuides", "Indent Guides", editor.IndentGuides, ""},
+		{"codeFolding", "Code Folding", editor.CodeFolding, ""},
+		{"autoCloseBrackets", "Auto-Close Brackets", editor.AutoCloseBrackets, ""},
+		{"smartIndent", "Smart Indent", editor.SmartIndent, ""},
 	}
 }
 
@@ -316,13 +330,13 @@ func viewMenu(m *application.Menu, app *App, b *menuBuilder, editor EditorSettin
 	b.item(m, "toggle-sidebar", "Toggle Sidebar", "CmdOrCtrl+b", func(*application.Context) {
 		app.emitToggleSidebar()
 	})
-	b.item(m, "refresh", "Refresh", "", func(*application.Context) { app.emitRefresh() })
+	b.item(m, "refresh", "Refresh", "CmdOrCtrl+r", func(*application.Context) { app.emitRefresh() })
 	m.AddSeparator()
 	b.item(m, "zoom-in", "Zoom In", "CmdOrCtrl+=", func(*application.Context) { app.emitZoom("in") })
 	b.item(m, "zoom-out", "Zoom Out", "CmdOrCtrl+-", func(*application.Context) { app.emitZoom("out") })
 	b.item(m, "zoom-reset", "Actual Size", "CmdOrCtrl+0", func(*application.Context) { app.emitZoom("reset") })
 	m.AddSeparator()
-	b.item(m, "toggle-preview", "Toggle Preview", "CmdOrCtrl+Ctrl+V", func(*application.Context) {
+	b.item(m, "toggle-preview", "Toggle Preview", "CmdOrCtrl+Shift+v", func(*application.Context) {
 		app.emitTogglePreview()
 	})
 	m.AddSeparator()
@@ -346,6 +360,7 @@ func viewMenu(m *application.Menu, app *App, b *menuBuilder, editor EditorSettin
 	for _, option := range viewOptions(editor) {
 		option := option
 		item := m.AddCheckbox(option.label, option.checked)
+		b.accelerate(item, "toggle-"+option.name, option.accelerator)
 		item.OnClick(func(ctx *application.Context) {
 			app.emitToggleView(option.name, ctx.IsChecked())
 		})

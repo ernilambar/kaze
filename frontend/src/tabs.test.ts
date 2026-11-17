@@ -286,6 +286,11 @@ describe('tabIdAt', () => {
     it('is empty outside the list', () => {
         expect(tabIdAt(tabs, 0)).toBe('');
         expect(tabIdAt(tabs, 4)).toBe('');
+        expect(tabIdAt([], 9)).toBe('');
+    });
+
+    it('maps 9 to the last tab', () => {
+        expect(tabIdAt(tabs, 9)).toBe(todo.id);
     });
 });
 

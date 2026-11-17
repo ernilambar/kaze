@@ -242,6 +242,71 @@ export function modelOptions(settings: EditorSettings): monaco.editor.ITextModel
     };
 }
 
+// EDITOR_CHORDS are app commands bound to Cmd+K sequences. The page listener
+// would swallow Cmd+K and break Monaco's own Cmd+K chords, so inside the editor
+// Monaco dispatches them; DEFAULT_KEYBINDINGS covers the rest of the window.
+const EDITOR_CHORDS: readonly { command: string; second: number }[] = [
+    { command: 'close-all-tabs', second: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyW },
+    { command: 'close-all-folders', second: monaco.KeyCode.KeyF },
+];
+
+// installEditorKeybindings moves Monaco's defaults onto Kaze's keymap. It runs
+// once: the rules are global to every editor. run executes an app command.
+export function installEditorKeybindings(run: (command: string) => void): void {
+    const { KeyMod, KeyCode } = monaco;
+    for (const chord of EDITOR_CHORDS) {
+        const id = `kaze.${chord.command}`;
+        monaco.editor.addCommand({ id, run: () => run(chord.command) });
+        monaco.editor.addKeybindingRule({
+            keybinding: monaco.KeyMod.chord(KeyMod.CtrlCmd | KeyCode.KeyK, chord.second),
+            command: id,
+            when: 'editorFocus',
+        });
+    }
+    const cmdAlt = KeyMod.CtrlCmd | KeyMod.Alt;
+    const findInput = 'findInputFocussed || replaceInputFocussed';
+    monaco.editor.addKeybindingRules([
+        {
+            keybinding: KeyMod.CtrlCmd | KeyCode.KeyJ,
+            command: 'editor.action.joinLines',
+            when: 'editorTextFocus && !editorReadonly',
+        },
+        // Cmd+Shift+L splits a selection into lines; Select All Occurrences
+        // moves to Ctrl+Cmd+G.
+        {
+            keybinding: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyL,
+            command: '-editor.action.selectHighlights',
+        },
+        {
+            keybinding: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyL,
+            command: 'editor.action.insertCursorAtEndOfEachLineSelected',
+            when: 'editorTextFocus',
+        },
+        {
+            keybinding: KeyMod.CtrlCmd | KeyMod.WinCtrl | KeyCode.KeyG,
+            command: 'editor.action.selectHighlights',
+            when: 'editorFocus',
+        },
+        {
+            keybinding: KeyMod.WinCtrl | KeyMod.Alt | KeyCode.UpArrow,
+            command: 'editor.action.insertCursorAbove',
+            when: 'editorTextFocus',
+        },
+        {
+            keybinding: KeyMod.WinCtrl | KeyMod.Alt | KeyCode.DownArrow,
+            command: 'editor.action.insertCursorBelow',
+            when: 'editorTextFocus',
+        },
+        // Monaco claims Cmd+Alt+C/R for its find toggles whenever the editor
+        // has focus, which would swallow Copy Path and Reveal in Finder. Keep
+        // the toggles inside the find widget only.
+        { keybinding: cmdAlt | KeyCode.KeyC, command: '-toggleFindCaseSensitive' },
+        { keybinding: cmdAlt | KeyCode.KeyC, command: 'toggleFindCaseSensitive', when: findInput },
+        { keybinding: cmdAlt | KeyCode.KeyR, command: '-toggleFindRegex' },
+        { keybinding: cmdAlt | KeyCode.KeyR, command: 'toggleFindRegex', when: findInput },
+    ]);
+}
+
 export function createEditor(
     container: HTMLElement,
     settings: EditorSettings,

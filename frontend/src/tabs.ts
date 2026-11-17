@@ -167,12 +167,13 @@ export function stepTabId(
 
 // tabIdAt returns the tab at a 1-based position, or an empty id when the list
 // is shorter. The Go menu numbers its items from one, matching what the user
-// sees in the tab bar.
+// sees in the tab bar. Position 9 is always the last tab, as in Safari.
 export function tabIdAt(tabs: readonly OpenDocument[], position: number): string {
-    if (position < 1 || position > tabs.length) {
+    const index = position === 9 ? tabs.length : position;
+    if (index < 1 || index > tabs.length) {
         return '';
     }
-    return tabs[position - 1].id;
+    return tabs[index - 1].id;
 }
 
 // listenForTabCommands runs the handler for the tab navigation menu items.

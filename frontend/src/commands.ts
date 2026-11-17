@@ -59,7 +59,7 @@ const TAB_COMMANDS: readonly Command[] = [
     { id: 'reopen-closed-tab', name: 'Reopen Closed Tab', detail: 'File' },
     ...Array.from({ length: 9 }, (_, index) => ({
         id: `go-to-tab-${index + 1}`,
-        name: `Go to Tab ${index + 1}`,
+        name: index === 8 ? 'Go to Last Tab' : `Go to Tab ${index + 1}`,
         detail: 'File',
     })),
 ];
@@ -89,6 +89,7 @@ export const COMMANDS: readonly Command[] = [
     { id: 'close-all-folders', name: 'Close All Folders', detail: 'File' },
     { id: 'find-in-files', name: 'Find in Files…', detail: 'File' },
     { id: 'close-tab', name: 'Close Tab', detail: 'File' },
+    { id: 'close-all-tabs', name: 'Close All Tabs', detail: 'File' },
     ...TAB_COMMANDS,
     { id: 'reveal-file', name: 'Reveal in Finder', detail: 'File' },
     { id: 'copy-file-path', name: 'Copy File Path', detail: 'File' },

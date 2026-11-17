@@ -71,9 +71,10 @@ No frontend linter/formatter is configured; don't add one unprompted.
   `NamePrompt.svelte` stays open with the backend error so a taken name is
   corrected in place.
 - **New File creates on disk; New Buffer is untitled.**
-  <kbd>Cmd</kbd>+<kbd>N</kbd> asks for a name in the selected folder, creates and
-  opens it; **File → New Folder…** does the same for a directory;
-  <kbd>Cmd</kbd>+<kbd>Alt</kbd>+<kbd>N</kbd> opens an untitled buffer. Menus only
+  <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Cmd</kbd>+<kbd>N</kbd> asks for a name in
+  the selected folder, creates and opens it; **File → New Folder…** does the
+  same for a directory; <kbd>Cmd</kbd>+<kbd>N</kbd> opens an untitled buffer
+  (VS Code's split). Menus only
   emit `app:new-file`/`new-folder`/`new-buffer`.
 - **Sidebar is a multi-root folder tree.** `ReadFolder` lists one level;
   `FolderTree.svelte` loads children on first expansion. Roots persist via
@@ -181,7 +182,12 @@ No frontend linter/formatter is configured; don't add one unprompted.
   `menu.go` omits a default accelerator claimed by a custom binding.
   `keybindings.ts` installs one capture-phase listener with chords and `when`
   contexts (`editorFocus`, `sidebarVisible`, `hasActiveTab`, `hasDirtyTab`, `!`,
-  `&&`, `||`).
+  `&&`, `||`). Defaults follow VS Code (`docs/keymaps.md`) except where
+  its key blocks typing or needs a missing feature. They live in three places:
+  menu accelerators (`menu.go`), keys a menu item can't hold — second keys,
+  chords, menu-less commands (`DEFAULT_KEYBINDINGS`, `keybindings.ts`) — and
+  Monaco rules (`installEditorKeybindings`, `editor.ts`). `Cmd+K` chords run
+  through Monaco inside the editor so its own `Cmd+K` chords survive.
 - **Settings overlay is frontend state.** One section per settings block; edits
   save as they commit (editor saves chained). Native Settings… emits
   `app:settings-overlay`; `OpenDefaultSettings` writes `default-settings.json`;
