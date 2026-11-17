@@ -205,6 +205,12 @@ No frontend linter/formatter is configured; don't add one unprompted.
 - **Window commands are native.** `window.go`: `MinimiseWindow`, `ZoomWindow`,
   `ToggleFullScreen`; `windows.go`: `NewWindow`, `CloseWindow`,
   `MoveTabToNewWindow`, `OpenFolderInNewWindow`, `BringAllToFront`.
+- **Menus follow macOS layout.** `menu.go`: App (Settings…, Settings Files ▸,
+  Services), File, Edit, Selection, View, Go (Quick Open, Go to Line, tabs),
+  Window, Help (exists for AppKit's menu search). A menu item whose command has
+  no event of its own emits `app:run-command` with the palette id
+  (`emitCommand` → `listenForMenuCommand` → `selectCommand`). Palette `detail`
+  in `commands.ts` names the menu that holds the command.
 - **Editor commands forward Go → frontend.** `menu.go` builds the Edit, Selection
   and View menus and emits `app:find`, `app:replace`, `app:go-to-line`,
   `app:find-next-result`, `app:find-previous-result`, `app:transform-case`,

@@ -50,7 +50,7 @@
     import TabBar from './TabBar.svelte';
     import TitleBar from './TitleBar.svelte';
     import Welcome from './Welcome.svelte';
-    import { COMMANDS, listenForCommandPalette, rankCommands } from './commands';
+    import { COMMANDS, listenForCommandPalette, listenForMenuCommand, rankCommands } from './commands';
     import { treeMenuItems, type ContextMenuItem } from './contextmenu';
     import {
         createDiffDocument,
@@ -3293,6 +3293,7 @@
         let unsubscribeClose: (() => void) | undefined;
         let unsubscribeQuickOpen: (() => void) | undefined;
         let unsubscribeCommandPalette: (() => void) | undefined;
+        let unsubscribeMenuCommand: (() => void) | undefined;
         let unsubscribeFileCommands: (() => void) | undefined;
         let unsubscribeCloseRequest: (() => void) | undefined;
         let unsubscribeEditorCommands: (() => void) | undefined;
@@ -3401,6 +3402,7 @@
             });
             unsubscribeQuickOpen = listenForQuickOpen(() => void showQuickOpen());
             unsubscribeCommandPalette = listenForCommandPalette(showCommandPalette);
+            unsubscribeMenuCommand = listenForMenuCommand(selectCommand);
             unsubscribeFileCommands = listenForFileCommands({
                 'new-file': () => void newFileFromMenu(),
                 'new-folder': () => void newFolderFromMenu(),
@@ -3430,7 +3432,6 @@
             );
             unsubscribeWorkspace = listenForWorkspaceCommands({
                 openRecent: showRecentFiles,
-                clearRecent: () => void clearRecent(),
                 openWorkspace: () => void openWorkspaceFromDialog(),
                 saveWorkspaceAs: () => void saveWorkspaceAsDialog(),
                 closeWorkspace: () => void closeWorkspace(),
@@ -3478,6 +3479,7 @@
             unsubscribeClose?.();
             unsubscribeQuickOpen?.();
             unsubscribeCommandPalette?.();
+            unsubscribeMenuCommand?.();
             unsubscribeFileCommands?.();
             unsubscribeCloseRequest?.();
             unsubscribeEditorCommands?.();

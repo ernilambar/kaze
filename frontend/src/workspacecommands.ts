@@ -6,7 +6,6 @@ export type CopyPathKind = 'file' | 'relative' | 'name';
 
 export interface WorkspaceCommandHandlers {
     openRecent: () => void;
-    clearRecent: () => void;
     openWorkspace: () => void;
     saveWorkspaceAs: () => void;
     closeWorkspace: () => void;
@@ -26,7 +25,6 @@ export function listenForWorkspaceCommands(
 ): () => void {
     const offs = [
         onWindowEvent('app:open-recent', () => handlers.openRecent?.()),
-        onWindowEvent('app:clear-recent', () => handlers.clearRecent?.()),
         onWindowEvent('app:open-workspace', () => handlers.openWorkspace?.()),
         onWindowEvent('app:save-workspace-as', () => handlers.saveWorkspaceAs?.()),
         onWindowEvent('app:close-workspace', () => handlers.closeWorkspace?.()),

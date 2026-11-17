@@ -323,8 +323,6 @@ export function matchesWhen(expression: string | undefined, context: KeyContext)
 // chords, and commands with no menu item. keybindings.json entries win.
 export const DEFAULT_KEYBINDINGS: readonly Keybinding[] = [
     { key: 'f1', command: 'command-palette' },
-    { key: 'cmd+shift+e', command: 'show-explorer' },
-    { key: 'ctrl+shift+g', command: 'show-changes' },
     // Inside the editor Monaco runs these (installEditorKeybindings), so its
     // own Cmd+K chords keep working.
     { key: 'cmd+k cmd+w', command: 'close-all-tabs', when: '!editorFocus' },

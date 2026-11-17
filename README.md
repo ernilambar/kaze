@@ -15,9 +15,10 @@ A minimal text editor for macOS.
   relative to itself, so it can be committed with the project. Each workspace
   has its own tab set parked in `session.json`, restored when you switch back.
   VS Code `.code-workspace` files open too (folders only).
-- **Multiple windows** — New Window, Close Window, Move Tab to New Window,
-  Open Folder in New Window and Bring All to Front, alongside Minimize, Zoom and
-  Toggle Full Screen from the Window menu or the command palette. Each window
+- **Multiple windows** — New Window, Open Folder in New Window and Close Window
+  from the File menu; Move Tab to New Window, Bring All to Front, Minimize, Zoom
+  and Toggle Full Screen from the Window menu; all of them from the command
+  palette. Each window
   has its own tabs and sidebar; settings and themes are shared.
 - **File handling** — New File, New Folder, New Buffer, Open, Save, Save As and
   Save All. Closing a dirty tab, window or quit prompts to save, and saving over
@@ -41,10 +42,10 @@ A minimal text editor for macOS.
   include and exclude globs, results in a tab, and Replace All.
   <kbd>F4</kbd>/<kbd>Shift</kbd>+<kbd>F4</kbd> hop through the matches.
   Excludes from settings and every `.gitignore` are honoured.
-- **Navigation** — Open Recent (<kbd>Ctrl</kbd>+<kbd>R</kbd>) with Clear Recent,
-  Reopen Closed Tab, next/previous tab, jump to a tab with
-  <kbd>Cmd</kbd>+<kbd>1</kbd>–<kbd>9</kbd>, Go to Line
-  (<kbd>Ctrl</kbd>+<kbd>G</kbd>), Find/Replace from the Edit menu, and Reveal in
+- **Navigation** — Open Recent (<kbd>Ctrl</kbd>+<kbd>R</kbd>; Clear Recent is in
+  the palette), Reopen Closed Tab, and from the Go menu Quick Open, Go to Line
+  (<kbd>Ctrl</kbd>+<kbd>G</kbd>), next/previous tab and jump to a tab with
+  <kbd>Cmd</kbd>+<kbd>1</kbd>–<kbd>9</kbd>; Find/Replace from the Edit menu, and Reveal in
   Finder or copy the absolute, relative or file name from the File menu.
 - **Fresh state** — Kaze watches the open buffers and expanded folders, so
   external edits reload clean tabs and the tree follows new files; **View →

@@ -450,7 +450,6 @@ const (
 	reopenTabEvent      = "app:reopen-closed-tab"
 	goToTabEvent        = "app:go-to-tab"
 	openRecentEvent     = "app:open-recent"
-	clearRecentEvent    = "app:clear-recent"
 	openWorkspaceEvent  = "app:open-workspace"
 	saveWorkspaceEvent  = "app:save-workspace-as"
 	closeWorkspaceEvent = "app:close-workspace"
@@ -476,9 +475,6 @@ func (a *App) emitGoToTab(index int) { a.emitEventWith(goToTabEvent, index) }
 
 // emitOpenRecent tells the frontend to show the recent files palette.
 func (a *App) emitOpenRecent() { a.emitEvent(openRecentEvent) }
-
-// emitClearRecent tells the frontend to empty the recent files list.
-func (a *App) emitClearRecent() { a.emitEvent(clearRecentEvent) }
 
 // emitOpenWorkspace tells the frontend to show the workspace picker.
 func (a *App) emitOpenWorkspace() { a.emitEvent(openWorkspaceEvent) }
@@ -533,6 +529,13 @@ const commandPaletteEvent = "app:command-palette"
 func (a *App) emitCommandPalette() {
 	a.emitEvent(commandPaletteEvent)
 }
+
+// runCommandEvent carries a palette command id for menu items whose command has
+// no event of its own; the frontend runs it exactly as the palette would.
+const runCommandEvent = "app:run-command"
+
+// emitCommand tells the focused window to run one palette command.
+func (a *App) emitCommand(id string) { a.emitEventWith(runCommandEvent, id) }
 
 // The file menu's commands are frontend state: buffers, their dirty flags and
 // their paths all live in the UI, so Go only forwards each click. One name per

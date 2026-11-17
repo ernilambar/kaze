@@ -74,27 +74,32 @@ func appMenu(m *application.Menu, name string, app *App, b *menuBuilder) {
 	b.item(m, "settings", "Settings…", "CmdOrCtrl+,", func(*application.Context) {
 		app.emitSettingsOverlay()
 	})
-	b.item(m, "open-settings-json", "Open Settings JSON", "", func(*application.Context) {
+	// The files behind Settings… share one submenu, so the application menu
+	// keeps the short shape macOS apps use.
+	files := m.AddSubmenu("Settings Files")
+	b.item(files, "open-settings-json", "Open Settings JSON", "", func(*application.Context) {
 		app.openSettingsFromMenu()
 	})
-	b.item(m, "open-default-settings", "Open Default Settings", "", func(*application.Context) {
+	b.item(files, "open-default-settings", "Open Default Settings", "", func(*application.Context) {
 		if err := app.OpenDefaultSettings(); err != nil {
 			app.reportMenuError("Open Default Settings", err)
 		}
 	})
-	b.item(m, "open-themes-folder", "Open Themes Folder", "", func(*application.Context) {
-		if err := app.OpenThemesFolder(); err != nil {
-			app.reportMenuError("Open Themes Folder", err)
-		}
-	})
-	b.item(m, "open-keybindings", "Open Keybindings…", "", func(*application.Context) {
+	b.item(files, "open-keybindings", "Open Keybindings…", "", func(*application.Context) {
 		if err := app.OpenKeybindings(); err != nil {
 			app.reportMenuError("Open Keybindings", err)
+		}
+	})
+	b.item(files, "open-themes-folder", "Open Themes Folder", "", func(*application.Context) {
+		if err := app.OpenThemesFolder(); err != nil {
+			app.reportMenuError("Open Themes Folder", err)
 		}
 	})
 	b.item(m, "", "Install Command Line Tool…", "", func(*application.Context) {
 		app.InstallCommandLineTool()
 	})
+	m.AddSeparator()
+	m.AddRole(application.ServicesMenu)
 	m.AddSeparator()
 	b.item(m, "", "Hide "+name, "CmdOrCtrl+h", func(*application.Context) { hideApplication() })
 	b.item(m, "", "Hide Others", "CmdOrCtrl+Alt+h", func(*application.Context) {
@@ -139,7 +144,6 @@ func fileMenu(m *application.Menu, app *App, b *menuBuilder) {
 	b.item(m, "open-recent", "Open Recent…", "Ctrl+r", func(*application.Context) {
 		app.emitOpenRecent()
 	})
-	b.item(m, "clear-recent", "Clear Recent", "", func(*application.Context) { app.emitClearRecent() })
 	m.AddSeparator()
 	b.item(m, "open-workspace", "Open Workspace…", "", func(*application.Context) {
 		app.emitOpenWorkspace()
@@ -151,27 +155,6 @@ func fileMenu(m *application.Menu, app *App, b *menuBuilder) {
 		app.emitCloseWorkspace()
 	})
 	m.AddSeparator()
-	b.item(m, "save", "Save", "CmdOrCtrl+s", func(*application.Context) { app.emitSave() })
-	b.item(m, "save-as", "Save As…", "CmdOrCtrl+Shift+s", func(*application.Context) {
-		app.emitSaveAs()
-	})
-	b.item(m, "save-all", "Save All", "CmdOrCtrl+Alt+s", func(*application.Context) {
-		app.emitSaveAll()
-	})
-	m.AddSeparator()
-	// Print deliberately has no shortcut: Cmd+P is Quick Open.
-	b.item(m, "print", "Print…", "", func(*application.Context) { app.emitPrint() })
-	m.AddSeparator()
-	b.item(m, "command-palette", "Command Palette…", "CmdOrCtrl+Shift+p", func(*application.Context) {
-		app.emitCommandPalette()
-	})
-	b.item(m, "quick-open", "Quick Open…", "CmdOrCtrl+p", func(*application.Context) {
-		app.emitQuickOpen()
-	})
-	b.item(m, "find-in-files", "Find in Files…", "CmdOrCtrl+Shift+f", func(*application.Context) {
-		app.emitFindInFiles()
-	})
-	m.AddSeparator()
 	b.item(m, "add-folder", "Add Folder to Sidebar…", "CmdOrCtrl+Ctrl+o", func(*application.Context) {
 		app.emitAddFolder()
 	})
@@ -180,12 +163,57 @@ func fileMenu(m *application.Menu, app *App, b *menuBuilder) {
 		app.emitCloseAllFolders()
 	})
 	m.AddSeparator()
+	b.item(m, "save", "Save", "CmdOrCtrl+s", func(*application.Context) { app.emitSave() })
+	b.item(m, "save-as", "Save As…", "CmdOrCtrl+Shift+s", func(*application.Context) {
+		app.emitSaveAs()
+	})
+	b.item(m, "save-all", "Save All", "CmdOrCtrl+Alt+s", func(*application.Context) {
+		app.emitSaveAll()
+	})
+	m.AddSeparator()
+	b.item(m, "reveal-file", "Reveal in Finder", "CmdOrCtrl+Alt+r", func(*application.Context) { app.emitRevealFile() })
+	copyPath := m.AddSubmenu("Copy Path")
+	for _, entry := range []struct{ id, label, kind, accelerator string }{
+		{"copy-file-path", "File Path", "file", "CmdOrCtrl+Alt+c"},
+		{"copy-relative-path", "Relative Path", "relative", "CmdOrCtrl+Alt+Shift+c"},
+		{"copy-file-name", "File Name", "name", ""},
+	} {
+		kind := entry.kind
+		b.item(copyPath, entry.id, entry.label, entry.accelerator, func(*application.Context) {
+			app.emitCopyPath(kind)
+		})
+	}
+	m.AddSeparator()
+	// Print deliberately has no shortcut: Cmd+P is Quick Open.
+	b.item(m, "print", "Print…", "", func(*application.Context) { app.emitPrint() })
+	m.AddSeparator()
 	b.item(m, "close-tab", "Close Tab", "CmdOrCtrl+w", func(*application.Context) {
 		app.emitCloseTab()
+	})
+	// Close All Tabs is Cmd+K Cmd+W, a chord a native accelerator cannot hold.
+	b.item(m, "close-all-tabs", "Close All Tabs", "", func(*application.Context) {
+		app.emitCommand("close-all-tabs")
 	})
 	b.item(m, "reopen-closed-tab", "Reopen Closed Tab", "CmdOrCtrl+Shift+t", func(*application.Context) {
 		app.emitReopenClosedTab()
 	})
+	b.item(m, "close-window", "Close Window", "CmdOrCtrl+Shift+w", func(*application.Context) {
+		if err := app.CloseWindow(app.focusedWindowName()); err != nil {
+			app.reportMenuError("Close Window", err)
+		}
+	})
+}
+
+// goMenu holds navigation: to a file, a line or a tab. Each item forwards a
+// command, because the tab list and the editor live in the frontend.
+func goMenu(m *application.Menu, app *App, b *menuBuilder) {
+	b.item(m, "quick-open", "Quick Open…", "CmdOrCtrl+p", func(*application.Context) {
+		app.emitQuickOpen()
+	})
+	b.item(m, "go-to-line", "Go to Line…", "Ctrl+g", func(*application.Context) {
+		app.emitGoToLine()
+	})
+	m.AddSeparator()
 	b.item(m, "next-tab", "Next Tab", "Ctrl+Tab", func(*application.Context) { app.emitNextTab() })
 	b.item(m, "previous-tab", "Previous Tab", "Ctrl+Shift+Tab", func(*application.Context) {
 		app.emitPreviousTab()
@@ -201,19 +229,6 @@ func fileMenu(m *application.Menu, app *App, b *menuBuilder) {
 		}
 		b.item(goToTab, id, label, fmt.Sprintf("CmdOrCtrl+%d", index), func(*application.Context) {
 			app.emitGoToTab(position)
-		})
-	}
-	m.AddSeparator()
-	b.item(m, "reveal-file", "Reveal in Finder", "CmdOrCtrl+Alt+r", func(*application.Context) { app.emitRevealFile() })
-	copyPath := m.AddSubmenu("Copy Path")
-	for _, entry := range []struct{ id, label, kind, accelerator string }{
-		{"copy-file-path", "File Path", "file", "CmdOrCtrl+Alt+c"},
-		{"copy-relative-path", "Relative Path", "relative", "CmdOrCtrl+Alt+Shift+c"},
-		{"copy-file-name", "File Name", "name", ""},
-	} {
-		kind := entry.kind
-		b.item(copyPath, entry.id, entry.label, entry.accelerator, func(*application.Context) {
-			app.emitCopyPath(kind)
 		})
 	}
 }
@@ -245,22 +260,25 @@ func editMenu(m *application.Menu, app *App, b *menuBuilder) {
 	m.AddRole(application.SelectAll)
 	m.AddSeparator()
 	// Find and Replace are Monaco's widgets; Next/Previous step through the
-	// Find in Files results the window holds. Go to Line is Monaco's prompt.
+	// Find in Files results the window holds.
 	find := m.AddSubmenu("Find")
 	b.item(find, "find", "Find…", "CmdOrCtrl+f", func(*application.Context) { app.emitFind() })
 	b.item(find, "replace", "Replace…", "CmdOrCtrl+Alt+f", func(*application.Context) {
 		app.emitReplace()
 	})
 	find.AddSeparator()
+	b.item(find, "find-in-files", "Find in Files…", "CmdOrCtrl+Shift+f", func(*application.Context) {
+		app.emitFindInFiles()
+	})
 	b.item(find, "find-next-result", "Find Next Result", "F4", func(*application.Context) {
 		app.emitFindNextResult()
 	})
 	b.item(find, "find-previous-result", "Find Previous Result", "Shift+F4", func(*application.Context) {
 		app.emitFindPreviousResult()
 	})
-	find.AddSeparator()
-	b.item(find, "go-to-line", "Go to Line…", "Ctrl+g", func(*application.Context) {
-		app.emitGoToLine()
+	m.AddSeparator()
+	b.item(m, "toggle-comment", "Toggle Line Comment", "", func(*application.Context) {
+		app.emitSelectionCommand("toggle-comment")
 	})
 	m.AddSeparator()
 	transform := m.AddSubmenu("Transform Case")
@@ -292,15 +310,14 @@ var selectionCommands = []struct{ label, id string }{
 	{"Copy Line Down", "copy-line-down"},
 	{"Join Lines", "join-lines"},
 	{"Delete Line", "delete-line"},
-	{"Toggle Line Comment", "toggle-comment"},
 }
 
-// selectionMenu holds Monaco's multi-cursor, line and comment commands. They
-// act on the focused editor's buffer, so each item forwards its id.
+// selectionMenu holds Monaco's multi-cursor and line commands. They act on the
+// focused editor's buffer, so each item forwards its id.
 func selectionMenu(m *application.Menu, app *App, b *menuBuilder) {
 	for index, entry := range selectionCommands {
-		// Multi-cursor commands, line edits and comments are three groups.
-		if index == 5 || index == 11 {
+		// Multi-cursor commands and line edits are two groups.
+		if index == 5 {
 			m.AddSeparator()
 		}
 		command := entry.id
@@ -319,7 +336,9 @@ type viewOption struct {
 	accelerator string
 }
 
-// viewOptions lists the View menu checkboxes in display order.
+// viewOptions lists the View menu checkboxes in display order. Auto-close and
+// smart indent change typing, not the view, so they stay in Settings and the
+// palette.
 func viewOptions(editor EditorSettings) []viewOption {
 	return []viewOption{
 		// Word Wrap is Cmd+Alt+Z, not Alt+Z: Option+letter types a character.
@@ -328,8 +347,6 @@ func viewOptions(editor EditorSettings) []viewOption {
 		{"lineNumbers", "Line Numbers", editor.LineNumbers, ""},
 		{"indentGuides", "Indent Guides", editor.IndentGuides, ""},
 		{"codeFolding", "Code Folding", editor.CodeFolding, ""},
-		{"autoCloseBrackets", "Auto-Close Brackets", editor.AutoCloseBrackets, ""},
-		{"smartIndent", "Smart Indent", editor.SmartIndent, ""},
 	}
 }
 
@@ -338,8 +355,18 @@ func viewOptions(editor EditorSettings) []viewOption {
 // SetViewOption keeps the checkmark honest when the same toggle runs from the
 // command palette.
 func viewMenu(m *application.Menu, app *App, b *menuBuilder, editor EditorSettings, theme ThemeSettings) {
+	b.item(m, "command-palette", "Command Palette…", "CmdOrCtrl+Shift+p", func(*application.Context) {
+		app.emitCommandPalette()
+	})
+	m.AddSeparator()
 	b.item(m, "toggle-sidebar", "Toggle Sidebar", "CmdOrCtrl+b", func(*application.Context) {
 		app.emitToggleSidebar()
+	})
+	b.item(m, "show-explorer", "Show Explorer", "CmdOrCtrl+Shift+e", func(*application.Context) {
+		app.emitCommand("show-explorer")
+	})
+	b.item(m, "show-changes", "Show Changes", "Ctrl+Shift+g", func(*application.Context) {
+		app.emitCommand("show-changes")
 	})
 	b.item(m, "refresh", "Refresh", "CmdOrCtrl+r", func(*application.Context) { app.emitRefresh() })
 	m.AddSeparator()
@@ -349,6 +376,9 @@ func viewMenu(m *application.Menu, app *App, b *menuBuilder, editor EditorSettin
 	m.AddSeparator()
 	b.item(m, "toggle-preview", "Toggle Preview", "CmdOrCtrl+Shift+v", func(*application.Context) {
 		app.emitTogglePreview()
+	})
+	b.item(m, "change-language-mode", "Change Language Mode…", "", func(*application.Context) {
+		app.emitCommand("change-language-mode")
 	})
 	m.AddSeparator()
 
@@ -363,9 +393,6 @@ func viewMenu(m *application.Menu, app *App, b *menuBuilder, editor EditorSettin
 		item.OnClick(func(*application.Context) { app.emitAppearance(modeValue) })
 		b.appearanceItems[modeValue] = item
 	}
-	b.item(appearance, "settings", "Color Theme…", "", func(*application.Context) {
-		app.emitSettingsOverlay()
-	})
 	m.AddSeparator()
 
 	for _, option := range viewOptions(editor) {
@@ -398,11 +425,6 @@ func windowMenu(m *application.Menu, app *App, b *menuBuilder) {
 		}
 	})
 	m.AddSeparator()
-	b.item(m, "close-window", "Close Window", "CmdOrCtrl+Shift+w", func(*application.Context) {
-		if err := app.CloseWindow(app.focusedWindowName()); err != nil {
-			app.reportMenuError("Close Window", err)
-		}
-	})
 	b.item(m, "move-tab-new-window", "Move Tab to New Window", "", func(*application.Context) {
 		app.emitMoveTabToNewWindow()
 	})
@@ -410,6 +432,12 @@ func windowMenu(m *application.Menu, app *App, b *menuBuilder) {
 	b.item(m, "bring-all-to-front", "Bring All to Front", "", func(*application.Context) {
 		app.BringAllToFront()
 	})
+}
+
+// helpMenu exists mostly for its title: AppKit adds the menu search field to the
+// menu named Help, which finds any command by name.
+func helpMenu(m *application.Menu, app *App, b *menuBuilder) {
+	b.item(m, "", "Show All Commands", "", func(*application.Context) { app.emitCommandPalette() })
 }
 
 // buildMenu assembles the whole native menu. It is run at startup and again
@@ -429,7 +457,9 @@ func buildMenu(
 	editMenu(menu.AddSubmenu("Edit"), app, builder)
 	selectionMenu(menu.AddSubmenu("Selection"), app, builder)
 	viewMenu(menu.AddSubmenu("View"), app, builder, editor, theme)
+	goMenu(menu.AddSubmenu("Go"), app, builder)
 	windowMenu(menu.AddSubmenu("Window"), app, builder)
+	helpMenu(menu.AddSubmenu("Help"), app, builder)
 
 	app.menuItemsMu.Lock()
 	app.viewItems = builder.viewItems

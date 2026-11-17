@@ -27,7 +27,8 @@ defaults, and unknown keys are ignored.
 | `editor.auto_close_brackets` | boolean | `true` | Close brackets and quotes while typing. |
 | `editor.smart_indent` | boolean | `true` | Follow the previous line's indentation and brackets. |
 
-The View menu's checkboxes write these last seven keys.
+The View menu's checkboxes write `word_wrap` through `code_folding`; the last two
+are toggled from Settings or the command palette.
 
 ## Sidebar
 
