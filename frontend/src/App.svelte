@@ -68,6 +68,7 @@
     } from './document';
     import {
         AUTO_LANGUAGE_ID,
+        installEditorKeybindings,
         languageChoices,
         languageForDocument,
         languageLabel,
@@ -144,6 +145,7 @@
     import {
         installKeybindings,
         isUsableBinding,
+        withDefaultKeybindings,
         type KeyContext,
     } from './keybindings';
     import {
@@ -1302,10 +1304,15 @@
             return;
         }
         keybindingError = state.error;
-        // A broken file did not decode; keep the previous listener and native
-        // menu rather than silently dropping every shortcut. A file that
+        // A broken file did not decode; keep the previous listener (or start
+        // with the defaults) and native menu rather than silently dropping
+        // every shortcut. A file that
         // decoded has an authoritative list even when entries were rejected.
         if (!state.parsed) {
+            disposeKeybindings ??= installKeybindings(withDefaultKeybindings([]), {
+                run: runKeybindingCommand,
+                context: keybindingContext,
+            });
             return;
         }
         const bindings = state.bindings ?? [];
@@ -1316,7 +1323,8 @@
             keybindingError = `${keybindingError === '' ? '' : `${keybindingError}; `}${dropped} binding(s) need a modifier or a non-printing key`;
         }
         disposeKeybindings?.();
-        disposeKeybindings = installKeybindings(usable, {
+        // installKeybindings skips "-command" removals and unusable entries.
+        disposeKeybindings = installKeybindings(withDefaultKeybindings(bindings), {
             run: runKeybindingCommand,
             context: keybindingContext,
         });
@@ -1736,6 +1744,9 @@
                 break;
             case 'close-all-folders':
                 void closeAllFolders();
+                break;
+            case 'close-all-tabs':
+                void closeAllTabs();
                 break;
             case 'reopen-closed-tab':
                 void reopenClosedTab();
@@ -3434,6 +3445,7 @@
                 void changeThemeSettings({ ...themeSettings, mode }),
             );
             unsubscribeSettings = listenForSettingsOverlay(showSettingsOverlay);
+            installEditorKeybindings(runKeybindingCommand);
             await refreshKeybindings();
             void WatchConfig();
 

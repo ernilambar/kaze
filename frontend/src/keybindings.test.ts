@@ -7,6 +7,7 @@ import {
     matchesWhen,
     normalizeChord,
     normalizeSequence,
+    withDefaultKeybindings,
     type KeyContext,
 } from './keybindings';
 
@@ -91,6 +92,19 @@ describe('matchesWhen', () => {
 });
 
 describe('installKeybindings', () => {
+    it('leaves the first key of a chord whose when is false', () => {
+        const run = vi.fn();
+        const dispose = installKeybindings(
+            [{ key: 'cmd+k cmd+w', command: 'close-all-tabs', when: '!editorFocus' }],
+            { run, context: () => CONTEXT },
+        );
+        const event = press({ metaKey: true, key: 'k', code: 'KeyK' });
+        expect(event.defaultPrevented).toBe(false);
+        press({ metaKey: true, key: 'w', code: 'KeyW' });
+        expect(run).not.toHaveBeenCalled();
+        dispose();
+    });
+
     it('runs a matching chord and prevents the default action', () => {
         const run = vi.fn();
         const dispose = installKeybindings(
@@ -166,6 +180,25 @@ describe('installKeybindings', () => {
         dispose();
         press({ metaKey: true, key: 'b', code: 'KeyB' });
         expect(run).not.toHaveBeenCalled();
+    });
+});
+
+describe('withDefaultKeybindings', () => {
+    it('appends the defaults after user entries', () => {
+        const user: Keybinding[] = [{ key: 'cmd+k', command: 'save' }];
+        const merged = withDefaultKeybindings(user);
+        expect(merged[0]).toEqual(user[0]);
+        expect(merged.some((binding) => binding.command === 'next-tab')).toBe(true);
+    });
+
+    it('drops a default the user removed or whose key the user took', () => {
+        const merged = withDefaultKeybindings([
+            { key: 'cmd+shift+]', command: '-next-tab' },
+            { key: 'cmd+alt+g', command: 'save' },
+        ]);
+        expect(merged.some((binding) => binding.command === 'next-tab')).toBe(false);
+        expect(merged.some((binding) => binding.command === 'find-next-result')).toBe(false);
+        expect(merged.some((binding) => binding.command === 'previous-tab')).toBe(true);
     });
 });
 
