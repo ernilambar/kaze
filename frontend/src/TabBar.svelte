@@ -354,13 +354,31 @@
         align-items: center;
         justify-content: center;
         flex: 0 0 auto;
+        align-self: center;
+        position: relative;
         width: 26px;
+        height: 26px;
+        margin-right: 4px;
         padding: 0;
         border: none;
+        border-radius: 4px;
         background: none;
         color: inherit;
         cursor: pointer;
         opacity: 0;
+    }
+
+    /* The hit target stays 26px; only an 18px chip is painted behind the glyph. */
+    .tab__close::before {
+        content: '';
+        position: absolute;
+        inset: 4px;
+        border-radius: 4px;
+        background: none;
+    }
+
+    .tab__close > svg {
+        position: relative;
     }
 
     .tab:hover .tab__close,
@@ -370,5 +388,9 @@
 
     .tab__close:hover {
         color: var(--fg);
+    }
+
+    .tab__close:hover::before {
+        background: var(--bg-selected);
     }
 </style>
