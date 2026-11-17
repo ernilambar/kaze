@@ -170,10 +170,10 @@ Arguments:
   path  A file to open, or a folder to add to the sidebar.
 
 Options:
-  -h, --help     Show this help and exit.
-  -v, --version  Show the version and exit.
-  --new-window   Open a new window instead of the focused one.
-  --             Treat every following argument as a path.
+  -h, --help        Show this help and exit.
+  -v, --version     Show the version and exit.
+  -n, --new-window  Open a new window instead of the focused one.
+  --                Treat every following argument as a path.
 
 Files open in the editor. Folders become sidebar roots and are remembered for
 next time. Running %s with paths while %s is already open hands them to that
@@ -201,7 +201,7 @@ func parseLaunchRequest(args []string) LaunchRequest {
 				pathsOnly = true
 				continue
 			}
-			if arg == "--new-window" || arg == "-new-window" {
+			if arg == "--new-window" || arg == "-new-window" || arg == "-n" {
 				request.NewWindow = true
 				continue
 			}

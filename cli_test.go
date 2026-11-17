@@ -80,27 +80,35 @@ func TestParseLaunchRequestRecognizesNewWindow(t *testing.T) {
 	dir := t.TempDir()
 	file := writeTempFile(t, dir, "notes.txt", "hello")
 
-	got := parseLaunchRequest([]string{"--new-window", file})
+	for _, flag := range []string{"--new-window", "-new-window", "-n"} {
+		t.Run(flag, func(t *testing.T) {
+			got := parseLaunchRequest([]string{flag, file})
 
-	if !got.NewWindow {
-		t.Fatal("NewWindow = false, want --new-window recognized")
-	}
-	if want := []string{file}; !reflect.DeepEqual(got.Files, want) {
-		t.Fatalf("Files = %q, want %q", got.Files, want)
-	}
-	if len(got.Missing) != 0 {
-		t.Fatalf("Missing = %q, want empty; the flag is not a path", got.Missing)
+			if !got.NewWindow {
+				t.Fatalf("NewWindow = false, want %s recognized", flag)
+			}
+			if want := []string{file}; !reflect.DeepEqual(got.Files, want) {
+				t.Fatalf("Files = %q, want %q", got.Files, want)
+			}
+			if len(got.Missing) != 0 {
+				t.Fatalf("Missing = %q, want empty; the flag is not a path", got.Missing)
+			}
+		})
 	}
 }
 
 func TestParseLaunchRequestNewWindowAfterDoubleDashIsAPath(t *testing.T) {
-	got := parseLaunchRequest([]string{"--", "--new-window"})
+	for _, flag := range []string{"--new-window", "-n"} {
+		t.Run(flag, func(t *testing.T) {
+			got := parseLaunchRequest([]string{"--", flag})
 
-	if got.NewWindow {
-		t.Fatal("NewWindow = true, want the flag after -- to be a path")
-	}
-	if want := []string{"--new-window"}; !reflect.DeepEqual(got.Missing, want) {
-		t.Fatalf("Missing = %q, want %q", got.Missing, want)
+			if got.NewWindow {
+				t.Fatalf("NewWindow = true, want %s after -- to be a path", flag)
+			}
+			if want := []string{flag}; !reflect.DeepEqual(got.Missing, want) {
+				t.Fatalf("Missing = %q, want %q", got.Missing, want)
+			}
+		})
 	}
 }
 
