@@ -168,6 +168,28 @@
         overflow-y: auto;
     }
 
+    /* The overlay scrollbar macOS draws covers the row's detail column, so the
+       list gets a slim scrollbar that takes its own space instead. */
+    .palette__results::-webkit-scrollbar {
+        width: 10px;
+    }
+
+    .palette__results::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .palette__results::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border: 2px solid transparent;
+        border-radius: 6px;
+        background-clip: padding-box;
+    }
+
+    .palette__results::-webkit-scrollbar-thumb:hover {
+        background: var(--fg-muted);
+        background-clip: padding-box;
+    }
+
     .palette__option {
         display: flex;
         align-items: baseline;
