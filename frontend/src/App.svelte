@@ -3530,7 +3530,6 @@
             {themes}
             filesExclude={filesExclude}
             searchExclude={searchExclude}
-            {folders}
             {sidebarVisible}
             autoReveal={sidebarAutoReveal}
             warning={settingsWarning}
@@ -3541,8 +3540,6 @@
             onSearchExclude={(next) => void changeSearchExclude(next)}
             onSidebarVisible={setSidebarVisible}
             onAutoReveal={setSidebarAutoReveal}
-            onAddFolder={() => void addFolderFromDialog()}
-            onRemoveFolder={(path) => void removeFolder(path)}
             onOpenSettings={() => void openSettings()}
             onOpenDefaults={() => void openDefaultSettings()}
             onOpenThemes={() => void openThemesFolder()}

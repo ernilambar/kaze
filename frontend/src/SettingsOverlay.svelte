@@ -30,7 +30,6 @@
         themes: ThemeInfo[];
         filesExclude: string[];
         searchExclude: string[];
-        folders: string[];
         sidebarVisible: boolean;
         autoReveal: boolean;
         warning?: string;
@@ -41,8 +40,6 @@
         onSearchExclude: (next: string[]) => void;
         onSidebarVisible: (visible: boolean) => void;
         onAutoReveal: (autoReveal: boolean) => void;
-        onAddFolder: () => void;
-        onRemoveFolder: (path: string) => void;
         onOpenSettings: () => void;
         onOpenDefaults: () => void;
         onOpenThemes: () => void;
@@ -57,7 +54,6 @@
         themes,
         filesExclude,
         searchExclude,
-        folders,
         sidebarVisible,
         autoReveal,
         warning = '',
@@ -68,8 +64,6 @@
         onSearchExclude,
         onSidebarVisible,
         onAutoReveal,
-        onAddFolder,
-        onRemoveFolder,
         onOpenSettings,
         onOpenDefaults,
         onOpenThemes,
@@ -1110,43 +1104,6 @@
                             {/if}
                         </div>
                     </section>
-                    <section class="settings__section">
-                        <h3>Folders</h3>
-                        {#if folders.length === 0}
-                            <p class="settings__hint">No folders are open.</p>
-                        {:else}
-                            <ul class="settings__list">
-                                {#each folders as folder (folder)}
-                                    <li class="settings__list-item">
-                                        <span class="settings__path" title={folder}>{folder}</span>
-                                        <button
-                                            type="button"
-                                            class="settings__icon-button"
-                                            aria-label={`Remove ${folder}`}
-                                            onclick={() => onRemoveFolder(folder)}
-                                        >
-                                            <svg
-                                                aria-hidden="true"
-                                                height="9"
-                                                viewBox="0 0 9 9"
-                                                width="9"
-                                            >
-                                                <path
-                                                    d="M1 1 L8 8 M8 1 L1 8"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    stroke-width="1.2"
-                                                />
-                                            </svg>
-                                        </button>
-                                    </li>
-                                {/each}
-                            </ul>
-                        {/if}
-                        <div class="settings__buttons">
-                            <button type="button" onclick={onAddFolder}>Add Folder…</button>
-                        </div>
-                    </section>
                 {:else}
                     <section class="settings__section">
                         <h3>Settings files</h3>
@@ -1770,82 +1727,6 @@
 
     .settings__patterns:focus {
         border-color: var(--link, #4daafc);
-    }
-
-    .settings__list {
-        margin: 0 0 10px;
-        padding: 0;
-        border: 1px solid var(--border);
-        border-radius: 7px;
-        list-style: none;
-        overflow: hidden;
-    }
-
-    .settings__list-item {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-        min-height: 30px;
-        padding: 4px 8px 4px 10px;
-    }
-
-    .settings__list-item + .settings__list-item {
-        border-top: 1px solid var(--border);
-    }
-
-    .settings__list-item:hover {
-        background: var(--bg-hover);
-    }
-
-    .settings__path {
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        font-family: var(--editor-font-family, monospace);
-        font-size: var(--ui-font-small);
-    }
-
-    .settings__icon-button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        flex: 0 0 auto;
-        width: 20px;
-        height: 20px;
-        padding: 0;
-        border: none;
-        border-radius: 4px;
-        background: none;
-        color: var(--fg-muted);
-        cursor: pointer;
-    }
-
-    .settings__icon-button:hover {
-        background: var(--bg-selected);
-        color: var(--fg);
-    }
-
-    .settings__buttons {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-
-    .settings__buttons button {
-        padding: 5px 11px;
-        border: 1px solid var(--border);
-        border-radius: 5px;
-        background: var(--bg);
-        color: var(--fg);
-        font: inherit;
-        cursor: pointer;
-    }
-
-    .settings__buttons button:hover {
-        background: var(--bg-hover);
-        border-color: var(--fg-muted);
     }
 
     .settings__actions {
