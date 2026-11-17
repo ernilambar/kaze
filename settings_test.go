@@ -284,6 +284,16 @@ func TestLoadSettingsReadsEditorOptions(t *testing.T) {
 	}
 }
 
+func TestNormalizeRulers(t *testing.T) {
+	settings := defaultSettings()
+	settings.Editor.Rulers = []int{120, 0, 80, 120, -4, 100}
+	settings.normalize()
+
+	if !reflect.DeepEqual(settings.Editor.Rulers, []int{80, 100, 120}) {
+		t.Errorf("rulers = %v, want [80 100 120]", settings.Editor.Rulers)
+	}
+}
+
 func TestUpdateEditorSettingsPersistsAndRepairs(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 

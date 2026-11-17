@@ -16,7 +16,12 @@
         type ZoomCommand,
     } from './editorcommands';
     import type { EditorSettings } from './settings';
-    import { appendFinalNewline, trimTrailingWhitespace as trimLineEnd } from './text';
+    import {
+        appendFinalNewline,
+        transformLines as transformLineText,
+        trimTrailingWhitespace as trimLineEnd,
+        type LineTransform,
+    } from './text';
     import type { CopyPathKind } from './workspacecommands';
 
     // FILE_MENU_GROUP is the trailing section of the editor's right-click menu.
@@ -337,14 +342,12 @@
         current.focus();
     }
 
-    // trimTrailingWhitespace edits only the line ends that actually need it, so
-    // cursors and the rest of the buffer are untouched.
-    export function trimTrailingWhitespace(): void {
-        const current = editor;
-        const model = current?.getModel() ?? null;
-        if (current === undefined || model === null) {
-            return;
-        }
+    // trimmedEdits lists the deletions that remove trailing spaces and tabs
+    // from each affected line. Editing only the line ends leaves cursors and
+    // the rest of the buffer untouched.
+    function trimmedEdits(
+        model: monaco.editor.ITextModel,
+    ): monaco.editor.IIdentifiedSingleEditOperation[] {
         const edits: monaco.editor.IIdentifiedSingleEditOperation[] = [];
         for (let line = 1; line <= model.getLineCount(); line++) {
             const lineContent = model.getLineContent(line);
@@ -356,11 +359,67 @@
                 });
             }
         }
+        return edits;
+    }
+
+    // trimModel applies one undoable trim to a buffer, whether or not the
+    // editor is showing it.
+    function trimModel(model: monaco.editor.ITextModel): boolean {
+        const edits = trimmedEdits(model);
         if (edits.length === 0) {
+            return false;
+        }
+        model.pushStackElement();
+        model.pushEditOperations([], edits, () => null);
+        model.pushStackElement();
+        return true;
+    }
+
+    // trimTrailingWhitespace edits the active buffer's line ends.
+    export function trimTrailingWhitespace(): void {
+        const current = editor;
+        const model = current?.getModel() ?? null;
+        if (current === undefined || model === null) {
+            return;
+        }
+        if (!trimModel(model)) {
+            return;
+        }
+        current.focus();
+    }
+
+    // trimTrailingWhitespaceInBuffer trims a buffer before its text is saved,
+    // including one the editor is not currently showing.
+    export function trimTrailingWhitespaceInBuffer(key: string): void {
+        const model = models.get(key);
+        if (model !== undefined) {
+            trimModel(model);
+        }
+    }
+
+    // transformLines applies a whole-line command to the selection, or to the
+    // entire buffer when nothing is selected. It is one undo step and leaves
+    // the cursor in place.
+    export function transformLines(transform: LineTransform): void {
+        const current = editor;
+        const model = current?.getModel() ?? null;
+        if (current === undefined || model === null) {
+            return;
+        }
+        const selection = current.getSelection();
+        if (selection === null) {
+            return;
+        }
+        const range = selection.isEmpty() ? model.getFullModelRange() : selection;
+        const text = model.getValueInRange(range);
+        const converted = transformLineText(text, transform);
+        if (converted === text) {
             return;
         }
         current.pushUndoStop();
-        current.executeEdits('trim-trailing-whitespace', edits);
+        current.executeEdits('transform-lines', [
+            { range, text: converted, forceMoveMarkers: true },
+        ]);
         current.pushUndoStop();
         current.focus();
     }

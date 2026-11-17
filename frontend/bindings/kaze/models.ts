@@ -73,6 +73,15 @@ export interface EditorSettings {
     "ensure_final_newline": boolean;
 
     /**
+     * These view options are edited in the settings overlay and applied to a
+     * live editor. Rulers is the list of vertical guide columns; an empty list
+     * draws none.
+     */
+    "minimap": boolean;
+    "bracket_pair_colors": boolean;
+    "rulers": number[] | null;
+
+    /**
      * The view toggles are editor options too. Keeping them here means a
      * View menu choice survives a relaunch, and the menu starts checked.
      */
@@ -108,7 +117,8 @@ export interface FileTreeResult {
 }
 
 /**
- * FilesSettings configures which entries the explorer and Quick Open hide.
+ * FilesSettings configures the explorer's hidden entries and what a save does
+ * to the text it writes.
  */
 export interface FilesSettings {
     /**
@@ -117,6 +127,12 @@ export interface FilesSettings {
      * any depth, so the default list hides every node_modules folder.
      */
     "exclude": string[] | null;
+
+    /**
+     * TrimTrailingWhitespace removes spaces and tabs at line ends on save. It
+     * edits the buffer too, so the saved text and the tab still agree.
+     */
+    "trim_trailing_whitespace": boolean;
 }
 
 /**

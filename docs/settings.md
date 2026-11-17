@@ -19,6 +19,9 @@ ignored. Edit it from **Settings…** (`⌘,`); hand edits need a restart.
 | `editor.cursor_surrounding_lines` | `0` | Lines kept visible around the cursor. |
 | `editor.scroll_beyond_last_line` | `true` | Scroll past the last line. |
 | `editor.ensure_final_newline` | `false` | Add a trailing newline on save. |
+| `editor.minimap` | `false` | Show the minimap beside the scrollbar. |
+| `editor.bracket_pair_colors` | `false` | Color and highlight matching bracket pairs. |
+| `editor.rulers` | `[]` | Columns for vertical guide lines. |
 | `editor.word_wrap` | `true` | Wrap long lines. |
 | `editor.invisible_characters` | `false` | Draw whitespace. |
 | `editor.line_numbers` | `true` | Line-number gutter. |
@@ -39,6 +42,7 @@ ignored. Edit it from **Settings…** (`⌘,`); hand edits need a restart.
 | Key | Default | Description |
 | --- | --- | --- |
 | `files.exclude` | `[".git", ".hg", ".svn", "node_modules", ".DS_Store"]` | Hidden from the tree and Quick Open. |
+| `files.trim_trailing_whitespace` | `false` | Remove spaces and tabs at line ends on save. |
 | `search.exclude` | same list | Also skipped by Find in Files. |
 
 Globs, relative to a sidebar root:

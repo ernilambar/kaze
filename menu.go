@@ -213,6 +213,9 @@ func goMenu(m *application.Menu, app *App, b *menuBuilder) {
 	b.item(m, "go-to-line", "Go to Line…", "Ctrl+g", func(*application.Context) {
 		app.emitGoToLine()
 	})
+	b.item(m, "go-to-symbol", "Go to Symbol in File…", "CmdOrCtrl+Shift+o", func(*application.Context) {
+		app.emitCommand("go-to-symbol")
+	})
 	m.AddSeparator()
 	b.item(m, "next-tab", "Next Tab", "Ctrl+Tab", func(*application.Context) { app.emitNextTab() })
 	b.item(m, "previous-tab", "Previous Tab", "Ctrl+Shift+Tab", func(*application.Context) {
@@ -244,6 +247,15 @@ var caseTransforms = []struct{ label, id string }{
 	{"snake_case", "snake"},
 	{"kebab-case", "kebab"},
 	{"CONSTANT_CASE", "constant"},
+}
+
+// lineCommands is the Edit menu's whole-line transforms, in display order. They
+// rewrite the buffer in the frontend, so each item forwards a palette id.
+var lineCommands = []struct{ label, id string }{
+	{"Sort Lines Ascending", "sort-lines-ascending"},
+	{"Sort Lines Descending", "sort-lines-descending"},
+	{"Delete Duplicate Lines", "delete-duplicate-lines"},
+	{"Reverse Lines", "reverse-lines"},
 }
 
 // editMenu holds the buffer transforms. They act on Monaco's selection, which
@@ -293,6 +305,13 @@ func editMenu(m *application.Menu, app *App, b *menuBuilder) {
 	b.item(m, "trim-whitespace", "Trim Trailing Whitespace", "", func(*application.Context) {
 		app.emitTrimWhitespace()
 	})
+	m.AddSeparator()
+	for _, entry := range lineCommands {
+		command := entry.id
+		b.item(m, command, entry.label, "", func(*application.Context) {
+			app.emitCommand(command)
+		})
+	}
 }
 
 // selectionCommands lists the Selection menu in display order. Every command

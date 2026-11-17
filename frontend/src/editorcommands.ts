@@ -1,5 +1,6 @@
 import { onWindowEvent } from './windowstate';
 import type { CaseTransform } from './case';
+import type { LineTransform } from './text';
 
 // ViewOption is the editor settings a View menu checkbox flips. The names match
 // the fields of EditorSettings, and Go sends them verbatim.
@@ -87,6 +88,19 @@ export const SELECTION_COMMANDS: readonly SelectionCommandSpec[] = [
     { id: 'join-lines', label: 'Join Lines', action: 'editor.action.joinLines' },
     { id: 'delete-line', label: 'Delete Line', action: 'editor.action.deleteLines' },
     { id: 'toggle-comment', label: 'Toggle Line Comment', action: 'editor.action.commentLine' },
+];
+
+// LineCommand names one whole-line transform. The ids are the command palette
+// ids and the LineTransform values text.ts understands.
+export type LineCommand = LineTransform;
+
+// LINE_COMMANDS is the Edit menu order, shared by the command palette and the
+// handler that runs it.
+export const LINE_COMMANDS: readonly { id: LineCommand; label: string }[] = [
+    { id: 'sort-lines-ascending', label: 'Sort Lines Ascending' },
+    { id: 'sort-lines-descending', label: 'Sort Lines Descending' },
+    { id: 'delete-duplicate-lines', label: 'Delete Duplicate Lines' },
+    { id: 'reverse-lines', label: 'Reverse Lines' },
 ];
 
 export type ZoomCommand = 'in' | 'out' | 'reset';

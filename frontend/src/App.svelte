@@ -78,6 +78,7 @@
     import {
         listenForEditorCommands,
         INDENT_COMMANDS,
+        LINE_COMMANDS,
         SELECTION_COMMANDS,
         VIEW_OPTIONS,
         type SelectionCommand,
@@ -136,7 +137,7 @@
         loadEditorSettings,
         loadPreferences,
         saveEditorSettings,
-        saveFilesExclude,
+        saveFilesSettings,
         saveSearchExclude,
         saveThemeSettings,
         saveUISettings,
@@ -194,7 +195,11 @@
         tabsToClose,
         updateDocument,
     } from './tabs';
-    import { appendFinalNewline } from './text';
+    import {
+        appendFinalNewline,
+        trimTrailingWhitespace as trimTrailingWhitespaceText,
+        type LineTransform,
+    } from './text';
     import {
         clearRecentFiles,
         listenForWatchedChanges,
@@ -285,6 +290,7 @@
     // Excludes are the two glob lists settings.json keeps. The tree and Find in
     // Files both read them in Go; the settings overlay edits them.
     let filesExclude = $state<string[]>([]);
+    let filesTrimTrailingWhitespace = $state(false);
     let searchExclude = $state<string[]>([]);
     let themes = $state<ThemeInfo[]>([]);
     let themeErrors = $state<string[]>([]);
@@ -927,8 +933,11 @@
             return true;
         }
 
-        // ensure_final_newline edits the buffer before its text is read, so the
-        // write and the model still agree and the tab does not stay dirty.
+        // These save-time rewrites edit the buffer before its text is read, so
+        // the write and the model still agree and the tab does not stay dirty.
+        if (filesTrimTrailingWhitespace) {
+            editorPane?.trimTrailingWhitespaceInBuffer(tab.id);
+        }
         if (editorSettings.ensureFinalNewline) {
             editorPane?.ensureFinalNewline(tab.id);
         }
@@ -940,6 +949,9 @@
         // buffer that was never shown comes straight from the tab. Normalizing
         // here keeps the baseline markSaved compares with the model.
         content = normalizeEol(content, tab.eol);
+        if (filesTrimTrailingWhitespace) {
+            content = trimTrailingWhitespaceText(content);
+        }
         let path = tab.path;
         let expected = tab.modified;
         if (saveAs || path === '') {
@@ -1232,12 +1244,35 @@
     }
 
     // changeFilesExclude saves the explorer's glob list and rereads the tree:
-    // the level already on screen was opened with the old matcher.
+    // the level already on screen was opened with the old matcher. The update
+    // endpoint replaces the whole files section, so the whitespace rule travels
+    // with it.
     async function changeFilesExclude(next: string[]): Promise<void> {
         filesExclude = next;
         try {
-            filesExclude = await saveFilesExclude(next);
+            const saved = await saveFilesSettings({
+                exclude: next,
+                trimTrailingWhitespace: filesTrimTrailingWhitespace,
+            });
+            filesExclude = saved.exclude;
+            filesTrimTrailingWhitespace = saved.trimTrailingWhitespace;
             treeRefreshToken++;
+        } catch (error) {
+            notice = errorMessage(error);
+        }
+    }
+
+    // changeFilesTrimTrailingWhitespace saves the trimming rule without
+    // touching the explorer's glob list.
+    async function changeFilesTrimTrailingWhitespace(next: boolean): Promise<void> {
+        filesTrimTrailingWhitespace = next;
+        try {
+            const saved = await saveFilesSettings({
+                exclude: filesExclude,
+                trimTrailingWhitespace: next,
+            });
+            filesExclude = saved.exclude;
+            filesTrimTrailingWhitespace = saved.trimTrailingWhitespace;
         } catch (error) {
             notice = errorMessage(error);
         }
@@ -1395,6 +1430,10 @@
 
     function trimWhitespace(): void {
         editorPane?.trimTrailingWhitespace();
+    }
+
+    function transformLines(command: LineTransform): void {
+        editorPane?.transformLines(command);
     }
 
     function runSelectionCommand(command: SelectionCommand): void {
@@ -1651,6 +1690,11 @@
             runSelectionCommand(selectionCommand.id);
             return;
         }
+        const lineCommand = LINE_COMMANDS.find((entry) => entry.id === id);
+        if (lineCommand !== undefined) {
+            transformLines(lineCommand.id);
+            return;
+        }
         const indentCommand = INDENT_COMMANDS.find((entry) => entry.id === id);
         if (indentCommand !== undefined) {
             runIndentAction(indentCommand.id);
@@ -1701,6 +1745,9 @@
                 break;
             case 'go-to-line':
                 runEditorAction('editor.action.gotoLine');
+                break;
+            case 'go-to-symbol':
+                runEditorAction('editor.action.quickOutline');
                 break;
             case 'find-next-result':
                 void stepFindResult(1);
@@ -3446,8 +3493,9 @@
             }
             themeSettings = preferences.theme;
             uiSettings = preferences.ui;
-            filesExclude = preferences.excludes.files;
-            searchExclude = preferences.excludes.search;
+            filesExclude = preferences.files.exclude;
+            filesTrimTrailingWhitespace = preferences.files.trimTrailingWhitespace;
+            searchExclude = preferences.searchExclude;
             applyUISettings(uiSettings);
             await refreshThemes();
             await applyCurrentTheme();
@@ -3811,6 +3859,7 @@
             ui={uiSettings}
             {themes}
             filesExclude={filesExclude}
+            trimTrailingWhitespace={filesTrimTrailingWhitespace}
             searchExclude={searchExclude}
             {sidebarVisible}
             autoReveal={sidebarAutoReveal}
@@ -3819,6 +3868,7 @@
             onTheme={(next) => void changeThemeSettings(next)}
             onUI={(next) => void changeUISettings(next)}
             onFilesExclude={(next) => void changeFilesExclude(next)}
+            onTrimTrailingWhitespace={(next) => void changeFilesTrimTrailingWhitespace(next)}
             onSearchExclude={(next) => void changeSearchExclude(next)}
             onSidebarVisible={setSidebarVisible}
             onAutoReveal={setSidebarAutoReveal}

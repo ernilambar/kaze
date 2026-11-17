@@ -20,6 +20,9 @@ export interface EditorSettings {
     cursorSurroundingLines: number;
     scrollBeyondLastLine: boolean;
     ensureFinalNewline: boolean;
+    minimap: boolean;
+    bracketPairColors: boolean;
+    rulers: number[];
     wordWrap: boolean;
     invisibleCharacters: boolean;
     lineNumbers: boolean;
@@ -43,6 +46,9 @@ export const defaultEditorSettings: EditorSettings = {
     cursorSurroundingLines: 0,
     scrollBeyondLastLine: true,
     ensureFinalNewline: false,
+    minimap: false,
+    bracketPairColors: false,
+    rulers: [],
     wordWrap: true,
     invisibleCharacters: false,
     lineNumbers: true,
@@ -65,6 +71,9 @@ function toEditorSettings(settings: models.EditorSettings): EditorSettings {
         cursorSurroundingLines: settings.cursor_surrounding_lines,
         scrollBeyondLastLine: settings.scroll_beyond_last_line,
         ensureFinalNewline: settings.ensure_final_newline,
+        minimap: settings.minimap,
+        bracketPairColors: settings.bracket_pair_colors,
+        rulers: settings.rulers ?? [],
         wordWrap: settings.word_wrap,
         invisibleCharacters: settings.invisible_characters,
         lineNumbers: settings.line_numbers,
@@ -88,6 +97,9 @@ function toBindingSettings(settings: EditorSettings): models.EditorSettings {
         cursor_surrounding_lines: settings.cursorSurroundingLines,
         scroll_beyond_last_line: settings.scrollBeyondLastLine,
         ensure_final_newline: settings.ensureFinalNewline,
+        minimap: settings.minimap,
+        bracket_pair_colors: settings.bracketPairColors,
+        rulers: settings.rulers.slice(),
         word_wrap: settings.wordWrap,
         invisible_characters: settings.invisibleCharacters,
         line_numbers: settings.lineNumbers,
@@ -158,11 +170,11 @@ export const defaultUISettings: UISettings = {
     sidebarPosition: 'left',
 };
 
-// ExcludeSettings is the pair of glob lists settings.json keeps: the explorer
-// hides files.exclude and Find in Files skips both lists.
-export interface ExcludeSettings {
-    files: string[];
-    search: string[];
+// FileSettings is the files section: the globs the explorer and Quick Open hide
+// plus the whitespace rule a save applies.
+export interface FileSettings {
+    exclude: string[];
+    trimTrailingWhitespace: boolean;
 }
 
 // defaultExcludePatterns mirrors defaultExcludePatterns in settings.go.
@@ -174,21 +186,25 @@ export const defaultExcludePatterns: readonly string[] = [
     '.DS_Store',
 ];
 
-export const defaultExcludeSettings: ExcludeSettings = {
-    files: [...defaultExcludePatterns],
-    search: [...defaultExcludePatterns],
+export const defaultFileSettings: FileSettings = {
+    exclude: [...defaultExcludePatterns],
+    trimTrailingWhitespace: false,
 };
 
-function toExcludeSettings(settings: models.Settings): ExcludeSettings {
+function toFileSettings(files: models.FilesSettings | undefined): FileSettings {
     return {
-        files: settings.files?.exclude ?? [],
-        search: settings.search?.exclude ?? [],
+        exclude: files?.exclude ?? [],
+        trimTrailingWhitespace: files?.trim_trailing_whitespace ?? false,
     };
 }
 
-export async function saveFilesExclude(patterns: readonly string[]): Promise<string[]> {
-    const saved = await UpdateFilesSettings({ exclude: patterns.slice() });
-    return saved.exclude ?? [];
+export async function saveFilesSettings(files: FileSettings): Promise<FileSettings> {
+    return toFileSettings(
+        await UpdateFilesSettings({
+            exclude: files.exclude.slice(),
+            trim_trailing_whitespace: files.trimTrailingWhitespace,
+        }),
+    );
 }
 
 export async function saveSearchExclude(patterns: readonly string[]): Promise<string[]> {
@@ -233,30 +249,33 @@ function toBindingUI(ui: UISettings): models.UISettings {
     };
 }
 
-// loadPreferences reads the theme, interface and exclude sections. It is called
-// once at startup; the editor section has its own loader because toggles rewrite
-// it independently.
+// loadPreferences reads the theme, interface, files and search sections. It is
+// called once at startup; the editor section has its own loader because toggles
+// rewrite it independently.
 export async function loadPreferences(): Promise<{
     theme: ThemeSettings;
     ui: UISettings;
-    excludes: ExcludeSettings;
+    files: FileSettings;
+    searchExclude: string[];
 }> {
     try {
         const settings = await GetSettings();
         return {
             theme: toThemeSettings(settings.theme),
             ui: toUISettings(settings.ui),
-            excludes: toExcludeSettings(settings),
+            files: toFileSettings(settings.files),
+            searchExclude: settings.search?.exclude ?? [],
         };
     } catch (error) {
         console.error('Failed to load appearance settings; using defaults.', error);
         return {
             theme: { ...defaultThemeSettings },
             ui: { ...defaultUISettings },
-            excludes: {
-                files: [...defaultExcludeSettings.files],
-                search: [...defaultExcludeSettings.search],
+            files: {
+                exclude: [...defaultFileSettings.exclude],
+                trimTrailingWhitespace: defaultFileSettings.trimTrailingWhitespace,
             },
+            searchExclude: [...defaultExcludePatterns],
         };
     }
 }

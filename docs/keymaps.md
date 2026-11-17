@@ -29,6 +29,7 @@
 | `⌘⇧F` | Find in Files… |
 | `F4` / `⇧F4` | Next / Previous Result |
 | `⌃G` | Go to Line… |
+| `⌘⇧O` | Go to Symbol in File… |
 | `⌘/` | Toggle Line Comment |
 | `⌘⇧K` | Delete Line |
 | `⌥↑` / `⌥↓` | Move Line Up / Down |

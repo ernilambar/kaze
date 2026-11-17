@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -54,6 +55,13 @@ type EditorSettings struct {
 	ScrollBeyondLastLine   bool `json:"scroll_beyond_last_line"`
 	EnsureFinalNewline     bool `json:"ensure_final_newline"`
 
+	// These view options are edited in the settings overlay and applied to a
+	// live editor. Rulers is the list of vertical guide columns; an empty list
+	// draws none.
+	Minimap           bool  `json:"minimap"`
+	BracketPairColors bool  `json:"bracket_pair_colors"`
+	Rulers            []int `json:"rulers"`
+
 	// The view toggles are editor options too. Keeping them here means a
 	// View menu choice survives a relaunch, and the menu starts checked.
 	WordWrap            bool `json:"word_wrap"`
@@ -76,12 +84,16 @@ type SidebarSettings struct {
 	AutoReveal bool `json:"auto_reveal"`
 }
 
-// FilesSettings configures which entries the explorer and Quick Open hide.
+// FilesSettings configures the explorer's hidden entries and what a save does
+// to the text it writes.
 type FilesSettings struct {
 	// Exclude holds glob patterns matched against the path relative to a
 	// sidebar root. A pattern with no slash matches a file or folder name at
 	// any depth, so the default list hides every node_modules folder.
 	Exclude []string `json:"exclude"`
+	// TrimTrailingWhitespace removes spaces and tabs at line ends on save. It
+	// edits the buffer too, so the saved text and the tab still agree.
+	TrimTrailingWhitespace bool `json:"trim_trailing_whitespace"`
 }
 
 // SearchSettings configures what Find in Files skips. The files list applies
@@ -131,6 +143,10 @@ func defaultSettings() Settings {
 			ScrollBeyondLastLine:   true,
 			EnsureFinalNewline:     false,
 
+			Minimap:           false,
+			BracketPairColors: false,
+			Rulers:            []int{},
+
 			WordWrap:            true,
 			InvisibleCharacters: false,
 			LineNumbers:         true,
@@ -140,8 +156,11 @@ func defaultSettings() Settings {
 			SmartIndent:         true,
 		},
 		Sidebar: SidebarSettings{Visible: true, AutoReveal: true},
-		Files:   FilesSettings{Exclude: defaultExcludePatterns()},
-		Search:  SearchSettings{Exclude: defaultExcludePatterns()},
+		Files: FilesSettings{
+			Exclude:                defaultExcludePatterns(),
+			TrimTrailingWhitespace: false,
+		},
+		Search: SearchSettings{Exclude: defaultExcludePatterns()},
 		Theme: ThemeSettings{
 			Mode:  defaultThemeMode,
 			Light: defaultThemeLight,
@@ -180,6 +199,7 @@ func (s *Settings) normalize() {
 	if s.Editor.CursorSurroundingLines < 0 {
 		s.Editor.CursorSurroundingLines = 0
 	}
+	s.Editor.Rulers = normalizeRulers(s.Editor.Rulers)
 
 	s.Files.Exclude = normalizePatternList(s.Files.Exclude)
 	s.Search.Exclude = normalizePatternList(s.Search.Exclude)
@@ -225,6 +245,22 @@ func normalizeThemeMode(mode string) string {
 	default:
 		return defaultThemeMode
 	}
+}
+
+// normalizeRulers keeps the positive columns, drops repeats and sorts them, so
+// the list the settings overlay shows is the one Monaco draws.
+func normalizeRulers(rulers []int) []int {
+	normalized := make([]int, 0, len(rulers))
+	seen := make(map[int]bool, len(rulers))
+	for _, column := range rulers {
+		if column <= 0 || seen[column] {
+			continue
+		}
+		seen[column] = true
+		normalized = append(normalized, column)
+	}
+	sort.Ints(normalized)
+	return normalized
 }
 
 // normalizePatternList trims the glob patterns and drops blanks. Duplicates are

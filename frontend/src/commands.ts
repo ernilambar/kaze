@@ -1,6 +1,11 @@
 import { onWindowEvent } from './windowstate';
 import { CASE_TRANSFORMS } from './case';
-import { INDENT_COMMANDS, SELECTION_COMMANDS, VIEW_OPTIONS } from './editorcommands';
+import {
+    INDENT_COMMANDS,
+    LINE_COMMANDS,
+    SELECTION_COMMANDS,
+    VIEW_OPTIONS,
+} from './editorcommands';
 import type { PaletteItem } from './palette';
 import { rankCandidates } from './quickOpen';
 
@@ -15,12 +20,18 @@ const EDIT_COMMANDS: readonly Command[] = [
         detail: 'Edit',
     })),
     { id: 'trim-whitespace', name: 'Trim Trailing Whitespace', detail: 'Edit' },
+    ...LINE_COMMANDS.map((entry) => ({
+        id: entry.id,
+        name: entry.label,
+        detail: 'Edit',
+    })),
     { id: 'change-language-mode', name: 'Change Language Mode…', detail: 'View' },
     { id: 'find', name: 'Find…', detail: 'Edit' },
     { id: 'replace', name: 'Replace…', detail: 'Edit' },
     { id: 'find-next-result', name: 'Find Next Result', detail: 'Edit' },
     { id: 'find-previous-result', name: 'Find Previous Result', detail: 'Edit' },
     { id: 'go-to-line', name: 'Go to Line…', detail: 'Go' },
+    { id: 'go-to-symbol', name: 'Go to Symbol in File…', detail: 'Go' },
 ];
 
 const SELECTION_PALETTE_COMMANDS: readonly Command[] = SELECTION_COMMANDS.map((entry) => ({

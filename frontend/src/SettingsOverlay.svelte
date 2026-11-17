@@ -3,7 +3,8 @@
     import type { ThemeInfo } from './theme';
     import {
         defaultEditorSettings,
-        defaultExcludeSettings,
+        defaultExcludePatterns,
+        defaultFileSettings,
         defaultThemeSettings,
         defaultUISettings,
     } from './settings';
@@ -21,7 +22,10 @@
         | 'tabSize'
         | 'cursorWidth'
         | 'cursorSurroundingLines';
-    type BooleanEditorKey = Exclude<keyof EditorSettings, 'fontFamily' | NumericEditorKey>;
+    type BooleanEditorKey = Exclude<
+        keyof EditorSettings,
+        'fontFamily' | NumericEditorKey | 'rulers'
+    >;
 
     interface Props {
         editor: EditorSettings;
@@ -29,6 +33,7 @@
         ui: UISettings;
         themes: ThemeInfo[];
         filesExclude: string[];
+        trimTrailingWhitespace: boolean;
         searchExclude: string[];
         sidebarVisible: boolean;
         autoReveal: boolean;
@@ -37,6 +42,7 @@
         onTheme: (next: ThemeSettings) => void;
         onUI: (next: UISettings) => void;
         onFilesExclude: (next: string[]) => void;
+        onTrimTrailingWhitespace: (trim: boolean) => void;
         onSearchExclude: (next: string[]) => void;
         onSidebarVisible: (visible: boolean) => void;
         onAutoReveal: (autoReveal: boolean) => void;
@@ -53,6 +59,7 @@
         ui,
         themes,
         filesExclude,
+        trimTrailingWhitespace,
         searchExclude,
         sidebarVisible,
         autoReveal,
@@ -61,6 +68,7 @@
         onTheme,
         onUI,
         onFilesExclude,
+        onTrimTrailingWhitespace,
         onSearchExclude,
         onSidebarVisible,
         onAutoReveal,
@@ -168,6 +176,24 @@
 
     function commitToggle(event: Event, key: BooleanEditorKey): void {
         updateEditor(key, (event.currentTarget as HTMLInputElement).checked);
+    }
+
+    // commitRulers parses a comma or space separated column list, drops
+    // unusable values, sorts it and writes the result back into the field.
+    function commitRulers(event: Event): void {
+        const input = event.currentTarget as HTMLInputElement;
+        const rulers = [
+            ...new Set(
+                input.value
+                    .split(/[,\s]+/)
+                    .map((value) => Number(value))
+                    .filter((value) => Number.isInteger(value) && value > 0),
+            ),
+        ].sort((a, b) => a - b);
+        input.value = rulers.join(', ');
+        if (rulers.join(',') !== editor.rulers.join(',')) {
+            updateEditor('rulers', rulers);
+        }
     }
 
     function setMode(mode: string): void {
@@ -748,6 +774,78 @@
                                 {/if}
                             </div>
                         {/each}
+                        <div class="settings__row">
+                            <label class="settings__row-main">
+                                <span class="settings__text">
+                                    <span class="settings__name">Minimap</span>
+                                    <span class="settings__description">
+                                        Show the file overview beside the scrollbar.
+                                    </span>
+                                </span>
+                                <span class="settings__control">
+                                    <input
+                                        class="settings__switch"
+                                        type="checkbox"
+                                        role="switch"
+                                        checked={editor.minimap}
+                                        onchange={(event) => commitToggle(event, 'minimap')}
+                                    />
+                                </span>
+                            </label>
+                            {#if editor.minimap !== defaultEditorSettings.minimap}
+                                {@render resetButton('Minimap', () =>
+                                    updateEditor('minimap', defaultEditorSettings.minimap))}
+                            {/if}
+                        </div>
+                        <div class="settings__row">
+                            <label class="settings__row-main">
+                                <span class="settings__text">
+                                    <span class="settings__name">Bracket pair colors</span>
+                                    <span class="settings__description">
+                                        Color and highlight matching brackets.
+                                    </span>
+                                </span>
+                                <span class="settings__control">
+                                    <input
+                                        class="settings__switch"
+                                        type="checkbox"
+                                        role="switch"
+                                        checked={editor.bracketPairColors}
+                                        onchange={(event) =>
+                                            commitToggle(event, 'bracketPairColors')}
+                                    />
+                                </span>
+                            </label>
+                            {#if editor.bracketPairColors !== defaultEditorSettings.bracketPairColors}
+                                {@render resetButton('Bracket pair colors', () =>
+                                    updateEditor(
+                                        'bracketPairColors',
+                                        defaultEditorSettings.bracketPairColors,
+                                    ))}
+                            {/if}
+                        </div>
+                        <div class="settings__row">
+                            <label class="settings__row-main">
+                                <span class="settings__text">
+                                    <span class="settings__name">Rulers</span>
+                                    <span class="settings__description">
+                                        Comma-separated columns for vertical guides.
+                                    </span>
+                                </span>
+                                <span class="settings__control">
+                                    <input
+                                        type="text"
+                                        value={editor.rulers.join(', ')}
+                                        placeholder="80, 120"
+                                        spellcheck="false"
+                                        onchange={commitRulers}
+                                    />
+                                </span>
+                            </label>
+                            {#if editor.rulers.length > 0}
+                                {@render resetButton('Rulers', () => updateEditor('rulers', []))}
+                            {/if}
+                        </div>
                     </section>
 
                     <section class="settings__section">
@@ -1012,9 +1110,9 @@
                     <section class="settings__section">
                         <div class="settings__section-head">
                             <h3>Explorer excludes</h3>
-                            {#if !samePatterns(filesExclude, defaultExcludeSettings.files)}
+                            {#if !samePatterns(filesExclude, defaultFileSettings.exclude)}
                                 {@render resetButton('Explorer excludes', () =>
-                                    onFilesExclude([...defaultExcludeSettings.files]))}
+                                    onFilesExclude([...defaultFileSettings.exclude]))}
                             {/if}
                         </div>
                         <p class="settings__hint">
@@ -1034,9 +1132,9 @@
                     <section class="settings__section">
                         <div class="settings__section-head">
                             <h3>Search excludes</h3>
-                            {#if !samePatterns(searchExclude, defaultExcludeSettings.search)}
+                            {#if !samePatterns(searchExclude, defaultExcludePatterns)}
                                 {@render resetButton('Search excludes', () =>
-                                    onSearchExclude([...defaultExcludeSettings.search]))}
+                                    onSearchExclude([...defaultExcludePatterns]))}
                             {/if}
                         </div>
                         <p class="settings__hint">
@@ -1051,6 +1149,35 @@
                             onchange={(event) =>
                                 onSearchExclude(patterns(event.currentTarget.value))}
                         ></textarea>
+                    </section>
+                    <section class="settings__section">
+                        <h3>Saving</h3>
+                        <div class="settings__row">
+                            <label class="settings__row-main">
+                                <span class="settings__text">
+                                    <span class="settings__name">Trim trailing whitespace</span>
+                                    <span class="settings__description">
+                                        Remove spaces and tabs at line ends when saving.
+                                    </span>
+                                </span>
+                                <span class="settings__control">
+                                    <input
+                                        class="settings__switch"
+                                        type="checkbox"
+                                        role="switch"
+                                        checked={trimTrailingWhitespace}
+                                        onchange={(event) =>
+                                            onTrimTrailingWhitespace(event.currentTarget.checked)}
+                                    />
+                                </span>
+                            </label>
+                            {#if trimTrailingWhitespace !== defaultFileSettings.trimTrailingWhitespace}
+                                {@render resetButton('Trim trailing whitespace', () =>
+                                    onTrimTrailingWhitespace(
+                                        defaultFileSettings.trimTrailingWhitespace,
+                                    ))}
+                            {/if}
+                        </div>
                     </section>
                 {:else if section === 'sidebar'}
                     <section class="settings__section">

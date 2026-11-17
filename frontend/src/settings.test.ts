@@ -20,7 +20,7 @@ import {
     loadEditorSettings,
     loadPreferences,
     saveEditorSettings,
-    saveFilesExclude,
+    saveFilesSettings,
     saveSearchExclude,
 } from './settings';
 
@@ -36,6 +36,9 @@ const storedEditor = {
     cursor_surrounding_lines: 2,
     scroll_beyond_last_line: true,
     ensure_final_newline: true,
+    minimap: true,
+    bracket_pair_colors: true,
+    rulers: [80, 120],
     word_wrap: false,
     invisible_characters: true,
     line_numbers: false,
@@ -63,6 +66,9 @@ describe('loadEditorSettings', () => {
             cursorSurroundingLines: 2,
             scrollBeyondLastLine: true,
             ensureFinalNewline: true,
+            minimap: true,
+            bracketPairColors: true,
+            rulers: [80, 120],
             wordWrap: false,
             invisibleCharacters: true,
             lineNumbers: false,
@@ -119,7 +125,7 @@ describe('loadPreferences', () => {
                 icon_style: 'monochrome',
                 sidebar_position: 'right',
             },
-            files: { exclude: ['/dist', '*.log'] },
+            files: { exclude: ['/dist', '*.log'], trim_trailing_whitespace: true },
             search: { exclude: ['vendor'] },
         });
 
@@ -132,24 +138,35 @@ describe('loadPreferences', () => {
                 iconStyle: 'monochrome',
                 sidebarPosition: 'right',
             },
-            excludes: {
-                files: ['/dist', '*.log'],
-                search: ['vendor'],
+            files: {
+                exclude: ['/dist', '*.log'],
+                trimTrailingWhitespace: true,
             },
+            searchExclude: ['vendor'],
         });
     });
 });
 
-describe('exclude saves', () => {
-    it('sends the patterns and returns the normalized list', async () => {
-        updateFilesSettings.mockResolvedValue({ exclude: ['node_modules'] });
+describe('files and search saves', () => {
+    it('sends both members of the files section and returns the normalized result', async () => {
+        updateFilesSettings.mockResolvedValue({
+            exclude: ['node_modules'],
+            trim_trailing_whitespace: true,
+        });
         updateSearchSettings.mockResolvedValue({ exclude: ['vendor'] });
 
-        await expect(saveFilesExclude([' node_modules ', 'node_modules'])).resolves.toEqual([
-            'node_modules',
-        ]);
+        await expect(
+            saveFilesSettings({
+                exclude: [' node_modules ', 'node_modules'],
+                trimTrailingWhitespace: true,
+            }),
+        ).resolves.toEqual({
+            exclude: ['node_modules'],
+            trimTrailingWhitespace: true,
+        });
         expect(updateFilesSettings).toHaveBeenCalledWith({
             exclude: [' node_modules ', 'node_modules'],
+            trim_trailing_whitespace: true,
         });
 
         await expect(saveSearchExclude(['vendor'])).resolves.toEqual(['vendor']);
