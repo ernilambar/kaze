@@ -28,6 +28,13 @@ func showAboutPanel() {
 	C.showAboutPanel()
 }
 
+// ShowAbout opens the standard About panel for the command palette. The app
+// menu calls showAboutPanel directly; the palette has no native callback to
+// ride, so it needs an exported binding.
+func (a *App) ShowAbout() {
+	showAboutPanel()
+}
+
 func hideApplication() {
 	C.hideApplication()
 }

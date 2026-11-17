@@ -107,6 +107,7 @@ export const COMMANDS: readonly Command[] = [
     { id: 'move-tab-new-window', name: 'Move Tab to New Window', detail: 'Window' },
     { id: 'bring-all-to-front', name: 'Bring All to Front', detail: 'Window' },
     { id: 'settings', name: 'Settings…', detail: 'Application' },
+    { id: 'about', name: 'About Kaze', detail: 'Application' },
     { id: 'open-settings-json', name: 'Open Settings JSON', detail: 'Application' },
     { id: 'open-default-settings', name: 'Open Default Settings', detail: 'Application' },
     { id: 'open-themes-folder', name: 'Open Themes Folder', detail: 'Application' },

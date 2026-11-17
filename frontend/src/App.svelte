@@ -29,6 +29,7 @@
         SetUnsavedChanges,
         SetViewOption,
         ShouldRestoreSession,
+        ShowAbout,
         ToggleFullScreen,
         WatchConfig,
         ZoomWindow,
@@ -1679,6 +1680,9 @@
                 break;
             case 'settings':
                 showSettingsOverlay();
+                break;
+            case 'about':
+                void ShowAbout();
                 break;
             case 'open-settings-json':
                 void openSettings();

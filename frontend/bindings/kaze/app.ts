@@ -553,6 +553,15 @@ export function ShouldRestoreSession(window: string): $CancellablePromise<boolea
 }
 
 /**
+ * ShowAbout opens the standard About panel for the command palette. The app
+ * menu calls showAboutPanel directly; the palette has no native callback to
+ * ride, so it needs an exported binding.
+ */
+export function ShowAbout(): $CancellablePromise<void> {
+    return $Call.ByID(2874201689);
+}
+
+/**
  * ToggleFullScreen switches a window between fullscreen and its previous size.
  */
 export function ToggleFullScreen(window: string): $CancellablePromise<void> {
