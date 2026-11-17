@@ -57,9 +57,10 @@ export async function createFolder(parent: string, name: string): Promise<FileTr
     return toFileTreeEntry(await CreateFolder(parent, name));
 }
 
-// renamePath renames in place and returns where the entry ended up.
-export async function renamePath(path: string, name: string): Promise<FileTreeEntry> {
-    return toFileTreeEntry(await RenamePath(path, name));
+// renamePath renames in place, or moves and renames when target carries a
+// folder. The backend creates missing parent folders.
+export async function renamePath(path: string, target: string): Promise<FileTreeEntry> {
+    return toFileTreeEntry(await RenamePath(path, target));
 }
 
 // duplicatePath copies next to the source under a " copy" name.

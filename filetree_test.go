@@ -74,9 +74,6 @@ func TestTreeNamesCannotWalkUpTheTree(t *testing.T) {
 		if _, err := app.CreateFolder(dir, name); err == nil {
 			t.Fatalf("CreateFolder(%q) error = nil, want a rejected name", name)
 		}
-		if _, err := app.RenamePath(filepath.Join(dir, "missing.txt"), name); err == nil {
-			t.Fatalf("RenamePath(%q) error = nil, want a rejected name", name)
-		}
 	}
 	if _, err := os.Stat(filepath.Join(dir, "..", "escape.txt")); err == nil {
 		t.Fatal("a rejected name created a file outside the folder")
@@ -338,6 +335,82 @@ func TestMovePathRefusesATakenName(t *testing.T) {
 	}
 }
 
+func TestRenamePathMovesAndRenamesIntoANewFolder(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+	target := filepath.Join(dir, "archive", "deep", "journal.txt")
+
+	result, err := NewApp().RenamePath(source, target)
+	if err != nil {
+		t.Fatalf("RenamePath() error = %v", err)
+	}
+	if result.Path != target {
+		t.Fatalf("RenamePath() path = %q, want %q", result.Path, target)
+	}
+	if _, err := os.Stat(source); !os.IsNotExist(err) {
+		t.Fatalf("old path still exists: %v", err)
+	}
+	data, err := os.ReadFile(target)
+	if err != nil || string(data) != "hello" {
+		t.Fatalf("renamed file = %q, %v; want its content kept", data, err)
+	}
+}
+
+func TestRenamePathReadsARelativePathFromTheSourceFolder(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+
+	result, err := NewApp().RenamePath(source, "archive/journal.txt")
+	if err != nil {
+		t.Fatalf("RenamePath() error = %v", err)
+	}
+	want := filepath.Join(dir, "archive", "journal.txt")
+	if result.Path != want {
+		t.Fatalf("RenamePath() path = %q, want %q", result.Path, want)
+	}
+}
+
+func TestRenamePathRefusesAFolderInsideItself(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(dir, "project")
+	if err := os.MkdirAll(filepath.Join(source, "nested"), 0o755); err != nil {
+		t.Fatalf("create folders: %v", err)
+	}
+	target := filepath.Join(source, "nested", "deeper", "renamed")
+
+	if _, err := NewApp().RenamePath(source, target); err == nil {
+		t.Fatal("RenamePath() error = nil, want it to refuse moving a folder inside itself")
+	}
+	if _, err := os.Stat(filepath.Join(source, "nested", "deeper")); !os.IsNotExist(err) {
+		t.Fatalf("a refused rename created %s anyway", filepath.Join(source, "nested", "deeper"))
+	}
+}
+
+func TestRenamePathRefusesATakenTargetInAnotherFolder(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+	target := filepath.Join(dir, "archive")
+	if err := os.Mkdir(target, 0o755); err != nil {
+		t.Fatalf("create target: %v", err)
+	}
+	writeTempFile(t, target, "notes.txt", "other")
+
+	if _, err := NewApp().RenamePath(source, filepath.Join(target, "notes.txt")); err == nil {
+		t.Fatal("RenamePath() error = nil, want it to refuse an existing file")
+	}
+	if _, err := os.Stat(source); err != nil {
+		t.Fatalf("source disappeared after a refused rename: %v", err)
+	}
+}
+
+func TestRenamePathRejectsAnEmptyTarget(t *testing.T) {
+	source := writeTempFile(t, t.TempDir(), "notes.txt", "hello")
+
+	if _, err := NewApp().RenamePath(source, "  "); err == nil {
+		t.Fatal("RenamePath() error = nil, want a rejected empty target")
+	}
+}
+
 func TestMovePathToFolderCreatesMissingFolders(t *testing.T) {
 	dir := t.TempDir()
 	source := writeTempFile(t, dir, "notes.txt", "hello")
@@ -407,16 +480,16 @@ func TestMovePathToFolderDoesNotCreateAFolderInsideTheSource(t *testing.T) {
 	}
 }
 
-func TestResolveFolderPathExpandsHome(t *testing.T) {
+func TestResolveInputPathExpandsHome(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	got, err := resolveFolderPath("~/Code", "/tmp")
+	got, err := resolveInputPath("~/Code", "/tmp")
 	if err != nil {
-		t.Fatalf("resolveFolderPath() error = %v", err)
+		t.Fatalf("resolveInputPath() error = %v", err)
 	}
 	if want := filepath.Join(home, "Code"); got != want {
-		t.Fatalf("resolveFolderPath() = %q, want %q", got, want)
+		t.Fatalf("resolveInputPath() = %q, want %q", got, want)
 	}
 }
 

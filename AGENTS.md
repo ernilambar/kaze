@@ -47,8 +47,9 @@ No frontend linter/formatter is configured; don't add one unprompted.
   `TrashPath`. Names are one segment, destinations real folders; New File uses
   `O_EXCL`, rename/move refuse taken names, copy/duplicate pick the first free
   `name copy.ext`, and `MovePath` falls back to copy-then-delete only on `EXDEV`.
-  `MovePathToFolder` (Move…) creates a typed destination and its parents, and
-  reads a relative path from the entry's own folder. Nothing deletes
+  `RenamePath` takes a typed path (a bare name renames in place) and
+  `MovePathToFolder` (Move…) a typed folder; both create missing folders and read
+  a relative path from the entry's own folder. Nothing deletes
   permanently: `TrashPath` uses AppKit on the main thread (`trash_darwin.go`);
   `trash_other.go` fails loudly. Results carry `path` and symlink-resolved
   `real_path`; tabs match on the latter.
@@ -64,7 +65,8 @@ No frontend linter/formatter is configured; don't add one unprompted.
   through the dirty prompt. Folder rows and empty space are drop targets; drag
   state lives in `filetree.ts`; a folder can't be dropped into its own subtree.
   Move… takes a typed destination folder, so it can place an entry outside the
-  tree's roots and creates folders that do not exist yet.
+  tree's roots and creates folders that do not exist yet. Rename… starts on the
+  entry's full path, so it can rename and relocate at once.
   `NamePrompt.svelte` stays open with the backend error so a taken name is
   corrected in place.
 - **New File creates on disk; New Buffer is untitled.**

@@ -35,13 +35,15 @@
     let input = $state<HTMLInputElement>();
 
     // The field takes the text and selects what the user most likely wants to
-    // replace: the whole name, or the stem of a file being renamed.
+    // replace: the whole name, or the stem of a file being renamed. A full path
+    // keeps its folders and selects only the last segment's stem.
     onMount(() => {
         input?.focus();
         const text = input?.value ?? '';
         if (selectStem && text !== '') {
+            const base = Math.max(text.lastIndexOf('/'), text.lastIndexOf('\\')) + 1;
             const dot = text.lastIndexOf('.');
-            input?.setSelectionRange(0, dot > 0 ? dot : text.length);
+            input?.setSelectionRange(base, dot > base ? dot : text.length);
             return;
         }
         input?.select();

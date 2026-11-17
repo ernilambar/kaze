@@ -2090,18 +2090,22 @@
         });
     }
 
-    // renameEntry renames in place. The tab that holds the file follows the new
-    // path, so the buffer stays open and keeps its edits and undo history.
+    // renameEntry accepts a new name and, when the text carries a folder, a new
+    // location too. The field holds the whole path with only the file stem
+    // selected, so typing replaces the name and leaves the folder alone. The tab
+    // that holds the file follows the new path, so the buffer stays open and
+    // keeps its edits and undo history.
     async function renameEntry(path: string): Promise<void> {
         await askName({
             title: 'Rename',
-            label: 'New name',
-            value: entryName(path),
+            label: `Rename "${entryName(path)}"`,
+            value: path,
             selectStem: true,
+            hint: 'New name and folder. Missing folders are created; relative paths start here.',
             submitLabel: 'Rename',
-            run: async (name) => {
+            run: async (target) => {
                 try {
-                    const entry = await renamePath(path, name);
+                    const entry = await renamePath(path, target);
                     applyTreeMove(path, entry.path);
                     refreshTree();
                     revealInTree(entry.path);

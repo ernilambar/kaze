@@ -73,40 +73,64 @@ func (a *App) CreateFolder(parent, name string) (FileTreeResult, error) {
 	return treeResult(path)
 }
 
-// RenamePath gives path a new name inside the folder it already lives in. The
-// caller retargets the open tabs afterwards, so a renamed file stays open under
-// its new path.
-func (a *App) RenamePath(path, name string) (FileTreeResult, error) {
+// RenamePath gives path a new name and, when the text carries a folder, a new
+// home too; missing parent folders are created first. A bare name stays a
+// rename in place, so the common case is unchanged. The caller retargets the
+// open tabs afterwards, so a renamed file stays open under its new path.
+func (a *App) RenamePath(path, target string) (FileTreeResult, error) {
 	path = filepath.Clean(strings.TrimSpace(path))
 	if path == "" || path == "." {
 		return FileTreeResult{}, errors.New("no path to rename")
 	}
-	if _, err := os.Lstat(path); err != nil {
+	info, err := os.Lstat(path)
+	if err != nil {
 		return FileTreeResult{}, fmt.Errorf("rename %s: %w", filepath.Base(path), err)
 	}
-	target, err := entryPath(filepath.Dir(path), name)
+	next, err := resolveInputPath(target, filepath.Dir(path))
 	if err != nil {
 		return FileTreeResult{}, err
 	}
-	// Renaming a file to the name it already has changes nothing; it is not an
+	if err := validateEntryName(filepath.Base(next)); err != nil {
+		return FileTreeResult{}, err
+	}
+	// Renaming to the path it already has changes nothing; it is not an
 	// "already exists" failure, because nothing is in the way.
-	if target == path {
+	if next == path {
 		return treeResult(path)
 	}
-	// macOS volumes are case-insensitive by default, so a case-only rename finds
-	// the file itself at the target. That one is allowed and renamed in place.
-	if _, statErr := os.Lstat(target); statErr == nil {
-		if !strings.EqualFold(filepath.Base(path), name) {
-			return FileTreeResult{}, fmt.Errorf("%s already exists", name)
+	// A directory cannot become a child of itself. Check before a missing parent
+	// is created inside it, so a refusal leaves no empty folder behind.
+	if info.IsDir() && isWithinPath(path, next) {
+		return FileTreeResult{}, errors.New("a folder cannot be moved inside itself")
+	}
+	// A case-only rename finds the file itself at the target on a
+	// case-insensitive volume. Anything else there is in the way, even when the
+	// names differ only by case.
+	if targetInfo, statErr := os.Lstat(next); statErr == nil {
+		if !os.SameFile(info, targetInfo) {
+			return FileTreeResult{}, fmt.Errorf("%s already exists", filepath.Base(next))
 		}
 	} else if !errors.Is(statErr, os.ErrNotExist) {
 		return FileTreeResult{}, fmt.Errorf("rename %s: %w", filepath.Base(path), statErr)
 	}
-	// A directory cannot become a child of itself.
-	if err := os.Rename(path, target); err != nil {
-		return FileTreeResult{}, fmt.Errorf("rename %s: %w", filepath.Base(path), err)
+	if err := os.MkdirAll(filepath.Dir(next), 0o755); err != nil {
+		return FileTreeResult{}, fmt.Errorf("create %s: %w", filepath.Dir(next), err)
 	}
-	return treeResult(target)
+	if err := os.Rename(path, next); err != nil {
+		if !errors.Is(err, syscall.EXDEV) {
+			return FileTreeResult{}, fmt.Errorf("rename %s: %w", filepath.Base(path), err)
+		}
+		// A rename that crosses volumes is a copy and a delete, the same
+		// fallback MovePath uses. A half-written copy is removed.
+		if copyErr := copyPath(path, next); copyErr != nil {
+			_ = os.RemoveAll(next)
+			return FileTreeResult{}, fmt.Errorf("rename %s: %w", filepath.Base(path), copyErr)
+		}
+		if removeErr := os.RemoveAll(path); removeErr != nil {
+			return FileTreeResult{}, fmt.Errorf("rename %s: %w", filepath.Base(path), removeErr)
+		}
+	}
+	return treeResult(next)
 }
 
 // DuplicatePath copies path next to itself under a " copy" name, which is what
@@ -203,7 +227,7 @@ func (a *App) MovePathToFolder(path, folder string) (FileTreeResult, error) {
 	if err != nil {
 		return FileTreeResult{}, fmt.Errorf("move %s: %w", filepath.Base(source), err)
 	}
-	dir, err := resolveFolderPath(folder, filepath.Dir(source))
+	dir, err := resolveInputPath(folder, filepath.Dir(source))
 	if err != nil {
 		return FileTreeResult{}, err
 	}
@@ -227,24 +251,24 @@ func (a *App) MovePathToFolder(path, folder string) (FileTreeResult, error) {
 	return a.MovePath(source, dir)
 }
 
-// resolveFolderPath turns what the user typed into an absolute destination.
-// A leading ~ means the home folder; anything relative is read from base.
-func resolveFolderPath(folder, base string) (string, error) {
-	folder = strings.TrimSpace(folder)
-	if folder == "" {
-		return "", errors.New("a destination folder is required")
+// resolveInputPath turns what the user typed into an absolute path. A leading
+// ~ means the home folder; anything relative is read from base.
+func resolveInputPath(input, base string) (string, error) {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return "", errors.New("a destination is required")
 	}
-	if folder == "~" || strings.HasPrefix(folder, "~/") {
+	if input == "~" || strings.HasPrefix(input, "~/") {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("resolve home folder: %w", err)
 		}
-		folder = filepath.Join(home, strings.TrimPrefix(folder, "~"))
+		input = filepath.Join(home, strings.TrimPrefix(input, "~"))
 	}
-	if !filepath.IsAbs(folder) {
-		folder = filepath.Join(base, folder)
+	if !filepath.IsAbs(input) {
+		input = filepath.Join(base, input)
 	}
-	return filepath.Clean(folder), nil
+	return filepath.Clean(input), nil
 }
 
 // TrashPath moves path to the platform's Trash. Deleting for good is not

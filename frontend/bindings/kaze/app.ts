@@ -369,12 +369,13 @@ export function RemoveSidebarFolder(folder: string): $CancellablePromise<string[
 }
 
 /**
- * RenamePath gives path a new name inside the folder it already lives in. The
- * caller retargets the open tabs afterwards, so a renamed file stays open under
- * its new path.
+ * RenamePath gives path a new name and, when the text carries a folder, a new
+ * home too; missing parent folders are created first. A bare name stays a
+ * rename in place, so the common case is unchanged. The caller retargets the
+ * open tabs afterwards, so a renamed file stays open under its new path.
  */
-export function RenamePath(path: string, name: string): $CancellablePromise<$models.FileTreeResult> {
-    return $Call.ByID(1959759948, path, name);
+export function RenamePath(path: string, target: string): $CancellablePromise<$models.FileTreeResult> {
+    return $Call.ByID(1959759948, path, target);
 }
 
 /**
