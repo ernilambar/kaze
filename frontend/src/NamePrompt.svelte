@@ -212,7 +212,11 @@
         background: var(--fg);
     }
 
+    /* The generic hover above repaints the background, which would leave the
+       primary button's --bg text on --bg-hover. Keep the inverted pair and
+       lighten it instead. */
     .prompt__button--primary:hover:enabled {
+        background: var(--fg);
         filter: brightness(1.15);
     }
 
