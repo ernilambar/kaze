@@ -430,6 +430,15 @@ func TestNormalizeThemeAndUI(t *testing.T) {
 	}
 }
 
+func TestNormalizeThemeModeKeepsSystem(t *testing.T) {
+	if got := normalizeThemeMode(" System "); got != "system" {
+		t.Errorf("theme mode = %q, want system", got)
+	}
+	if got := normalizeThemeMode("neon"); got != defaultThemeMode {
+		t.Errorf("theme mode = %q, want %q", got, defaultThemeMode)
+	}
+}
+
 func TestUpdateSettingsKeepsUnknownKeysAndFormatting(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 

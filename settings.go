@@ -251,7 +251,7 @@ func (s *Settings) normalize() {
 // default instead of leaving an unusable value in the file.
 func normalizeThemeMode(mode string) string {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
-	case "light", "dark":
+	case "light", "dark", "system":
 		return strings.ToLower(strings.TrimSpace(mode))
 	default:
 		return defaultThemeMode
