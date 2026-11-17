@@ -10,6 +10,7 @@ import {
     setDocumentDirty,
     stepTabId,
     tabIdAt,
+    tabNameDetails,
     tabsToClose,
     updateDocument,
 } from './tabs';
@@ -396,6 +397,55 @@ describe('retargetDocumentPaths', () => {
 
         expect(moved[0]?.path).toBe('/tmp/journal.txt');
         expect(moved[1]).toBe(readme);
+    });
+});
+
+describe('tabNameDetails', () => {
+    it('names the folder of each tab whose file name repeats', () => {
+        const docs = document('/work/docs/README.md');
+        const guide = document('/work/guide/README.md');
+
+        const details = tabNameDetails([docs, guide, notes]);
+
+        expect(details.get(docs.id)).toBe('docs');
+        expect(details.get(guide.id)).toBe('guide');
+        expect(details.has(notes.id)).toBe(false);
+    });
+
+    it('grows the detail until the paths differ', () => {
+        const first = document('/one/src/README.md');
+        const second = document('/two/src/README.md');
+
+        const details = tabNameDetails([first, second]);
+
+        expect(details.get(first.id)).toBe('one/src');
+        expect(details.get(second.id)).toBe('two/src');
+    });
+
+    it('takes a diff tab folder from the file it shows', () => {
+        const diff = {
+            ...document('/work/docs/README.md'),
+            id: 'diff:/work/docs/README.md',
+            path: '',
+            realPath: '',
+            kind: 'diff' as const,
+            name: 'README.md (Diff)',
+            sourcePath: '/work/docs/README.md',
+        };
+        const other = {
+            ...diff,
+            id: 'diff:/work/guide/README.md',
+            sourcePath: '/work/guide/README.md',
+        };
+
+        const details = tabNameDetails([diff, other]);
+
+        expect(details.get(diff.id)).toBe('docs');
+        expect(details.get(other.id)).toBe('guide');
+    });
+
+    it('leaves everything plain when no other tab shares a name', () => {
+        expect(tabNameDetails([notes, readme, todo]).size).toBe(0);
     });
 });
 

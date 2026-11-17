@@ -1,6 +1,7 @@
 <script lang="ts">
     import type { OpenDocument } from './document';
     import { fileIcon } from './fileIcons';
+    import { tabNameDetails } from './tabs';
 
     interface Props {
         tabs: OpenDocument[];
@@ -37,6 +38,10 @@
         showIcons = true,
         iconStyle = 'colorful',
     }: Props = $props();
+
+    // Two tabs can hold files with the same name, so each label carries the
+    // folder detail that tells it apart from its namesakes.
+    const details = $derived(tabNameDetails(tabs));
 
     function label(tab: OpenDocument): string {
         if (tab.kind === 'diff') {
@@ -156,6 +161,7 @@
     >
         {#each tabs as tab (tab.id)}
             {@const icon = fileIcon(tab.name)}
+            {@const detail = details.get(tab.id) ?? ''}
             <div
                 class="tab"
                 role="presentation"
@@ -188,7 +194,7 @@
                     aria-selected={tab.id === activeId}
                     title={tab.deleted ? `${label(tab)} (deleted)` : label(tab)}
                     onclick={() => onSelect(tab.id)}
-                >{tab.name}</button>
+                ><span class="tab__name">{tab.name}</span>{#if detail !== ''}<span class="tab__detail">{detail}</span>{/if}</button>
                 {#if tab.deleted}
                     <span
                         class="tab__dot tab__dot--deleted"
@@ -320,6 +326,9 @@
     }
 
     .tab__label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
         flex: 1 1 auto;
         min-width: 0;
         padding: 0 8px 0 12px;
@@ -329,9 +338,28 @@
         font: inherit;
         text-align: left;
         overflow: hidden;
-        text-overflow: ellipsis;
         white-space: nowrap;
         cursor: pointer;
+    }
+
+    .tab__name {
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* The folder hint gives up its width first, so the file name keeps its
+       space; the tooltip still carries the whole path. It inherits the tab's
+       colour and fades, so it stays dimmer than the name in both states. */
+    .tab__detail {
+        flex: 0 1000 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: inherit;
+        opacity: 0.6;
+        font-size: 0.92em;
     }
 
     .tab__label:focus-visible,

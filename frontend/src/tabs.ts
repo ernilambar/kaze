@@ -14,6 +14,53 @@ export function findDocumentByPath(
     return tabs.find((tab) => tab.path === path || tab.realPath === path);
 }
 
+// tabNameDetails returns the folder detail each tab shows beside its name, so
+// two tabs holding files of the same name can be told apart. The detail is the
+// shortest trailing directory path that is unique among the tabs sharing that
+// name: README.md under docs and under guide shows one folder each, and only a
+// deeper tree needs more of the path. A name that is already unique, and a
+// buffer with no file behind it, gets no entry.
+export function tabNameDetails(tabs: readonly OpenDocument[]): Map<string, string> {
+    const details = new Map<string, string>();
+    const groups = new Map<string, OpenDocument[]>();
+    for (const tab of tabs) {
+        const group = groups.get(tab.name);
+        if (group === undefined) {
+            groups.set(tab.name, [tab]);
+        } else {
+            group.push(tab);
+        }
+    }
+
+    for (const group of groups.values()) {
+        if (group.length < 2) {
+            continue;
+        }
+        // A diff tab's path is empty; its source is the file it came from.
+        const folders = group.map((tab) =>
+            (tab.kind === 'diff' ? (tab.sourcePath ?? '') : tab.path)
+                .split(/[\\/]/)
+                .filter((part) => part !== '')
+                .slice(0, -1),
+        );
+        const deepest = Math.max(...folders.map((segments) => segments.length));
+        for (let depth = 1; depth <= deepest; depth++) {
+            const labels = folders.map((segments) =>
+                (segments.length <= depth ? segments : segments.slice(-depth)).join('/'),
+            );
+            if (new Set(labels).size === labels.length) {
+                group.forEach((tab, index) => {
+                    if (labels[index] !== '') {
+                        details.set(tab.id, labels[index]);
+                    }
+                });
+                break;
+            }
+        }
+    }
+    return details;
+}
+
 // openDocumentTab returns tabs with document appended, unless a tab for the
 // same file is already open. The file is identified by its resolved path, so a
 // path reached through a symlink and the real one share one tab; the id of that
