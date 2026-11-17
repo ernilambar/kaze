@@ -183,16 +183,41 @@ func TestMovePathRefusesAFolderInsideItself(t *testing.T) {
 	}
 }
 
-func TestDuplicatePathCopiesNextToTheSource(t *testing.T) {
+func TestDuplicatePathSuggestionPicksTheFirstFreeName(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+	app := NewApp()
+
+	var paths []string
+	for range 3 {
+		suggestion, err := app.DuplicatePathSuggestion(source)
+		if err != nil {
+			t.Fatalf("DuplicatePathSuggestion() error = %v", err)
+		}
+		result, err := app.DuplicatePath(source, suggestion)
+		if err != nil {
+			t.Fatalf("DuplicatePath() error = %v", err)
+		}
+		paths = append(paths, filepath.Base(result.Path))
+	}
+
+	// The suggestion must never land on the name the source already has.
+	want := []string{"notes copy.txt", "notes copy 1.txt", "notes copy 2.txt"}
+	if strings.Join(paths, ",") != strings.Join(want, ",") {
+		t.Fatalf("duplicate names = %q, want %q", paths, want)
+	}
+}
+
+func TestDuplicatePathCopiesToTheChosenName(t *testing.T) {
 	dir := t.TempDir()
 	source := writeTempFile(t, dir, "notes.txt", "hello")
 
-	result, err := NewApp().DuplicatePath(source)
+	result, err := NewApp().DuplicatePath(source, "notes (archived).txt")
 	if err != nil {
 		t.Fatalf("DuplicatePath() error = %v", err)
 	}
 
-	want := filepath.Join(dir, "notes copy.txt")
+	want := filepath.Join(dir, "notes (archived).txt")
 	if result.Path != want {
 		t.Fatalf("DuplicatePath() path = %q, want %q", result.Path, want)
 	}
@@ -206,24 +231,51 @@ func TestDuplicatePathCopiesNextToTheSource(t *testing.T) {
 	}
 }
 
-func TestDuplicatePathUsesItsOwnNameBesideItself(t *testing.T) {
+func TestDuplicatePathCreatesMissingFolders(t *testing.T) {
 	dir := t.TempDir()
 	source := writeTempFile(t, dir, "notes.txt", "hello")
-	app := NewApp()
 
-	var paths []string
-	for range 3 {
-		result, err := app.DuplicatePath(source)
-		if err != nil {
-			t.Fatalf("DuplicatePath() error = %v", err)
-		}
-		paths = append(paths, filepath.Base(result.Path))
+	result, err := NewApp().DuplicatePath(source, filepath.Join("archive", "notes.txt"))
+	if err != nil {
+		t.Fatalf("DuplicatePath() error = %v", err)
 	}
 
-	// Duplicating beside itself must not collide with the name it already has.
-	want := []string{"notes copy.txt", "notes copy 1.txt", "notes copy 2.txt"}
-	if strings.Join(paths, ",") != strings.Join(want, ",") {
-		t.Fatalf("duplicate names = %q, want %q", paths, want)
+	want := filepath.Join(dir, "archive", "notes.txt")
+	if result.Path != want {
+		t.Fatalf("DuplicatePath() path = %q, want %q", result.Path, want)
+	}
+}
+
+func TestDuplicatePathRefusesATakenName(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+	taken := writeTempFile(t, dir, "notes copy.txt", "keep me")
+
+	if _, err := NewApp().DuplicatePath(source, taken); err == nil {
+		t.Fatal("DuplicatePath() error = nil, want a refusal for a taken name")
+	}
+	if _, err := NewApp().DuplicatePath(source, source); err == nil {
+		t.Fatal("DuplicatePath() error = nil, want a refusal for the source's own path")
+	}
+	data, err := os.ReadFile(taken)
+	if err != nil || string(data) != "keep me" {
+		t.Fatalf("taken file = %q, %v; want it untouched", data, err)
+	}
+}
+
+func TestDuplicatePathRefusesAFolderInsideItself(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(dir, "project")
+	if err := os.MkdirAll(filepath.Join(source, "nested"), 0o755); err != nil {
+		t.Fatalf("create folders: %v", err)
+	}
+
+	target := filepath.Join(source, "nested", "project copy")
+	if _, err := NewApp().DuplicatePath(source, target); err == nil {
+		t.Fatal("DuplicatePath() error = nil, want it to refuse copying a folder into itself")
+	}
+	if _, err := os.Stat(target); err == nil {
+		t.Fatal("a refused duplicate created a folder inside the source")
 	}
 }
 
@@ -236,7 +288,12 @@ func TestDuplicatePathCopiesADirectoryTree(t *testing.T) {
 	writeTempFile(t, source, "main.go", "package main\n")
 	writeTempFile(t, filepath.Join(source, "nested"), "notes.txt", "hello")
 
-	result, err := NewApp().DuplicatePath(source)
+	app := NewApp()
+	suggestion, err := app.DuplicatePathSuggestion(source)
+	if err != nil {
+		t.Fatalf("DuplicatePathSuggestion() error = %v", err)
+	}
+	result, err := app.DuplicatePath(source, suggestion)
 	if err != nil {
 		t.Fatalf("DuplicatePath() error = %v", err)
 	}

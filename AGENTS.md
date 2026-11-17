@@ -43,23 +43,25 @@ No frontend linter/formatter is configured; don't add one unprompted.
   (`folder.go`), `GetLaunchRequest` (`app.go`); `cli.go` parses argv into a
   `LaunchRequest` that survives the frontend not being ready.
 - **The tree is a file manager** (`filetree.go`): `CreateFile`, `CreateFolder`,
-  `RenamePath`, `DuplicatePath`, `CopyPath`, `MovePath`, `TrashPath`. Names are
-  one segment, destinations real folders; New File uses `O_EXCL`, rename/move
-  refuse taken names, copy/duplicate pick the first free `name copy.ext`, and
-  `MovePath` falls back to copy-then-delete only on `EXDEV`. `RenamePath` takes
-  a typed path (a bare name renames in place), creates missing folders and reads
-  a relative path from the entry's own folder; Move… uses it too, with the
-  folder part selected. Nothing deletes
-  permanently: `TrashPath` uses AppKit on the main thread (`trash_darwin.go`);
-  `trash_other.go` fails loudly. Results carry `path` and symlink-resolved
-  `real_path`; tabs match on the latter.
+  `RenamePath`, `DuplicatePath`, `DuplicatePathSuggestion`, `CopyPath`,
+  `MovePath`, `TrashPath`. Names are one segment, destinations real folders; New
+  File uses `O_EXCL`, rename/move/duplicate refuse taken names, `CopyPath` picks
+  the first free `name copy.ext`, and `MovePath` falls back to copy-then-delete
+  only on `EXDEV`. `RenamePath` takes a typed path (a bare name renames in
+  place), creates missing folders and reads a relative path from the entry's own
+  folder; Move… uses it too, with the folder part selected. `DuplicatePath`
+  takes the same typed target and refuses a folder copied into itself;
+  `DuplicatePathSuggestion` supplies the dialog's prefilled `name copy.ext`.
+  Nothing deletes permanently: `TrashPath` uses AppKit on the main thread
+  (`trash_darwin.go`); `trash_other.go` fails loudly. Results carry `path` and
+  symlink-resolved `real_path`; tabs match on the latter.
 - **Rename/move keeps tabs open.** `retargetDocumentPaths` (`tabs.ts`) rewrites
   `path`/`realPath` for the tab, its diff tab and tabs under a renamed folder;
   the `id` survives, so Monaco keeps model, undo and dirty state. `applyTreeMove`
   rereads git baseline/diff. Cutting is cleared if it held the moved entry.
 - **Row menu is the tree's only file-manager UI.** `FolderTree.svelte` reports
   `isDir` via `onContextMenu`; `ContextMenu.svelte` offers tree actions (open,
-  new file/folder, cut/copy/paste, copy name/path/relative path, duplicate,
+  new file/folder, cut/copy/paste, copy name/path/relative path, duplicate…,
   rename, move, trash) and tab actions (close variants, move to new window,
   reveal in Finder). `tabsToClose` picks the group; `closeTabsInOrder` goes
   through the dirty prompt. Folder rows and empty space are drop targets; drag

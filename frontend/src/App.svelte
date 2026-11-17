@@ -87,6 +87,7 @@
         createFile,
         createFolder,
         duplicatePath,
+        duplicatePathSuggestion,
         entryName,
         movePath,
         parentPath,
@@ -1927,11 +1928,11 @@
 
     // ---- File tree operations -------------------------------------------------
     //
-    // New File, New Folder, Rename, Duplicate, Cut/Copy/Paste, Move to Trash and
-    // drag to move all run against the explorer. Every one of them is a Go
-    // binding, because the file system is the backend's business; the frontend
-    // only decides which entry, asks for a name and retargets the tabs that
-    // follow a path.
+    // New File, New Folder, Rename, Duplicate, Cut/Copy/Paste, Delete (to the
+    // Trash) and drag to move all run against the explorer. Every one of them
+    // is a Go binding, because the file system is the backend's business; the
+    // frontend only decides which entry, asks for a name and retargets the tabs
+    // that follow a path.
 
     // askName opens the one-line dialog and resolves with the name the user
     // submitted, or an empty string when they cancelled. The dialog stays open
@@ -2127,19 +2128,40 @@
         });
     }
 
-    // duplicateEntry copies an entry beside itself, named " copy" the way Finder
-    // does. The copy is not opened: the user asked for a second file, not for a
-    // second tab.
+    // duplicateEntry asks for the copy's path, prefilled with the free " copy"
+    // name the backend suggests. Accepting it does what Finder does; editing it
+    // names the copy before it is written, and a folder in the text puts the
+    // copy there. The copy is not opened: the user asked for a second file, not
+    // for a second tab.
     async function duplicateEntry(path: string): Promise<void> {
+        let suggestion: string;
         try {
-            const entry = await duplicatePath(path);
-            refreshTree();
-            revealInTree(entry.path);
-            await refreshGitStatus();
-            notice = `Created ${entry.name}`;
+            suggestion = await duplicatePathSuggestion(path);
         } catch (error) {
             treeError(error);
+            return;
         }
+        await askName({
+            title: 'Duplicate',
+            label: `Duplicate "${entryName(path)}"`,
+            value: suggestion,
+            selectStem: true,
+            hint: 'New name and folder. Missing folders are created; relative paths start here.',
+            submitLabel: 'Duplicate',
+            run: async (target) => {
+                try {
+                    const entry = await duplicatePath(path, target);
+                    refreshTree();
+                    revealInTree(entry.path);
+                    await refreshGitStatus();
+                    notice = `Created ${entry.name}`;
+                    return '';
+                } catch (error) {
+                    notice = '';
+                    return errorMessage(error);
+                }
+            },
+        });
     }
 
     // cutEntry puts the entry aside for Paste. It changes nothing on disk: the
@@ -2255,11 +2277,11 @@
         );
         const dirty = affected.filter((tab) => tab.dirty);
         const confirmed = await askConfirm(
-            'Move to Trash',
+            'Delete',
             dirty.length > 0
-                ? `Move ${entryName(path)} to the Trash? ${dirty.length === 1 ? 'One open buffer has' : `${dirty.length} open buffers have`} unsaved changes that will be lost.`
-                : `Move ${entryName(path)} to the Trash? You can put it back from the Trash.`,
-            'Move to Trash',
+                ? `Delete ${entryName(path)}? It moves to the Trash, and ${dirty.length === 1 ? 'one open buffer has' : `${dirty.length} open buffers have`} unsaved changes that will be lost.`
+                : `Delete ${entryName(path)}? It moves to the Trash, so you can put it back from there.`,
+            'Delete',
         );
         if (!confirmed) {
             return;

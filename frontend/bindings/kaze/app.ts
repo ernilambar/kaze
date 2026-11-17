@@ -95,12 +95,25 @@ export function CreateFolder(parent: string, name: string): $CancellablePromise<
 }
 
 /**
- * DuplicatePath copies path next to itself under a " copy" name, which is what
- * Finder and VS Code do. A directory is copied whole, so the duplicate is a
- * snapshot rather than a second name for the same contents.
+ * DuplicatePath copies path to target, which reads like a rename target: a
+ * relative path starts in the entry's own folder and missing folders are
+ * created. A name already there is a refusal rather than an overwrite, because
+ * the dialog shows the free name the copy will get and a taken one means the
+ * user typed over something else. A directory is copied whole, so the duplicate
+ * is a snapshot rather than a second name for the same contents.
  */
-export function DuplicatePath(path: string): $CancellablePromise<$models.FileTreeResult> {
-    return $Call.ByID(3607991813, path);
+export function DuplicatePath(path: string, target: string): $CancellablePromise<$models.FileTreeResult> {
+    return $Call.ByID(3607991813, path, target);
+}
+
+/**
+ * DuplicatePathSuggestion is the path Duplicate… offers before the user edits
+ * it: the first free " copy" name beside path, which is what Finder and VS Code
+ * call a duplicate. It reads no more than the folder listings, so the dialog
+ * opens with the name the backend would have picked on its own.
+ */
+export function DuplicatePathSuggestion(path: string): $CancellablePromise<string> {
+    return $Call.ByID(2990286701, path);
 }
 
 /**

@@ -4,6 +4,7 @@ import {
     CreateFile,
     CreateFolder,
     DuplicatePath,
+    DuplicatePathSuggestion,
     MovePath,
     RenamePath,
     TrashPath,
@@ -62,9 +63,16 @@ export async function renamePath(path: string, target: string): Promise<FileTree
     return toFileTreeEntry(await RenamePath(path, target));
 }
 
-// duplicatePath copies next to the source under a " copy" name.
-export async function duplicatePath(path: string): Promise<FileTreeEntry> {
-    return toFileTreeEntry(await DuplicatePath(path));
+// duplicatePathSuggestion is the path Duplicate… offers first: the first free
+// " copy" name beside the source, which is what Finder names a duplicate.
+export async function duplicatePathSuggestion(path: string): Promise<string> {
+    return DuplicatePathSuggestion(path);
+}
+
+// duplicatePath copies to target, which reads like a rename target: a relative
+// path starts in the entry's own folder and missing folders are created.
+export async function duplicatePath(path: string, target: string): Promise<FileTreeEntry> {
+    return toFileTreeEntry(await DuplicatePath(path, target));
 }
 
 // copyPath copies into a folder, keeping the name when it is free.

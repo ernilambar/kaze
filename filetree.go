@@ -133,11 +133,60 @@ func (a *App) RenamePath(path, target string) (FileTreeResult, error) {
 	return treeResult(next)
 }
 
-// DuplicatePath copies path next to itself under a " copy" name, which is what
-// Finder and VS Code do. A directory is copied whole, so the duplicate is a
-// snapshot rather than a second name for the same contents.
-func (a *App) DuplicatePath(path string) (FileTreeResult, error) {
-	return a.CopyPath(path, filepath.Dir(filepath.Clean(path)))
+// DuplicatePathSuggestion is the path Duplicate… offers before the user edits
+// it: the first free " copy" name beside path, which is what Finder and VS Code
+// call a duplicate. It reads no more than the folder listings, so the dialog
+// opens with the name the backend would have picked on its own.
+func (a *App) DuplicatePathSuggestion(path string) (string, error) {
+	source := filepath.Clean(strings.TrimSpace(path))
+	if source == "" || source == "." {
+		return "", errors.New("no path to duplicate")
+	}
+	if _, err := os.Lstat(source); err != nil {
+		return "", fmt.Errorf("duplicate %s: %w", filepath.Base(source), err)
+	}
+	return uniqueCopyPath(source)
+}
+
+// DuplicatePath copies path to target, which reads like a rename target: a
+// relative path starts in the entry's own folder and missing folders are
+// created. A name already there is a refusal rather than an overwrite, because
+// the dialog shows the free name the copy will get and a taken one means the
+// user typed over something else. A directory is copied whole, so the duplicate
+// is a snapshot rather than a second name for the same contents.
+func (a *App) DuplicatePath(path, target string) (FileTreeResult, error) {
+	source := filepath.Clean(strings.TrimSpace(path))
+	if source == "" || source == "." {
+		return FileTreeResult{}, errors.New("no path to duplicate")
+	}
+	info, err := os.Lstat(source)
+	if err != nil {
+		return FileTreeResult{}, fmt.Errorf("duplicate %s: %w", filepath.Base(source), err)
+	}
+	next, err := resolveInputPath(target, filepath.Dir(source))
+	if err != nil {
+		return FileTreeResult{}, err
+	}
+	if err := validateEntryName(filepath.Base(next)); err != nil {
+		return FileTreeResult{}, err
+	}
+	// Copying a folder into itself would recurse through the copy it is
+	// writing, so the guard is checked before any folder is created.
+	if info.IsDir() && isWithinPath(source, next) {
+		return FileTreeResult{}, errors.New("a folder cannot be copied inside itself")
+	}
+	if _, statErr := os.Lstat(next); statErr == nil {
+		return FileTreeResult{}, fmt.Errorf("%s already exists", filepath.Base(next))
+	} else if !errors.Is(statErr, os.ErrNotExist) {
+		return FileTreeResult{}, fmt.Errorf("duplicate %s: %w", filepath.Base(source), statErr)
+	}
+	if err := os.MkdirAll(filepath.Dir(next), 0o755); err != nil {
+		return FileTreeResult{}, fmt.Errorf("create %s: %w", filepath.Dir(next), err)
+	}
+	if err := copyEntry(source, next); err != nil {
+		return FileTreeResult{}, fmt.Errorf("duplicate %s: %w", filepath.Base(source), err)
+	}
+	return treeResult(next)
 }
 
 // CopyPath copies path into targetDir, keeping its name. A name already taken
@@ -159,10 +208,7 @@ func (a *App) CopyPath(path, targetDir string) (FileTreeResult, error) {
 	if err != nil {
 		return FileTreeResult{}, err
 	}
-	if err := copyPath(source, target); err != nil {
-		// A half-written copy is worse than no copy, so a failure leaves
-		// nothing behind.
-		_ = os.RemoveAll(target)
+	if err := copyEntry(source, target); err != nil {
 		return FileTreeResult{}, fmt.Errorf("copy %s: %w", filepath.Base(source), err)
 	}
 	return treeResult(target)
@@ -333,6 +379,16 @@ func uniqueCopyPath(path string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("copy %s: too many copies already", name)
+}
+
+// copyEntry copies source to target. A half-written copy is worse than no copy,
+// so a failure removes whatever reached the target.
+func copyEntry(source, target string) error {
+	if err := copyPath(source, target); err != nil {
+		_ = os.RemoveAll(target)
+		return err
+	}
+	return nil
 }
 
 // copyPath copies a file or a whole directory tree. A symlink is recreated as a

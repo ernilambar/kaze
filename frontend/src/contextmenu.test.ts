@@ -6,7 +6,7 @@ describe('treeMenuItems', () => {
         const items = treeMenuItems('');
         expect(items[0]).toEqual({ id: 'open', label: 'Open' });
         expect(items[1]).toEqual({ id: 'reveal', label: 'Reveal in Finder' });
-        expect(items.at(-1)).toEqual({ id: 'trash', label: 'Move to Trash' });
+        expect(items.at(-1)).toEqual({ id: 'trash', label: 'Delete' });
     });
 
     it('offers the three path spellings together', () => {

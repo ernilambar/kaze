@@ -29,8 +29,8 @@ export function treeMenuItems(clipboardPath: string): ContextMenuItem[] {
         { id: 'copy-relative-path', label: 'Copy Relative Path' },
         { id: '', label: '' },
         { id: 'rename', label: 'Rename…' },
-        { id: 'duplicate', label: 'Duplicate' },
+        { id: 'duplicate', label: 'Duplicate…' },
         { id: 'move', label: 'Move…' },
-        { id: 'trash', label: 'Move to Trash' },
+        { id: 'trash', label: 'Delete' },
     ];
 }
