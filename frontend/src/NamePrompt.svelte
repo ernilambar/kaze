@@ -4,8 +4,9 @@
     interface Props {
         title: string;
         // label is what the field is asking for, e.g. the folder being created
-        // in. It is printed above the input.
-        label: string;
+        // in. It is printed above the input when non-empty; a title that already
+        // names the entry leaves it empty.
+        label?: string;
         // value is the initial text, selected on open so a rename or a copy is
         // one keystroke away from being accepted.
         value: string;
@@ -18,20 +19,17 @@
         // error is the backend's refusal, shown in place so the dialog can be
         // corrected instead of reopened.
         error?: string;
-        // hint explains what the field expects without repeating the label.
-        hint?: string;
         onSubmit: (value: string) => void;
         onCancel: () => void;
     }
 
     let {
         title,
-        label,
+        label = '',
         value = $bindable(''),
         selectStem = false,
         selectFolder = false,
         error = '',
-        hint = '',
         onSubmit,
         onCancel,
     }: Props = $props();
@@ -95,7 +93,9 @@
     >
         <h2 class="prompt__title" id="name-title">{title}</h2>
         <form onsubmit={submit}>
-            <label class="prompt__label" for="name-input">{label}</label>
+            {#if label !== ''}
+                <label class="prompt__label" for="name-input">{label}</label>
+            {/if}
             <input
                 class="prompt__input"
                 id="name-input"
@@ -104,9 +104,6 @@
                 spellcheck="false"
                 autocomplete="off"
             />
-            {#if hint !== ''}
-                <p class="prompt__hint">{hint}</p>
-            {/if}
             {#if error !== ''}
                 <p class="prompt__error">{error}</p>
             {/if}
@@ -185,12 +182,6 @@
     .prompt__error {
         margin: 8px 0 0;
         color: var(--fg-danger);
-        font-size: calc(var(--ui-font-size) - 1px);
-    }
-
-    .prompt__hint {
-        margin: 6px 0 0;
-        color: var(--fg-muted);
         font-size: calc(var(--ui-font-size) - 1px);
     }
 

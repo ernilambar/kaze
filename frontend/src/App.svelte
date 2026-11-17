@@ -358,13 +358,12 @@
     // awaiting it needs, so each command reads top to bottom.
     interface NamePromptState {
         title: string;
-        label: string;
+        label?: string;
         value: string;
         selectStem: boolean;
         selectFolder: boolean;
         submitLabel: string;
         error: string;
-        hint: string;
         answer: (value: string) => void;
         cancel: () => void;
     }
@@ -1939,12 +1938,11 @@
     // while a refusal is shown in it, so a taken name is corrected in place.
     function askName(options: {
         title: string;
-        label: string;
+        label?: string;
         value?: string;
         selectStem?: boolean;
         selectFolder?: boolean;
         submitLabel?: string;
-        hint?: string;
         run: (value: string) => Promise<string>;
     }): Promise<boolean> {
         return new Promise((resolve) => {
@@ -1959,13 +1957,12 @@
                     }
                     namePrompt = {
                         title: options.title,
-                        label: options.label,
+                        label: options.label ?? '',
                         value,
                         selectStem: options.selectStem ?? false,
                         selectFolder: options.selectFolder ?? false,
                         submitLabel: options.submitLabel ?? options.title,
                         error: refusal,
-                        hint: options.hint ?? '',
                         answer,
                         cancel: () => {
                             namePrompt = null;
@@ -1976,13 +1973,12 @@
             };
             namePrompt = {
                 title: options.title,
-                label: options.label,
+                label: options.label ?? '',
                 value: options.value ?? '',
                 selectStem: options.selectStem ?? false,
                 selectFolder: options.selectFolder ?? false,
                 submitLabel: options.submitLabel ?? options.title,
                 error: '',
-                hint: options.hint ?? '',
                 answer,
                 cancel: () => {
                     namePrompt = null;
@@ -2102,10 +2098,8 @@
     async function renameEntry(path: string): Promise<void> {
         await askName({
             title: 'Rename',
-            label: `Rename "${entryName(path)}"`,
             value: path,
             selectStem: true,
-            hint: 'New name and folder. Missing folders are created; relative paths start here.',
             submitLabel: 'Rename',
             run: async (target) => {
                 try {
@@ -2143,10 +2137,8 @@
         }
         await askName({
             title: 'Duplicate',
-            label: `Duplicate "${entryName(path)}"`,
             value: suggestion,
             selectStem: true,
-            hint: 'New name and folder. Missing folders are created; relative paths start here.',
             submitLabel: 'Duplicate',
             run: async (target) => {
                 try {
@@ -2244,10 +2236,8 @@
     async function moveTreeEntry(path: string): Promise<void> {
         await askName({
             title: 'Move',
-            label: `Move "${entryName(path)}"`,
             value: path,
             selectFolder: true,
-            hint: 'Destination path. Missing folders are created; relative paths start here.',
             submitLabel: 'Move',
             run: async (target) => {
                 busyPath = path;
@@ -3528,7 +3518,6 @@
             selectStem={namePrompt.selectStem}
             selectFolder={namePrompt.selectFolder}
             error={namePrompt.error}
-            hint={namePrompt.hint}
             onSubmit={submitName}
             onCancel={cancelName}
         />
