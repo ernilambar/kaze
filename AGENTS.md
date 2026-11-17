@@ -32,229 +32,91 @@ go build ./... ; go vet ./... ; go test -race ./... ; gofmt -w .
 
 No frontend linter/formatter is configured; don't add one unprompted.
 
+## Architecture
+
+- **Bindings are generated.** Never hand-edit `frontend/bindings/`; add exported
+  `App` methods and regenerate. Go owns file I/O, dialogs and OS integration;
+  the frontend never imports Node APIs. `main.go` calls `app.attach(...)` before
+  `Run`; tests never attach, so every use is nil-checked.
+- **Launch.** `cli.go` parses argv into a `LaunchRequest` that survives the
+  frontend not being ready. `+`, **Add Folder to Sidebar…**, `kaze <folder>` and
+  Finder drops (`drop.go`) all funnel through `addFolderFromDialog`/`applyLaunch`;
+  Option on drop opens a new window.
+- **File tree** (`filetree.go`). Create/rename/move/duplicate refuse taken names;
+  `MovePath` copies-then-deletes only on `EXDEV`; nothing deletes permanently
+  (`TrashPath`, AppKit, main thread). Rename/Move take a full typed path and
+  create missing folders. The row context menu (`ContextMenu.svelte`) is the
+  tree's only file-manager UI; `NamePrompt.svelte` stays open on backend errors.
+- **Rename/move keeps tabs open.** `retargetDocumentPaths` (`tabs.ts`) rewrites
+  paths; the tab `id` survives, so Monaco keeps model, undo and dirty state.
+- **Tabs are frontend state.** `App.svelte` holds them; `tabs.ts` has pure rules.
+  Tabs match on symlink-resolved `realPath`; `path` keeps the opened spelling.
+  `EditorPane` owns one model per id. New File creates on disk; New Buffer
+  (<kbd>Cmd</kbd>+<kbd>N</kbd>) is untitled.
+- **Sidebar** is multi-root; `ReadFolder(path, root)` lists one level, filtered by
+  `files.exclude` relative to the root.
+- **Excludes are globs** (`exclude.go`): bare name at any depth, leading `/`
+  anchors, `**` spans directories, trailing `/` folders only. Search also honours
+  `.gitignore` (`gitignore.go`); VCS directories are never searched.
+- **Workspaces** (`workspacefile.go`): `.kaze-workspace` holds folders only,
+  relative where inside its directory. VS Code `.code-workspace` is read
+  (`folders` only); Save As always writes `.kaze-workspace`.
+- **Session vs settings.** `session.json` (`session.go`, `workspace.ts`) holds
+  machine-written state: tabs, roots, expanded folders, window frame, Open
+  Recent, per-workspace parked tab sets (capped at 50). `settings.json` holds
+  user config only. Untitled buffers are never persisted. Only the first window
+  of a launch restores and writes the launch entry and window geometry.
+- **Windows are independent editors in one process** (`windows.go`): each owns
+  tabs, roots, search results and dirty flag; settings, theme and Open Recent
+  are shared. Menu actions hit the focused window. The frontend `TitleBar.svelte`
+  is the only title bar.
+- **Window geometry** (`windowgeometry.go`): a saved frame is used only if ≥120×48
+  points of its title bar are on a screen; else centred 1200×800. Windows are
+  created hidden and placed on `WindowRuntimeReady`.
+- **Saving** (`save.go`): `SaveDocument` returns `Conflict: true` without writing
+  if mtime moved. Close/quit with dirty buffers emits `app:confirm-close`,
+  answered by `ResolveClose`.
+- **Encoding is preserved.** UTF-8 BOM stripped, LF/CRLF kept. Invalid UTF-8
+  opens with U+FFFD; save refuses until `allow_invalid_utf8`. NUL byte = binary.
+- **Watching polls** (`watch.go`, `configwatch.go`) every second. Clean buffers
+  reload; dirty ones keep a notice.
+- **Git is read-only** (`git.go`): status, `diff HEAD`, `show HEAD:<path>`. Never
+  stages, commits or checks out. Diff tabs are read-only and not persisted.
+- **Find in Files is Go-side** (`search.go`). Replace All uses JS-style `$1`
+  templates expanded identically in Go and `search.ts`, edits open files through
+  Monaco unsaved, skips files whose mtime moved, and reports unwritable files.
+- **Settings** (`settings.json`). Keep `frontend/src/settings.ts` defaults in
+  sync with Go. Writes go through `settingsMu` and `settingswrite.go`, which
+  rewrites only changed keys so unknown keys and formatting survive.
+- **Themes** are Zed theme families (`themes.go`, `theme.ts`); user themes in
+  `<config>/Kaze/themes` shadow built-ins. The first frame paints a palette
+  cached in `localStorage` (`kaze.theme.startup`); keep the inline script in
+  `index.html` in sync with `theme.ts`.
+- **Keybindings are VS Code-shaped** (`keybindings.json`, JSONC). Defaults
+  (`docs/keymaps.md`) live in three places: menu accelerators (`menu.go`),
+  `DEFAULT_KEYBINDINGS` (`keybindings.ts`) and Monaco rules (`editor.ts`).
+  `menu.go` drops a default accelerator claimed by a custom binding.
+- **Menus** (`menu.go`) follow macOS layout and only emit `app:*` events; a
+  command without its own event emits `app:run-command` with the palette id.
+  Palette `detail` in `commands.ts` names the menu holding the command.
+- **Preview is dependency-free** (`markdown.ts`); clicks never navigate the
+  webview. SVG previews use an `<img>` data URL.
+- **Keep Monaco out of Vite pre-bundling** (`optimizeDeps.exclude`); it breaks
+  worker URLs.
+- **`kaze` CLI** (`install.go`) writes `/usr/local/bin/kaze`; a single-instance
+  lock forwards later invocations to the running app.
+
 ## Conventions
 
-- **Architecture.** Bindings are generated — never hand-edit
-  `frontend/bindings/`; add exported `App` methods and regenerate. Go owns file
-  I/O, dialogs and OS integration; the frontend never imports Node APIs.
-  `main.go` builds `application.App`, registers `App`, calls `app.attach(...)`
-  before `Run`; tests never attach, so every use is nil-checked.
-- **Filesystem is a binding.** `LoadDocument` (`document.go`), `ReadFolder`
-  (`folder.go`), `GetLaunchRequest` (`app.go`); `cli.go` parses argv into a
-  `LaunchRequest` that survives the frontend not being ready.
-- **The tree is a file manager** (`filetree.go`): `CreateFile`, `CreateFolder`,
-  `RenamePath`, `DuplicatePath`, `DuplicatePathSuggestion`, `CopyPath`,
-  `MovePath`, `TrashPath`. Names are one segment, destinations real folders; New
-  File uses `O_EXCL`, rename/move/duplicate refuse taken names, `CopyPath` picks
-  the first free `name copy.ext`, and `MovePath` falls back to copy-then-delete
-  only on `EXDEV`. `RenamePath` takes a typed path (a bare name renames in
-  place), creates missing folders and reads a relative path from the entry's own
-  folder; Move… uses it too, with the folder part selected. `DuplicatePath`
-  takes the same typed target and refuses a folder copied into itself;
-  `DuplicatePathSuggestion` supplies the dialog's prefilled `name copy.ext`.
-  Nothing deletes permanently: `TrashPath` uses AppKit on the main thread
-  (`trash_darwin.go`). Results carry `path` and symlink-resolved `real_path`;
-  tabs match on the latter.
-- **Rename/move keeps tabs open.** `retargetDocumentPaths` (`tabs.ts`) rewrites
-  `path`/`realPath` for the tab, its diff tab and tabs under a renamed folder;
-  the `id` survives, so Monaco keeps model, undo and dirty state. `applyTreeMove`
-  rereads git baseline/diff. Cutting is cleared if it held the moved entry.
-- **Row menu is the tree's only file-manager UI.** `FolderTree.svelte` reports
-  `isDir` via `onContextMenu`; `ContextMenu.svelte` offers tree actions (open,
-  new file/folder, cut/copy/paste, copy name/path/relative path, duplicate…,
-  rename, move, trash) and tab actions (close variants, move to new window,
-  reveal in Finder). `tabsToClose` picks the group; `closeTabsInOrder` goes
-  through the dirty prompt. Folder rows and empty space are drop targets; drag
-  state lives in `filetree.ts`; a folder can't be dropped into its own subtree.
-  Move… and Rename… edit the entry's full path and create folders that do not
-  exist yet; Move selects the folder part, Rename the file stem.
-  `NamePrompt.svelte` stays open with the backend error so a taken name is
-  corrected in place.
-- **New File creates on disk; New Buffer is untitled.**
-  <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Cmd</kbd>+<kbd>N</kbd> asks for a name in
-  the selected folder, creates and opens it; **File → New Folder…** does the
-  same for a directory; <kbd>Cmd</kbd>+<kbd>N</kbd> opens an untitled buffer
-  (VS Code's split). Menus only
-  emit `app:new-file`/`new-folder`/`new-buffer`.
-- **Sidebar is a multi-root folder tree.** `ReadFolder` lists one level;
-  `FolderTree.svelte` loads children on first expansion. Roots persist via
-  `AddSidebarFolder`/`RemoveSidebarFolder` in `session.json`;
-  `files.exclude` filters the same read, matched relative to the row's root
-  (`ReadFolder(path, root)`). **View → Toggle Sidebar**
-  (<kbd>Cmd</kbd>+<kbd>B</kbd>) saves `sidebar.visible`. New windows start from
-  the saved roots; **Open Folder in New Window…** makes the chosen folder the
-  window's only and saved root.
-- **Workspaces are committable.** `workspacefile.go` reads/writes
-  `.kaze-workspace`; folders inside its directory are stored relative. Open
-  validates all folders before `SetSidebarFolders` replaces the list in one
-  write. Also accepts VS Code `.code-workspace` (JSONC): only `folders`
-  (`path`/`file://` `uri`) is read. Save As always writes `.kaze-workspace`.
-  The file holds folders only; its tab set is parked in `session.json`.
-- **Excludes are globs.** `exclude.go` matches `files.exclude`/`search.exclude`:
-  bare name at any depth, leading `/` anchors, `**` spans directories, trailing
-  `/` folders only. `gitignore.go` adds `.gitignore` rules for search; VCS
-  directories are never searched.
-- **Folder entry points share one path.** `+`, **Add Folder to Sidebar…** and
-  `kaze <folder>` funnel through `addFolderFromDialog`/`applyLaunch`. Finder
-  drops use `EnableFileDrop` + `WindowFilesDropped`, `data-file-drop-target`,
-  `handleFileDrop` and `queueLaunchTo`; `drop.go` splits files/folders; Option
-  (`modifier_darwin.go`) opens a new window with the folder as only root.
-- **Tabs are frontend state.** `App.svelte` holds the list and active id;
-  `tabs.ts` has pure open/close rules. A tab has a stable `id` (built from path or name; `uniqueTabId` adds a
-  NUL-separated counter when a renamed tab still holds it), on-disk
-  `content`, mtime and dirty flag; Save As moves a buffer without losing its
-  Monaco model. Tabs match on `realPath` (`LoadDocument`/`SaveDocument` return
-  `real_path` via `EvalSymlinks`); `path` keeps the opened spelling. `EditorPane`
-  owns one model per id and disposes it on close. Dragging reorders through
-  `moveDocumentTab`. **File → Close Tab** (<kbd>Cmd</kbd>+<kbd>W</kbd>) emits
-  `app:close-tab`.
-- **Session is app state.** `workspace.ts` persists the window's file-backed
-  tabs, active tab, expanded folders and workspace binding in `session.json`
-  (`session.go`), never in `settings.json` or a workspace file. The file also
-  holds the sidebar roots, the last window frame and the Open Recent list: they
-  are state, not settings. Untitled buffers are excluded. Each window parks its
-  current tab set under its workspace path; switching workspaces saves the
-  current set, prompts to save dirty tabs, closes them, and restores the target's
-  parked set. Close Workspace closes tabs and roots but keeps the parked set.
-  Only the first window of a launch restores and writes the launch entry; later
-  windows still park workspace sets. Moving or renaming a workspace file is
-  handled by adopting a unique parked set with the same canonical folders when
-  the old file no longer exists; ambiguous matches and workspaces whose file
-  still exists are ignored.
-  The map is capped at 50 workspaces, and a corrupt session file is moved to
-  `session.json.bak`. Loading a version-1 file migrates the legacy `recent`
-  section out of `settings.json` and removes the key. Unknown settings sections
-  such as the older `session` key are ignored, so stale ones linger until
-  deleted by hand.
-- **Windows are independent editors in one process.** `windows.go` keeps one
-  `windowSession` per window; each owns tabs, roots, search results and dirty
-  flag, while settings and theme stay shared and the Open Recent list is shared
-  session state. Menu actions hit the focused window; targeted events carry the
-  `windowstate.ts`. New/Close Window, Move Tab to New Window, Open Folder in New
-  Window and Bring All to Front are in menus and palette. Closing asks that
-  window's dirty buffers; the last window quits; Cmd+Q asks each dirty window.
-- **Title bar is the frontend's.** `MacTitleBarHidden` extends content under the
-  traffic lights; `TitleBar.svelte` (32px, 2px top padding, draggable) is the only
-  title bar.
-- **Window geometry is saved and validated.** `windowgeometry.go`: the first
-  window restores `session.json`'s `frame`; new windows cascade 24px
-  from the oldest. A saved frame is used only while ≥120×48 points of its title
-  bar land on a screen's `WorkArea`; otherwise the window is centred at 1200×800
-  capped to the primary work area. Windows are created hidden and placed on
-  `WindowRuntimeReady` (screens exist only after `Run`), then zoom is applied.
-  Maximised/fullscreen saves that state plus the normal frame.
-  `saveWindowGeometry` writes on the first window's close or quit; later windows
-  never overwrite it.
-- **Saving writes what the frontend holds.** `SaveDocument` (`save.go`) returns
-  `Conflict: true` without writing when mtime moved since load; dialogs are
-  native. Each window pushes `SetUnsavedChanges`; `ShouldQuit`/`WindowClosing`
-  cancel and emit `app:confirm-close` (`close`/`quit`), answered with
-  `ResolveClose(window, quit)`.
-- **Encoding is preserved.** `LoadDocument` strips a UTF-8 BOM and reports
-  `lf`/`crlf`; the model's EOL is set and restored on save. Invalid UTF-8 opens
-  with U+FFFD and `invalid_utf8`; save refuses until `allow_invalid_utf8`. A NUL
-  byte still means binary.
-- **Watching polls.** `watch.go` stats open buffers and expanded folders every
-  second and emits `app:watched-changed` only to registered windows. Clean
-  buffers reload; dirty ones stay with a notice; the tree refreshes.
-  `SaveDocument` rebaselines its own write. **View → Refresh** forces a reread.
-- **Git is read-only.** `git.go` runs `status --porcelain=v2`, `diff HEAD` and
-  `show HEAD:<path>`; never stages/commits/checks out. Status feeds marks, the
-  Changes view and status bar; baseline feeds gutter diff; diff tabs are
-  read-only and excluded from the session.
-- **Printing is native.** `PrintDocument` → AppKit print panel as a sheet
-  (`print_darwin.go`).
-- **`kaze` is a shell launcher.** `install.go` writes `/usr/local/bin/kaze`
-  execing the bundle (escalating via `osascript` when needed); a single-instance
-  lock forwards later invocations to the running window.
-- **Settings live in `settings.json`** (`Kaze/settings.json`), created with
-  defaults. Keep `frontend/src/settings.ts` defaults in sync with Go (TS is only
-  the fallback); `loadSettings` decodes over defaults so absent keys keep theirs.
-  Sections: editor, sidebar, files, search, theme, ui.
-  Write paths use `settingsMu` and `settingswrite.go`, which rewrites only
-  changed keys so unknown keys and formatting survive. The overlay edits
-  configurable sections; machine-written state (roots, window frame, recent
-  files, tabs and workspace sessions) lives in `session.json`.
-- **Appearance is a Zed theme family.** `themes.go` embeds `themes/kaze.json` and
-  reads `<config>/Kaze/themes`. UI keys become CSS variables, `editor.*` Monaco
-  colors, `syntax` token rules (`theme.ts`). Missing keys fall back; malformed
-  files are reported without hiding the rest; a user variant shadows a built-in.
-  `configwatch.go` polls the folder and keybindings, emitting
-  `app:config-changed`.
-- **First frame uses a cached palette.** WKWebView paints white before async
-  settings/themes arrive, so `applyThemePalette` caches surface colors in
-  `localStorage` (`kaze.theme.startup`); the inline script in `index.html` and
-  `main.ts` paint it, and `main.ts` selects a throwaway Monaco theme. Keep the
-  inline copy's key/shape/hex test in sync with `theme.ts`.
-- **Keybindings are VS Code-shaped.** `keybindings.json` beside settings;
-  `keybindings.go` accepts JSONC, validates keys and warns on bad entries.
-  `menu.go` omits a default accelerator claimed by a custom binding.
-  `keybindings.ts` installs one capture-phase listener with chords and `when`
-  contexts (`editorFocus`, `sidebarVisible`, `hasActiveTab`, `hasDirtyTab`, `!`,
-  `&&`, `||`). Defaults follow VS Code (`docs/keymaps.md`) except where
-  its key blocks typing or needs a missing feature. They live in three places:
-  menu accelerators (`menu.go`), keys a menu item can't hold — second keys,
-  chords, menu-less commands (`DEFAULT_KEYBINDINGS`, `keybindings.ts`) — and
-  Monaco rules (`installEditorKeybindings`, `editor.ts`). `Cmd+K` chords run
-  through Monaco inside the editor so its own `Cmd+K` chords survive.
-- **Settings overlay is frontend state.** One section per settings block; edits
-  save as they commit (editor saves chained). Native Settings… emits
-  `app:settings-overlay`; `OpenDefaultSettings` writes `default-settings.json`;
-  Appearance radio emits `app:appearance` and `SetAppearanceMode` syncs the
-  checkmark.
-- **Window commands are native.** `window.go`: `MinimiseWindow`, `ZoomWindow`,
-  `ToggleFullScreen`; `windows.go`: `NewWindow`, `CloseWindow`,
-  `MoveTabToNewWindow`, `OpenFolderInNewWindow`, `BringAllToFront`.
-- **Menus follow macOS layout.** `menu.go`: App (Settings…, Settings Files ▸,
-  Services), File, Edit, Selection, View, Go (Quick Open, Go to Line, tabs),
-  Window, Help (exists for AppKit's menu search). A menu item whose command has
-  no event of its own emits `app:run-command` with the palette id
-  (`emitCommand` → `listenForMenuCommand` → `selectCommand`). Palette `detail`
-  in `commands.ts` names the menu that holds the command.
-- **Editor commands forward Go → frontend.** `menu.go` builds the Edit, Selection
-  and View menus and emits `app:find`, `app:replace`, `app:go-to-line`,
-  `app:find-next-result`, `app:find-previous-result`, `app:transform-case`,
-  `app:trim-whitespace`, `app:selection-command`, `app:zoom`,
-  `app:toggle-preview`, `app:toggle-view`. `editorcommands.ts` listens;
-  `EditorPane.runEditorAction`/`runSelectionCommand` map ids to Monaco actions;
-  `App.SetViewOption` moves a checkmark for palette toggles. Monaco options live
-  in `editor.ts`; indentation is on the model. F4/⇧F4 step Find in Files results.
-- **Language and status bar are frontend state.** `editor.ts` resolves language:
-  per-tab override, else path, else `#!`; Auto Detect clears the override.
-  `StatusBar.svelte` shows cursor/selection, line ending (click toggles LF/CRLF
-  and dirties), language (click opens the palette) and invalid-UTF-8 warnings.
-- **Find in Files is Go-side.** `SearchProject`/`ReplaceInProject` (`search.go`)
-  walk roots with excludes + `.gitignore`, returning capped flat matches;
-  `SearchPanel.svelte` is the form and `search.ts` groups/summarizes. Literal
-  queries are quoted; Replace All works line by line like search, uses literal
-  replacement unless regex mode (JS `$1`/`$&`/`$<name>` templates, expanded
-  identically in Go and `search.ts`),
-  confirms counts, edits open files through Monaco unsaved, skips files whose
-  mtime moved, and lists unwritable files in `failed` instead of aborting.
-- **Preview is dependency-free.** `markdown.ts` renders a Markdown subset with
-  escaping and limited link schemes; clicks never navigate the webview
-  (http/mailto go to `Browser.OpenURL`); SVG previews use an `<img>` data URL.
-  `case.ts`/`text.ts` are covered by Vitest.
-- **Keep Monaco out of Vite pre-bundling.** `optimizeDeps.exclude:
-  ['monaco-editor']`; pre-bundling breaks worker URLs.
-- **Assets are build output.** `main.go` embeds `all:frontend/dist`; build the
-  frontend first (`pnpm run build` or the package task).
-- **Frontend conventions.** `gofmt`; TS strict (`noUnusedLocals`,
-  `noUnusedParameters`, `noImplicitReturns`), 4 spaces, single quotes, named
-  exports. Svelte 5 runes (`$state`/`$props`/`$derived`/`$effect`, not
-  `export let`/`$:`); component styles scoped, shared tokens in `style.css`;
-  `FolderTree` imports itself for recursion (`<svelte:self>` is deprecated). Use
-  pnpm only (`pnpm-lock.yaml`; never `package-lock.json`);
-  `pnpm-workspace.yaml` allows the `esbuild` build script.
-- **Tests are colocated.** Go tests beside code; Vitest covers pure TS helpers,
-  not Svelte/Monaco/bindings. Test logic in Go, presentation helpers in TS.
-- **Version lives in `build/config.yml`** (`info.version`). Bump it, then run
-  `wails3 task common:update:build-assets`. `about.go` embeds the same file;
-  `scripts/config.sh` reads it.
-- **Bundle ID is `net.nilambar.kaze`** (`info.productIdentifier`, written into
-  the plists by build-assets). Changing it resets macOS permissions/prefs.
-- **Scope discipline:** no new dependencies or config files without explicit
-  approval.
+- `gofmt`; TS strict, 4 spaces, single quotes, named exports.
+- Svelte 5 runes only (no `export let`/`$:`); scoped styles, shared tokens in
+  `style.css`; `FolderTree` imports itself (no `<svelte:self>`).
+- pnpm only; never `package-lock.json`.
+- Tests are colocated. Vitest covers pure TS helpers, not Svelte/Monaco/bindings.
+- Version lives in `build/config.yml` (`info.version`); bump it, then run
+  `wails3 task common:update:build-assets`.
+- Bundle ID `net.nilambar.kaze` — changing it resets macOS permissions/prefs.
+- No new dependencies or config files without explicit approval.
 
 ## Quality gate
 
@@ -271,5 +133,4 @@ test -z "$(gofmt -l .)"
 go build ./...
 ```
 
-`gofmt -l .` must print nothing. Native/Wails changes also need
-`wails3 task darwin:package` to succeed.
+Native/Wails changes also need `wails3 task darwin:package` to succeed.
