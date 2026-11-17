@@ -211,6 +211,16 @@ var caseTransforms = []struct{ label, id string }{
 // editMenu holds the buffer transforms. They act on Monaco's selection, which
 // lives in the frontend, so each item only forwards the command.
 func editMenu(m *application.Menu, app *App, b *menuBuilder) {
+	// macOS routes Cmd+X/C/V/Z/A to the WebView only through these
+	// responder-chain items; without them clipboard keys do nothing.
+	m.AddRole(application.Undo)
+	m.AddRole(application.Redo)
+	m.AddSeparator()
+	m.AddRole(application.Cut)
+	m.AddRole(application.Copy)
+	m.AddRole(application.Paste)
+	m.AddRole(application.SelectAll)
+	m.AddSeparator()
 	// Find and Replace are Monaco's widgets; Next/Previous step through the
 	// Find in Files results the window holds. Go to Line is Monaco's prompt.
 	find := m.AddSubmenu("Find")
