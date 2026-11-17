@@ -15,6 +15,8 @@
         // error is the backend's refusal, shown in place so the dialog can be
         // corrected instead of reopened.
         error?: string;
+        // hint explains what the field expects without repeating the label.
+        hint?: string;
         onSubmit: (value: string) => void;
         onCancel: () => void;
     }
@@ -25,6 +27,7 @@
         value = $bindable(''),
         selectStem = false,
         error = '',
+        hint = '',
         onSubmit,
         onCancel,
     }: Props = $props();
@@ -88,6 +91,9 @@
                 spellcheck="false"
                 autocomplete="off"
             />
+            {#if hint !== ''}
+                <p class="prompt__hint">{hint}</p>
+            {/if}
             {#if error !== ''}
                 <p class="prompt__error">{error}</p>
             {/if}
@@ -166,6 +172,12 @@
     .prompt__error {
         margin: 8px 0 0;
         color: var(--fg-danger);
+        font-size: calc(var(--ui-font-size) - 1px);
+    }
+
+    .prompt__hint {
+        margin: 6px 0 0;
+        color: var(--fg-muted);
         font-size: calc(var(--ui-font-size) - 1px);
     }
 

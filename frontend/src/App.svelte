@@ -89,7 +89,7 @@
         duplicatePath,
         entryName,
         movePath,
-        moveToFolderDialog,
+        moveToFolder,
         parentPath,
         renamePath,
         trashPath,
@@ -363,6 +363,7 @@
         selectStem: boolean;
         submitLabel: string;
         error: string;
+        hint: string;
         answer: (value: string) => void;
         cancel: () => void;
     }
@@ -1941,6 +1942,7 @@
         value?: string;
         selectStem?: boolean;
         submitLabel?: string;
+        hint?: string;
         run: (value: string) => Promise<string>;
     }): Promise<boolean> {
         return new Promise((resolve) => {
@@ -1960,6 +1962,7 @@
                         selectStem: options.selectStem ?? false,
                         submitLabel: options.submitLabel ?? options.title,
                         error: refusal,
+                        hint: options.hint ?? '',
                         answer,
                         cancel: () => {
                             namePrompt = null;
@@ -1975,6 +1978,7 @@
                 selectStem: options.selectStem ?? false,
                 submitLabel: options.submitLabel ?? options.title,
                 error: '',
+                hint: options.hint ?? '',
                 answer,
                 cancel: () => {
                     namePrompt = null;
@@ -2203,20 +2207,32 @@
         notice = `Moved ${name}`;
     }
 
-    // moveTreeEntry is Move…: the destination comes from a folder dialog rather
-    // than from a drop or from Cut and Paste.
+    // moveTreeEntry is Move…: the destination is typed rather than picked, so a
+    // file can land in a folder the tree does not list yet. The field starts on
+    // the entry's own folder, a relative name means a sibling there, and the
+    // backend creates whatever is missing. A refusal reopens the prompt on the
+    // same text so a typo is corrected in place.
     async function moveTreeEntry(path: string): Promise<void> {
-        busyPath = path;
-        try {
-            const entry = await moveToFolderDialog(path);
-            if (entry !== undefined) {
-                finishTreeMove(path, entry.path, entry.name);
-            }
-        } catch (error) {
-            treeError(error);
-        } finally {
-            busyPath = '';
-        }
+        await askName({
+            title: 'Move',
+            label: `Move "${entryName(path)}"`,
+            value: parentPath(path),
+            hint: 'Destination folder. Missing folders are created; relative paths start here.',
+            submitLabel: 'Move',
+            run: async (folder) => {
+                busyPath = path;
+                try {
+                    const entry = await moveToFolder(path, folder);
+                    finishTreeMove(path, entry.path, entry.name);
+                    return '';
+                } catch (error) {
+                    notice = '';
+                    return errorMessage(error);
+                } finally {
+                    busyPath = '';
+                }
+            },
+        });
     }
 
     // trashEntry asks first, then moves the entry to the platform's Trash. Its
@@ -3481,6 +3497,7 @@
             bind:value={namePrompt.value}
             selectStem={namePrompt.selectStem}
             error={namePrompt.error}
+            hint={namePrompt.hint}
             onSubmit={submitName}
             onCancel={cancelName}
         />

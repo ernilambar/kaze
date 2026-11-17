@@ -43,10 +43,12 @@ No frontend linter/formatter is configured; don't add one unprompted.
   (`folder.go`), `GetLaunchRequest` (`app.go`); `cli.go` parses argv into a
   `LaunchRequest` that survives the frontend not being ready.
 - **The tree is a file manager** (`filetree.go`): `CreateFile`, `CreateFolder`,
-  `RenamePath`, `DuplicatePath`, `CopyPath`, `MovePath`, `TrashPath`. Names are
-  one segment, destinations real folders; New File uses `O_EXCL`, rename/move
-  refuse taken names, copy/duplicate pick the first free `name copy.ext`, and
-  `MovePath` falls back to copy-then-delete only on `EXDEV`. Nothing deletes
+  `RenamePath`, `DuplicatePath`, `CopyPath`, `MovePath`, `MovePathToFolder`,
+  `TrashPath`. Names are one segment, destinations real folders; New File uses
+  `O_EXCL`, rename/move refuse taken names, copy/duplicate pick the first free
+  `name copy.ext`, and `MovePath` falls back to copy-then-delete only on `EXDEV`.
+  `MovePathToFolder` (Move…) creates a typed destination and its parents, and
+  reads a relative path from the entry's own folder. Nothing deletes
   permanently: `TrashPath` uses AppKit on the main thread (`trash_darwin.go`);
   `trash_other.go` fails loudly. Results carry `path` and symlink-resolved
   `real_path`; tabs match on the latter.
@@ -61,6 +63,8 @@ No frontend linter/formatter is configured; don't add one unprompted.
   reveal in Finder). `tabsToClose` picks the group; `closeTabsInOrder` goes
   through the dirty prompt. Folder rows and empty space are drop targets; drag
   state lives in `filetree.ts`; a folder can't be dropped into its own subtree.
+  Move… takes a typed destination folder, so it can place an entry outside the
+  tree's roots and creates folders that do not exist yet.
   `NamePrompt.svelte` stays open with the backend error so a taken name is
   corrected in place.
 - **New File creates on disk; New Buffer is untitled.**

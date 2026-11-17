@@ -189,29 +189,62 @@ func (a *App) MovePath(path, targetDir string) (FileTreeResult, error) {
 	return treeResult(target)
 }
 
-// MovePathDialog asks for a destination folder and moves path into it, so a
-// move does not need a drag or a cut-and-paste round trip. A zero result means
-// the user cancelled, which is not an error.
-func (a *App) MovePathDialog(path string) (FileTreeResult, error) {
+// MovePathToFolder moves path into a typed destination folder, creating the
+// folder and any missing parents first. Move… is a text prompt rather than a
+// picker, so the destination is not guaranteed to exist the way a drop target
+// is. A relative folder is read from the entry's own folder, which makes "docs"
+// mean the sibling next to the file.
+func (a *App) MovePathToFolder(path, folder string) (FileTreeResult, error) {
 	source := filepath.Clean(strings.TrimSpace(path))
 	if source == "" || source == "." {
 		return FileTreeResult{}, errors.New("no path to move")
 	}
-	if a.wails == nil {
-		return FileTreeResult{}, errors.New("the move dialog is not available before startup")
+	info, err := os.Lstat(source)
+	if err != nil {
+		return FileTreeResult{}, fmt.Errorf("move %s: %w", filepath.Base(source), err)
 	}
-	target, err := a.wails.Dialog.OpenFile().
-		SetTitle(fmt.Sprintf("Move %s to Folder", filepath.Base(source))).
-		CanChooseFiles(false).
-		CanChooseDirectories(true).
-		PromptForSingleSelection()
+	dir, err := resolveFolderPath(folder, filepath.Dir(source))
 	if err != nil {
 		return FileTreeResult{}, err
 	}
-	if target == "" {
-		return FileTreeResult{}, nil
+	// Check the subtree before creating anything: a folder moved inside itself
+	// must not leave a new empty directory behind on the way to the refusal.
+	if info.IsDir() && isWithinPath(source, dir) {
+		return FileTreeResult{}, errors.New("a folder cannot be moved inside itself")
 	}
-	return a.MovePath(source, target)
+	target, err := os.Stat(dir)
+	switch {
+	case err == nil && !target.IsDir():
+		return FileTreeResult{}, fmt.Errorf("%s is not a folder", filepath.Base(dir))
+	case err == nil:
+	case errors.Is(err, os.ErrNotExist):
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return FileTreeResult{}, fmt.Errorf("create %s: %w", dir, err)
+		}
+	default:
+		return FileTreeResult{}, fmt.Errorf("%s: %w", filepath.Base(dir), err)
+	}
+	return a.MovePath(source, dir)
+}
+
+// resolveFolderPath turns what the user typed into an absolute destination.
+// A leading ~ means the home folder; anything relative is read from base.
+func resolveFolderPath(folder, base string) (string, error) {
+	folder = strings.TrimSpace(folder)
+	if folder == "" {
+		return "", errors.New("a destination folder is required")
+	}
+	if folder == "~" || strings.HasPrefix(folder, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("resolve home folder: %w", err)
+		}
+		folder = filepath.Join(home, strings.TrimPrefix(folder, "~"))
+	}
+	if !filepath.IsAbs(folder) {
+		folder = filepath.Join(base, folder)
+	}
+	return filepath.Clean(folder), nil
 }
 
 // TrashPath moves path to the platform's Trash. Deleting for good is not

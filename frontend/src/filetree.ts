@@ -5,7 +5,7 @@ import {
     CreateFolder,
     DuplicatePath,
     MovePath,
-    MovePathDialog,
+    MovePathToFolder,
     RenamePath,
     TrashPath,
 } from '../bindings/kaze/app';
@@ -77,11 +77,11 @@ export async function movePath(path: string, targetDir: string): Promise<FileTre
     return toFileTreeEntry(await MovePath(path, targetDir));
 }
 
-// moveToFolderDialog asks for a destination folder and moves path into it. An
-// undefined result means the dialog was cancelled, so nothing moved.
-export async function moveToFolderDialog(path: string): Promise<FileTreeEntry | undefined> {
-    const result = await MovePathDialog(path);
-    return result.path === '' ? undefined : toFileTreeEntry(result);
+// moveToFolder moves into a typed destination folder. The backend creates the
+// folder when it does not exist, so Move… can place a file anywhere the user
+// names rather than only in folders the tree already knows.
+export async function moveToFolder(path: string, folder: string): Promise<FileTreeEntry> {
+    return toFileTreeEntry(await MovePathToFolder(path, folder));
 }
 
 // trashPath moves the entry to the platform's Trash. Nothing in the tree deletes

@@ -240,12 +240,14 @@ export function MovePath(path: string, targetDir: string): $CancellablePromise<$
 }
 
 /**
- * MovePathDialog asks for a destination folder and moves path into it, so a
- * move does not need a drag or a cut-and-paste round trip. A zero result means
- * the user cancelled, which is not an error.
+ * MovePathToFolder moves path into a typed destination folder, creating the
+ * folder and any missing parents first. Move… is a text prompt rather than a
+ * picker, so the destination is not guaranteed to exist the way a drop target
+ * is. A relative folder is read from the entry's own folder, which makes "docs"
+ * mean the sibling next to the file.
  */
-export function MovePathDialog(path: string): $CancellablePromise<$models.FileTreeResult> {
-    return $Call.ByID(3618004343, path);
+export function MovePathToFolder(path: string, folder: string): $CancellablePromise<$models.FileTreeResult> {
+    return $Call.ByID(2570988742, path, folder);
 }
 
 /**
