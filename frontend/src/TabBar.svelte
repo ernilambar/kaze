@@ -189,7 +189,14 @@
                     title={tab.deleted ? `${label(tab)} (deleted)` : label(tab)}
                     onclick={() => onSelect(tab.id)}
                 >{tab.name}</button>
-                {#if tab.dirty}
+                {#if tab.deleted}
+                    <span
+                        class="tab__dot tab__dot--deleted"
+                        role="img"
+                        aria-label="Deleted from disk"
+                        title="Deleted from disk"
+                    ></span>
+                {:else if tab.dirty}
                     <span class="tab__dot" role="img" aria-label="Unsaved changes" title="Unsaved changes"></span>
                 {/if}
                 <button
@@ -343,6 +350,12 @@
         margin-right: 8px;
         border-radius: 50%;
         background: currentColor;
+    }
+
+    /* A file removed behind the editor keeps the buffer, so the marker turns
+       the deleted colour instead of the muted unsaved one. */
+    .tab__dot--deleted {
+        background: var(--git-deleted);
     }
 
     .tab:hover .tab__dot {
