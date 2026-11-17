@@ -77,18 +77,15 @@ func appMenu(m *application.Menu, name string, app *App, b *menuBuilder) {
 	// The files behind Settings… share one submenu, so the application menu
 	// keeps the short shape macOS apps use.
 	files := m.AddSubmenu("Settings Files")
+	// The files open as tabs, so the focused window's frontend runs them.
 	b.item(files, "open-settings-json", "Open Settings JSON", "", func(*application.Context) {
-		app.openSettingsFromMenu()
+		app.emitCommand("open-settings-json")
 	})
 	b.item(files, "open-default-settings", "Open Default Settings", "", func(*application.Context) {
-		if err := app.OpenDefaultSettings(); err != nil {
-			app.reportMenuError("Open Default Settings", err)
-		}
+		app.emitCommand("open-default-settings")
 	})
 	b.item(files, "open-keybindings", "Open Keybindings…", "", func(*application.Context) {
-		if err := app.OpenKeybindings(); err != nil {
-			app.reportMenuError("Open Keybindings", err)
-		}
+		app.emitCommand("open-keybindings")
 	})
 	b.item(files, "open-themes-folder", "Open Themes Folder", "", func(*application.Context) {
 		if err := app.OpenThemesFolder(); err != nil {
@@ -487,7 +484,7 @@ func buildMenu(
 	return menu
 }
 
-// rebuildMenu replaces the native menu after a keybindings edit. The editor and
+// rebuildMenu replaces the native menu after a keybindings or settings edit. The editor and
 // theme sections are reread so checkmarks keep the values the frontend saved.
 func (a *App) rebuildMenu() {
 	if a.wails == nil {

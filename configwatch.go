@@ -7,14 +7,16 @@ import (
 	"time"
 )
 
-// configChangedEvent tells the frontend that the themes folder or
-// keybindings.json changed on disk. Both are user-editable while the app runs.
+// configChangedEvent tells the frontend that the themes folder,
+// keybindings.json or settings.json changed on disk. All are user-editable
+// while the app runs.
 const configChangedEvent = "app:config-changed"
 
-// configChange says which of the two live-reload inputs changed.
+// configChange says which of the live-reload inputs changed.
 type configChange struct {
 	Themes      bool `json:"themes"`
 	Keybindings bool `json:"keybindings"`
+	Settings    bool `json:"settings"`
 }
 
 // WatchConfig starts the config watcher. The first call wins; later calls are
@@ -25,7 +27,7 @@ func (a *App) WatchConfig() {
 	})
 }
 
-// configWatchLoop polls the themes folder and keybindings.json. It is a second
+// configWatchLoop polls the themes folder, keybindings.json and settings.json. It is a second
 // goroutine next to the workspace watcher and follows the same one-second
 // cadence: theme files are tiny and only change when the user edits them.
 func (a *App) configWatchLoop() {
@@ -37,19 +39,26 @@ func (a *App) configWatchLoop() {
 	if err != nil {
 		return
 	}
-	// Create both inputs before taking the baseline, so first-run creation does
-	// not look like a user edit.
+	settingsPath, err := settingsFilePath()
+	if err != nil {
+		return
+	}
+	// Create every input before taking the baseline, so first-run creation
+	// does not look like a user edit.
 	_ = ensureThemesDir(dir)
 	_ = ensureKeybindingsFile(keyPath)
+	_ = ensureSettingsFile(settingsPath)
 
 	themes := themeSnapshot(dir)
 	keys := statWatch(keyPath)
+	settings := statWatch(settingsPath)
 
 	ticker := time.NewTicker(watchInterval)
 	defer ticker.Stop()
 	for range ticker.C {
 		nextThemes := themeSnapshot(dir)
 		nextKeys := statWatch(keyPath)
+		nextSettings := statWatch(settingsPath)
 
 		change := configChange{}
 		if !sameWatchSnapshot(themes, nextThemes) {
@@ -66,7 +75,17 @@ func (a *App) configWatchLoop() {
 				a.rebuildMenu()
 			}
 		}
-		if change.Themes || change.Keybindings {
+		if nextSettings != settings {
+			change.Settings = true
+			settings = nextSettings
+			// The View and Appearance checkmarks come from settings.json. A
+			// broken file keeps the previous menu, as the frontend keeps the
+			// previous settings.
+			if _, err := loadSettings(settingsPath); err == nil {
+				a.rebuildMenu()
+			}
+		}
+		if change.Themes || change.Keybindings || change.Settings {
 			a.emitAll(configChangedEvent, change)
 		}
 	}

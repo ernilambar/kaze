@@ -5,18 +5,17 @@
         BringAllToFront,
         CloseWindow,
         CopyText,
+        DefaultSettingsFile,
         FileExists,
         GetKeybindings,
         GetProductName,
         InstallCommandLineTool,
+        KeybindingsFile,
         MinimiseWindow,
         MoveTabToNewWindow,
         NewWindow,
-        OpenDefaultSettings,
         OpenFileDialog,
         OpenFolderInNewWindow,
-        OpenKeybindings,
-        OpenSettings,
         OpenThemesFolder,
         PrintDocument,
         ReplaceInProject,
@@ -28,6 +27,7 @@
         SetAppearanceMode,
         SetUnsavedChanges,
         SetViewOption,
+        SettingsFile,
         ShouldRestoreSession,
         ShowAbout,
         ToggleFullScreen,
@@ -136,6 +136,7 @@
         defaultUISettings,
         loadEditorSettings,
         loadPreferences,
+        readSettings,
         saveEditorSettings,
         saveFilesSettings,
         saveSearchExclude,
@@ -1141,8 +1142,7 @@
 
     async function openSettings(): Promise<void> {
         try {
-            await OpenSettings();
-            notice = '';
+            await openFile(await SettingsFile());
         } catch (error) {
             notice = errorMessage(error);
         }
@@ -1287,6 +1287,41 @@
         }
     }
 
+    // reloadSettings applies settings.json after it changed on disk. A broken
+    // file keeps the current values and reports why, so a typo mid-edit does
+    // not reset everything to defaults. Only sections that differ are applied,
+    // so the overlay's own writes coming back through the watcher are no-ops.
+    async function reloadSettings(): Promise<void> {
+        let next: Awaited<ReturnType<typeof readSettings>>;
+        try {
+            next = await readSettings();
+        } catch (error) {
+            notice = errorMessage(error);
+            return;
+        }
+        const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
+        if (!same(next.editor, editorSettings)) {
+            editorSettings = next.editor;
+        }
+        if (!same(next.ui, uiSettings)) {
+            uiSettings = next.ui;
+            applyUISettings(uiSettings);
+        }
+        // The tree on screen was listed with the old matcher.
+        if (!same(next.files.exclude, filesExclude)) {
+            filesExclude = next.files.exclude;
+            treeRefreshToken++;
+        }
+        filesTrimTrailingWhitespace = next.files.trimTrailingWhitespace;
+        if (!same(next.searchExclude, searchExclude)) {
+            searchExclude = next.searchExclude;
+        }
+        if (!same(next.theme, themeSettings)) {
+            themeSettings = next.theme;
+            await applyCurrentTheme();
+        }
+    }
+
     function showSettingsOverlay(): void {
         languagePalette = false;
         indentationPalette = false;
@@ -1299,8 +1334,7 @@
 
     async function openDefaultSettings(): Promise<void> {
         try {
-            await OpenDefaultSettings();
-            notice = '';
+            await openFile(await DefaultSettingsFile());
         } catch (error) {
             notice = errorMessage(error);
         }
@@ -1317,8 +1351,7 @@
 
     async function openKeybindings(): Promise<void> {
         try {
-            await OpenKeybindings();
-            notice = '';
+            await openFile(await KeybindingsFile());
         } catch (error) {
             notice = errorMessage(error);
         }
@@ -3573,6 +3606,9 @@
                 }
                 if (change.keybindings) {
                     void refreshKeybindings();
+                }
+                if (change.settings) {
+                    void reloadSettings();
                 }
             });
             unsubscribeAppearance = listenForAppearance((mode) =>

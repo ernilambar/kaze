@@ -252,20 +252,33 @@ function toBindingUI(ui: UISettings): models.UISettings {
 // loadPreferences reads the theme, interface, files and search sections. It is
 // called once at startup; the editor section has its own loader because toggles
 // rewrite it independently.
-export async function loadPreferences(): Promise<{
+export interface Preferences {
     theme: ThemeSettings;
     ui: UISettings;
     files: FileSettings;
     searchExclude: string[];
-}> {
+}
+
+function toPreferences(settings: models.Settings): Preferences {
+    return {
+        theme: toThemeSettings(settings.theme),
+        ui: toUISettings(settings.ui),
+        files: toFileSettings(settings.files),
+        searchExclude: settings.search?.exclude ?? [],
+    };
+}
+
+// readSettings is the live-reload read path. Unlike the startup loaders it
+// throws on a broken file, so the caller can keep the values it already has
+// instead of falling back to defaults while the user is mid-edit.
+export async function readSettings(): Promise<{ editor: EditorSettings } & Preferences> {
+    const settings = await GetSettings();
+    return { editor: toEditorSettings(settings.editor), ...toPreferences(settings) };
+}
+
+export async function loadPreferences(): Promise<Preferences> {
     try {
-        const settings = await GetSettings();
-        return {
-            theme: toThemeSettings(settings.theme),
-            ui: toUISettings(settings.ui),
-            files: toFileSettings(settings.files),
-            searchExclude: settings.search?.exclude ?? [],
-        };
+        return toPreferences(await GetSettings());
     } catch (error) {
         console.error('Failed to load appearance settings; using defaults.', error);
         return {

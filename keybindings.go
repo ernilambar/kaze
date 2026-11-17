@@ -320,17 +320,17 @@ func (a *App) GetKeybindings() KeybindingsState {
 	}
 }
 
-// OpenKeybindings opens keybindings.json with the user's editor, creating the
-// commented template on first use.
-func (a *App) OpenKeybindings() error {
+// KeybindingsFile returns the path of keybindings.json for the frontend to
+// open in a tab, creating the commented template on first use.
+func (a *App) KeybindingsFile() (string, error) {
 	path, err := keybindingsFilePath()
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err := ensureKeybindingsFile(path); err != nil {
-		return err
+		return "", err
 	}
-	return openInEditor(path)
+	return path, nil
 }
 
 // loadKeybindingsForMenu is the menu's read path. A malformed file leaves the

@@ -88,6 +88,8 @@ No frontend linter/formatter is configured; don't add one unprompted.
 - **Settings** (`settings.json`). Keep `frontend/src/settings.ts` defaults in
   sync with Go. Writes go through `settingsMu` and `settingswrite.go`, which
   rewrites only changed keys so unknown keys and formatting survive.
+  Settings/keybindings files open in Kaze tabs; `configwatch.go` live-reloads
+  `settings.json` into every window, and a broken file keeps current values.
 - **Themes** are Zed theme families (`themes.go`, `theme.ts`); user themes in
   `<config>/Kaze/themes` shadow built-ins. The first frame paints a palette
   cached in `localStorage` (`kaze.theme.startup`); keep the inline script in

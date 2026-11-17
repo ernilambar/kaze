@@ -56,6 +56,7 @@ export interface ThemePalette {
 export interface ConfigChange {
     themes: boolean;
     keybindings: boolean;
+    settings: boolean;
 }
 
 function appearanceOf(value: string): ThemeAppearance {
@@ -361,8 +362,8 @@ export async function loadTheme(name: string): Promise<ThemePalette> {
     return toThemePalette(await LoadTheme(name));
 }
 
-// listenForConfigChanges runs handler when the themes folder or keybindings
-// file changes. Returns an unsubscribe function.
+// listenForConfigChanges runs handler when the themes folder, keybindings or
+// settings file changes. Returns an unsubscribe function.
 export function listenForConfigChanges(handler: (change: ConfigChange) => void): () => void {
     return onWindowEvent('app:config-changed', (data) => {
         const change = data as ConfigChange | undefined;

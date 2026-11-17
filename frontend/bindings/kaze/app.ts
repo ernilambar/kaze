@@ -95,6 +95,15 @@ export function CreateFolder(parent: string, name: string): $CancellablePromise<
 }
 
 /**
+ * DefaultSettingsFile writes the defaults the app would use on a fresh install
+ * to default-settings.json and returns its path. It never touches the user's
+ * settings.json.
+ */
+export function DefaultSettingsFile(): $CancellablePromise<string> {
+    return $Call.ByID(1878632557);
+}
+
+/**
  * DuplicatePath copies path to target, which reads like a rename target: a
  * relative path starts in the entry's own folder and missing folders are
  * created. A name already there is a refusal rather than an overwrite, because
@@ -215,6 +224,14 @@ export function InstallCommandLineTool(): $CancellablePromise<void> {
 }
 
 /**
+ * KeybindingsFile returns the path of keybindings.json for the frontend to
+ * open in a tab, creating the commented template on first use.
+ */
+export function KeybindingsFile(): $CancellablePromise<string> {
+    return $Call.ByID(2560715116);
+}
+
+/**
  * ListFiles returns every regular file under one window's sidebar roots,
  * sorted by path. The frontend filters this list locally, so each keystroke in
  * Quick Open costs nothing. files.exclude decides what is walked, so a folder
@@ -307,14 +324,6 @@ export function NewWindow(): $CancellablePromise<void> {
 }
 
 /**
- * OpenDefaultSettings writes the defaults the app would use on a fresh install to
- * default-settings.json and opens it. It never touches the user's settings.json.
- */
-export function OpenDefaultSettings(): $CancellablePromise<void> {
-    return $Call.ByID(2620863367);
-}
-
-/**
  * OpenFileDialog asks for one file to open. An empty string means the user
  * cancelled, which is not an error. No filter is added, so images can be picked
  * for the viewer and text files for the editor from the same dialog.
@@ -337,23 +346,6 @@ export function OpenFolderDialog(): $CancellablePromise<string> {
  */
 export function OpenFolderInNewWindow(): $CancellablePromise<void> {
     return $Call.ByID(2093654144);
-}
-
-/**
- * OpenKeybindings opens keybindings.json with the user's editor, creating the
- * commented template on first use.
- */
-export function OpenKeybindings(): $CancellablePromise<void> {
-    return $Call.ByID(292477838);
-}
-
-/**
- * OpenSettings opens settings.json in the editor named by the user's
- * environment, falling back to macOS's default file handler. The command
- * palette reports the error; the menu logs it.
- */
-export function OpenSettings(): $CancellablePromise<void> {
-    return $Call.ByID(2024983644);
 }
 
 /**
@@ -542,6 +534,15 @@ export function SetUnsavedChanges(window: string, unsaved: boolean): $Cancellabl
  */
 export function SetViewOption(option: string, checked: boolean): $CancellablePromise<void> {
     return $Call.ByID(359865011, option, checked);
+}
+
+/**
+ * SettingsFile returns the path of settings.json for the frontend to open in
+ * a tab. A missing file is created with defaults first; a malformed one is
+ * left as-is so the user can repair it.
+ */
+export function SettingsFile(): $CancellablePromise<string> {
+    return $Call.ByID(3175151046);
 }
 
 /**

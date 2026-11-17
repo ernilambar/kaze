@@ -403,48 +403,33 @@ func (a *App) updateSidebarFolders(window string, change func([]string) []string
 	return updated, nil
 }
 
-// openSettingsFile opens settings.json in the editor named by the user's
-// environment ($VISUAL, then $EDITOR), falling back to macOS's default file
-// handler. A missing file is created with defaults first; a malformed one
-// is opened as-is so the user can repair it.
-func (a *App) openSettingsFile() error {
+// SettingsFile returns the path of settings.json for the frontend to open in
+// a tab. A missing file is created with defaults first; a malformed one is
+// left as-is so the user can repair it.
+func (a *App) SettingsFile() (string, error) {
 	path, err := settingsFilePath()
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err := ensureSettingsFile(path); err != nil {
-		return err
+		return "", err
 	}
-	return openInEditor(path)
+	return path, nil
 }
 
-// OpenSettings opens settings.json in the editor named by the user's
-// environment, falling back to macOS's default file handler. The command
-// palette reports the error; the menu logs it.
-func (a *App) OpenSettings() error {
-	return a.openSettingsFile()
-}
-
-// OpenDefaultSettings writes the defaults the app would use on a fresh install to
-// default-settings.json and opens it. It never touches the user's settings.json.
-func (a *App) OpenDefaultSettings() error {
+// DefaultSettingsFile writes the defaults the app would use on a fresh install
+// to default-settings.json and returns its path. It never touches the user's
+// settings.json.
+func (a *App) DefaultSettingsFile() (string, error) {
 	path, err := settingsFilePath()
 	if err != nil {
-		return err
+		return "", err
 	}
 	defaultPath := filepath.Join(filepath.Dir(path), "default-settings.json")
 	if err := writeSettings(defaultPath, defaultSettings()); err != nil {
-		return err
+		return "", err
 	}
-	return openInEditor(defaultPath)
-}
-
-// openSettingsFromMenu opens settings.json from the app menu. A menu click has
-// no caller to return to, so failures are logged.
-func (a *App) openSettingsFromMenu() {
-	if err := a.OpenSettings(); err != nil && a.wails != nil {
-		a.wails.Logger.Error(err.Error())
-	}
+	return defaultPath, nil
 }
 
 // addFolderEvent asks the sidebar to open the folder picker. A menu click has no

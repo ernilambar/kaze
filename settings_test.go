@@ -576,3 +576,21 @@ func TestUpdateSettingsFillsEmptySection(t *testing.T) {
 		t.Error("the custom section was dropped")
 	}
 }
+
+func TestSettingsFileCreatesDefaults(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	got, err := NewApp().SettingsFile()
+	if err != nil {
+		t.Fatalf("SettingsFile() error = %v", err)
+	}
+
+	want := filepath.Join(home, "Library", "Application Support", appMeta.ProductName, "settings.json")
+	if got != want {
+		t.Fatalf("SettingsFile() = %q, want %q", got, want)
+	}
+	if _, err := os.Stat(want); err != nil {
+		t.Fatalf("settings file was not created: %v", err)
+	}
+}

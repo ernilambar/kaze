@@ -19,6 +19,7 @@ import {
     defaultEditorSettings,
     loadEditorSettings,
     loadPreferences,
+    readSettings,
     saveEditorSettings,
     saveFilesSettings,
     saveSearchExclude,
@@ -171,5 +172,27 @@ describe('files and search saves', () => {
 
         await expect(saveSearchExclude(['vendor'])).resolves.toEqual(['vendor']);
         expect(updateSearchSettings).toHaveBeenCalledWith({ exclude: ['vendor'] });
+    });
+});
+
+describe('readSettings', () => {
+    it('rejects a broken file instead of falling back to defaults', async () => {
+        getSettings.mockRejectedValue(new Error('parse settings.json: unexpected end of JSON input'));
+
+        await expect(readSettings()).rejects.toThrow('parse settings.json');
+    });
+
+    it('maps the editor section with the preferences', async () => {
+        getSettings.mockResolvedValue({
+            editor: storedEditor,
+            theme: { mode: 'dark', light: 'Kaze Light', dark: 'Kaze Dark' },
+            ui: {},
+            files: { exclude: [], trim_trailing_whitespace: false },
+            search: { exclude: ['dist'] },
+        });
+
+        const settings = await readSettings();
+        expect(settings.editor.fontFamily).toBe('JetBrains Mono');
+        expect(settings.searchExclude).toEqual(['dist']);
     });
 });
