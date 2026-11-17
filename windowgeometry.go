@@ -39,12 +39,13 @@ type WindowFrame struct {
 	Fullscreen bool `json:"fullscreen"`
 }
 
-// normalizeWindowFrame drops a frame too small to hold the window, or one whose
-// size was cleared by hand, whole (including the state flags) so the next
-// launch falls back to the screen-sized default.
+// normalizeWindowFrame drops the size and position of a frame too small to hold
+// the window, or one whose size was cleared by hand, so the next launch falls
+// back to the screen-sized default. The zoom flags survive: a window that was
+// only ever used maximised has no normal frame, yet must reopen maximised.
 func normalizeWindowFrame(frame WindowFrame) WindowFrame {
 	if frame.Width < minWindowWidth || frame.Height < minWindowHeight {
-		return WindowFrame{}
+		return WindowFrame{Maximised: frame.Maximised, Fullscreen: frame.Fullscreen}
 	}
 	return frame
 }

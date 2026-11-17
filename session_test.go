@@ -229,9 +229,24 @@ func TestSessionStoresWindowFrame(t *testing.T) {
 	}
 }
 
+func TestSessionStoresMaximisedWithoutNormalFrame(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	NewApp().storeWindowGeometry(WindowFrame{Maximised: true})
+
+	got := NewApp().savedWindowGeometry()
+	if want := (WindowFrame{Maximised: true}); got != want {
+		t.Fatalf("frame = %+v, want %+v", got, want)
+	}
+}
+
 func TestNormalizeWindowFrameDropsUnusable(t *testing.T) {
 	if got := normalizeWindowFrame(WindowFrame{Width: minWindowWidth - 1, Height: 700}); got != (WindowFrame{}) {
 		t.Fatalf("tiny frame = %+v, want the zero frame", got)
+	}
+	zoomed := WindowFrame{Maximised: true}
+	if got := normalizeWindowFrame(zoomed); got != zoomed {
+		t.Fatalf("sizeless zoomed frame = %+v, want the flag kept", got)
 	}
 	frame := WindowFrame{Width: minWindowWidth, Height: minWindowHeight}
 	if got := normalizeWindowFrame(frame); got != frame {
