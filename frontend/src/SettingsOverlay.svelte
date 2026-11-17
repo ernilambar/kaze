@@ -79,6 +79,20 @@
         { id: 'sidebar', label: 'Sidebar' },
     ];
 
+    // CSS defines nine weight names. settings.json accepts any positive weight,
+    // so the current value is added when it falls between them.
+    const FONT_WEIGHTS: readonly { value: number; label: string }[] = [
+        { value: 100, label: '100 Thin' },
+        { value: 200, label: '200 Extra Light' },
+        { value: 300, label: '300 Light' },
+        { value: 400, label: '400 Regular' },
+        { value: 500, label: '500 Medium' },
+        { value: 600, label: '600 Semi Bold' },
+        { value: 700, label: '700 Bold' },
+        { value: 800, label: '800 Extra Bold' },
+        { value: 900, label: '900 Black' },
+    ];
+
     const THEME_MODES: readonly { id: ThemeMode; label: string }[] = [
         { id: 'system', label: 'System' },
         { id: 'light', label: 'Light' },
@@ -130,6 +144,11 @@
 
     let lightThemes = $derived(themes.filter((entry) => entry.appearance === 'light'));
     let darkThemes = $derived(themes.filter((entry) => entry.appearance === 'dark'));
+    let customFontWeight = $derived(
+        FONT_WEIGHTS.some((entry) => entry.value === editor.fontWeight)
+            ? null
+            : editor.fontWeight,
+    );
 
     function updateEditor<K extends keyof EditorSettings>(
         key: K,
@@ -167,6 +186,13 @@
 
     function commitToggle(event: Event, key: BooleanEditorKey): void {
         updateEditor(key, (event.currentTarget as HTMLInputElement).checked);
+    }
+
+    function setFontWeight(value: string): void {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) {
+            updateEditor('fontWeight', parsed);
+        }
     }
 
     // commitRulers parses a comma or space separated column list, drops
@@ -505,19 +531,42 @@
                                 <span class="settings__text">
                                     <span class="settings__name">Font weight</span>
                                     <span class="settings__description">
-                                        100–900; the font must include the weight.
+                                        The font must include the chosen weight.
                                     </span>
                                 </span>
                                 <span class="settings__control">
-                                    <input
-                                        type="number"
-                                        min="100"
-                                        max="900"
-                                        step="10"
-                                        value={editor.fontWeight}
-                                        onchange={(event) =>
-                                            commitNumber(event, 'fontWeight', 100, 900)}
-                                    />
+                                    <span class="settings__select">
+                                        <select
+                                            value={editor.fontWeight}
+                                            onchange={(event) =>
+                                                setFontWeight(event.currentTarget.value)}
+                                        >
+                                            {#if customFontWeight !== null}
+                                                <option value={customFontWeight}>
+                                                    {customFontWeight}
+                                                </option>
+                                            {/if}
+                                            {#each FONT_WEIGHTS as weight (weight.value)}
+                                                <option value={weight.value}>{weight.label}</option>
+                                            {/each}
+                                        </select>
+                                        <svg
+                                            class="settings__select-arrow"
+                                            aria-hidden="true"
+                                            height="10"
+                                            viewBox="0 0 12 10"
+                                            width="12"
+                                        >
+                                            <path
+                                                d="M2.5 3.5 6 7 9.5 3.5"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="1.3"
+                                            />
+                                        </svg>
+                                    </span>
                                 </span>
                             </label>
                             {#if editor.fontWeight !== defaultEditorSettings.fontWeight}
