@@ -198,8 +198,8 @@
                     title={`Close ${tab.name}`}
                     onclick={() => onClose(tab.id)}
                 >
-                    <svg aria-hidden="true" height="8" viewBox="0 0 8 8" width="8">
-                        <path d="M1 1 L7 7 M7 1 L1 7" fill="none" stroke="currentColor" stroke-width="1.2" />
+                    <svg aria-hidden="true" height="10" viewBox="0 0 10 10" width="10">
+                        <path d="M1.5 1.5 L8.5 8.5 M8.5 1.5 L1.5 8.5" fill="none" stroke="currentColor" stroke-width="1.4" />
                     </svg>
                 </button>
             </div>
@@ -225,8 +225,8 @@
                     title="Close Search Results"
                     onclick={onCloseSearch}
                 >
-                    <svg aria-hidden="true" height="8" viewBox="0 0 8 8" width="8">
-                        <path d="M1 1 L7 7 M7 1 L1 7" fill="none" stroke="currentColor" stroke-width="1.2" />
+                    <svg aria-hidden="true" height="10" viewBox="0 0 10 10" width="10">
+                        <path d="M1.5 1.5 L8.5 8.5 M8.5 1.5 L1.5 8.5" fill="none" stroke="currentColor" stroke-width="1.4" />
                     </svg>
                 </button>
             </div>
@@ -354,7 +354,7 @@
         align-items: center;
         justify-content: center;
         flex: 0 0 auto;
-        width: 22px;
+        width: 26px;
         padding: 0;
         border: none;
         background: none;
