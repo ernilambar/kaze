@@ -2817,7 +2817,6 @@
         }
         if (!exists) {
             tabs = updateDocument(tabs, tab.id, { deleted: true });
-            notice = `${tab.name} was deleted. Saving recreates it.`;
             return true;
         }
         return false;
@@ -3551,15 +3550,6 @@
                 }}
                 onCloseSearch={closeSearchTab}
             />
-            {#if active?.kind === 'text' && active.path !== '' && active.deleted}
-                <div class="deleted-banner" role="status">
-                    <span>{active.name} was deleted. Saving recreates it.</span>
-                    <button
-                        class="deleted-banner__action"
-                        onclick={() => void saveDocument(activeId)}
-                    >Save now</button>
-                </div>
-            {/if}
             <div class="app__pane">
                 <div
                     class="app__pane-layer"
@@ -3822,30 +3812,4 @@
         pointer-events: none;
     }
 
-    .deleted-banner {
-        display: flex;
-        flex: 0 0 auto;
-        align-items: center;
-        gap: 8px;
-        padding: 4px 12px;
-        border-bottom: 1px solid var(--border);
-        background: var(--bg-raised);
-        color: var(--fg-muted);
-        font-size: 12px;
-    }
-
-    .deleted-banner__action {
-        padding: 0 8px;
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        background: none;
-        color: inherit;
-        font: inherit;
-        cursor: pointer;
-    }
-
-    .deleted-banner__action:hover {
-        border-color: var(--fg-muted);
-        color: var(--fg);
-    }
 </style>
