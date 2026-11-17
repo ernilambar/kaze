@@ -8,7 +8,6 @@
         createEditor,
         createModel,
         editorOptions,
-        modelOptions,
         WELCOME_KEY,
     } from './editor';
     import {
@@ -61,6 +60,11 @@
         // onDirtyChange reports when a buffer stops or starts matching the file
         // it came from, so its tab can be marked.
         onDirtyChange?: (id: string, dirty: boolean) => void;
+        // onIndentationChange reports what the active buffer indents with, so
+        // the status bar can print it. It fires when a buffer is attached and
+        // whenever its model options change: content detection, the settings,
+        // and the indentation picker all arrive as model options.
+        onIndentationChange?: (insertSpaces: boolean, tabSize: number, indentSize: number) => void;
     }
 
     let {
@@ -76,6 +80,7 @@
         onRevealFile,
         onCopyPath,
         onDirtyChange,
+        onIndentationChange,
     }: Props = $props();
 
     // Zoom moves the font size in session steps around the configured size;
@@ -100,6 +105,9 @@
     const baselines = new Map<string, string>();
     const decorations = new Map<string, string[]>();
     const decorationTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    // A model's options change events are per model, so each buffer keeps its
+    // own listener; only the active one reaches the status bar.
+    const optionSubscriptions = new Map<string, monaco.IDisposable>();
     let activeKey = WELCOME_KEY;
 
     // setBaseline starts comparing a buffer with the text HEAD has for it. It
@@ -431,14 +439,35 @@
     function modelFor(key: string, text: string, documentEol: string): monaco.editor.ITextModel {
         let model = models.get(key);
         if (model === undefined) {
+            // createModel runs Monaco's indentation detection with the settings
+            // as the fallback, so nothing is forced on the model here.
             model = createModel(key, text, documentEol);
-            model.updateOptions(modelOptions(settings));
             models.set(key, model);
+            optionSubscriptions.set(
+                key,
+                model.onDidChangeOptions(() => {
+                    if (key === activeKey) {
+                        reportIndentation(key);
+                    }
+                }),
+            );
             savedTexts.set(key, normalizeEol(savedContent, documentEol));
             // A baseline may have arrived before the tab was first shown.
             updateDecorations(key);
         }
         return model;
+    }
+
+    // reportIndentation tells the status bar what one buffer indents with.
+    // Monaco keeps tab size and space insertion on the model, so the resolved
+    // options are read rather than tracked: an indentSize of `tabSize` is
+    // already resolved to a number.
+    function reportIndentation(key: string): void {
+        const options = models.get(key)?.getOptions();
+        if (options === undefined) {
+            return;
+        }
+        onIndentationChange?.(options.insertSpaces, options.tabSize, options.indentSize);
     }
 
     // reportDirty compares the buffer with the text that is on disk. The length
@@ -486,6 +515,10 @@
             return;
         }
         if (key === activeKey && editor.getModel() !== null) {
+            // The visible buffer did not change, but this is also the first
+            // pass after the editor is created, and the status bar starts
+            // empty-handed.
+            reportIndentation(key);
             return;
         }
         if (editor.getModel() !== null) {
@@ -504,6 +537,7 @@
         if (position !== null) {
             onCursorMove?.(position.lineNumber, position.column);
         }
+        reportIndentation(key);
         reportSelection();
     }
 
@@ -520,6 +554,8 @@
                 savedTexts.delete(key);
                 baselines.delete(key);
                 decorations.delete(key);
+                optionSubscriptions.get(key)?.dispose();
+                optionSubscriptions.delete(key);
                 const pending = decorationTimers.get(key);
                 if (pending !== undefined) {
                     clearTimeout(pending);
@@ -534,17 +570,17 @@
         pruneModels(openIds, modelKey);
     });
 
-    // A settings change (a toggle, or a zoom step) re-applies the options to the
-    // live editor and to every buffer, because indentation lives on the model.
+    // A settings change re-applies the options to the live editor. Indentation
+    // needs no pass over the buffers: the tab size and space insertion in the
+    // options reach the models through Monaco's configuration, which keeps
+    // each buffer's detected indentation and re-detects only when the settings
+    // values themselves change.
     $effect(() => {
         const current = editor;
         if (current === undefined) {
             return;
         }
         current.updateOptions(editorOptions(settings, settings.fontSize + zoomOffset));
-        for (const model of models.values()) {
-            model.updateOptions(modelOptions(settings));
-        }
     });
 
     // Diff tabs are snapshots: Monaco refuses edits, so the model cannot drift
@@ -603,12 +639,16 @@
             for (const pending of decorationTimers.values()) {
                 clearTimeout(pending);
             }
+            for (const subscription of optionSubscriptions.values()) {
+                subscription.dispose();
+            }
             models.clear();
             viewStates.clear();
             savedTexts.clear();
             baselines.clear();
             decorations.clear();
             decorationTimers.clear();
+            optionSubscriptions.clear();
         };
     });
 </script>

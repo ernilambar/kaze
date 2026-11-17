@@ -13,6 +13,9 @@ interface Props {
     eol?: DocumentEOL | '';
     // invalidUTF8 flags a file that was not valid UTF-8 when it was read.
     invalidUTF8?: boolean;
+    // indentation is the active buffer's indent style and width, formatted
+    // for display; empty for a tab with none to configure.
+    indentation?: string;
     folderLabel?: string;
     notice?: string;
     // imageSize is the natural pixel size of the image tab, formatted for
@@ -26,6 +29,8 @@ interface Props {
     onSwitchView?: (view: SidebarView) => void;
     // onToggleEol switches the active buffer between LF and CRLF.
     onToggleEol?: () => void;
+    // onPickIndentation opens the indentation list for the active buffer.
+    onPickIndentation?: () => void;
     // onChangeLanguage opens the language mode list for the active buffer.
     onChangeLanguage?: () => void;
 }
@@ -37,6 +42,7 @@ let {
     language,
     eol = '',
     invalidUTF8 = false,
+    indentation = '',
     folderLabel = '',
     notice = '',
     imageSize = '',
@@ -45,6 +51,7 @@ let {
     changesCount = 0,
     onSwitchView,
     onToggleEol,
+    onPickIndentation,
     onChangeLanguage,
 }: Props = $props();
 </script>
@@ -114,6 +121,14 @@ let {
         {/if}
         {#if folderLabel !== ''}
             <span class="statusbar__folder">{folderLabel}</span>
+        {/if}
+        {#if indentation !== '' && onPickIndentation}
+            <button
+                class="statusbar__action statusbar__indent"
+                type="button"
+                title="Select Indentation"
+                onclick={() => onPickIndentation?.()}
+            >{indentation}</button>
         {/if}
         {#if eol !== ''}
             <button

@@ -46,3 +46,15 @@ describe('rankCommands', () => {
         expect(rankCommands('zzz')).toEqual([]);
     });
 });
+
+describe('indentation commands', () => {
+    it('lists the Monaco indentation actions under Indentation', () => {
+        const indent = COMMANDS.filter((entry) => entry.detail === 'Indentation');
+        expect(indent.map((entry) => entry.id)).toEqual([
+            'indent-using-spaces',
+            'indent-using-tabs',
+            'convert-indentation-to-spaces',
+            'convert-indentation-to-tabs',
+        ]);
+    });
+});

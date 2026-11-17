@@ -13,6 +13,16 @@ export function lineEndingLabel(eol: string): string {
     return eol === 'crlf' ? 'CRLF' : 'LF';
 }
 
+// indentationLabel is the status bar's name for a buffer's indentation. Spaces
+// name the indent unit a Tab inserts; tabs name the width a tab renders at.
+export function indentationLabel(
+    insertSpaces: boolean,
+    indentSize: number,
+    tabSize: number,
+): string {
+    return insertSpaces ? `Spaces: ${indentSize}` : `Tab Size: ${tabSize}`;
+}
+
 export interface LaunchNotice {
     missing: string[];
 }

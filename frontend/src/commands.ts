@@ -1,6 +1,6 @@
 import { onWindowEvent } from './windowstate';
 import { CASE_TRANSFORMS } from './case';
-import { SELECTION_COMMANDS, VIEW_OPTIONS } from './editorcommands';
+import { INDENT_COMMANDS, SELECTION_COMMANDS, VIEW_OPTIONS } from './editorcommands';
 import type { PaletteItem } from './palette';
 import { rankCandidates } from './quickOpen';
 
@@ -28,6 +28,15 @@ const SELECTION_PALETTE_COMMANDS: readonly Command[] = SELECTION_COMMANDS.map((e
     name: entry.label,
     // Toggle Line Comment lives in the Edit menu; the rest are in Selection.
     detail: entry.id === 'toggle-comment' ? 'Edit' : 'Selection',
+}));
+
+// INDENT_PALETTE_COMMANDS are the indentation rows both pickers show: the
+// command palette and the list the status bar opens. They run Monaco's own
+// actions, which change the active buffer only.
+export const INDENT_PALETTE_COMMANDS: readonly Command[] = INDENT_COMMANDS.map((entry) => ({
+    id: entry.id,
+    name: entry.label,
+    detail: 'Indentation',
 }));
 
 const APPEARANCE_COMMANDS: readonly Command[] = [
@@ -98,6 +107,7 @@ export const COMMANDS: readonly Command[] = [
     { id: 'copy-relative-path', name: 'Copy Relative Path', detail: 'File' },
     { id: 'copy-file-name', name: 'Copy File Name', detail: 'File' },
     ...EDIT_COMMANDS,
+    ...INDENT_PALETTE_COMMANDS,
     ...SELECTION_PALETTE_COMMANDS,
     ...VIEW_COMMANDS,
     ...APPEARANCE_COMMANDS,

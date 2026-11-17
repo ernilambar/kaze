@@ -11,8 +11,8 @@ ignored. Edit it from **Settings…** (`⌘,`); hand edits need a restart.
 | `editor.font_family` | `Menlo` | Editor font. |
 | `editor.font_size` | `13` | Font size in pixels. |
 | `editor.font_weight` | `400` | CSS font weight. |
-| `editor.tab_size` | `4` | Columns per indent. |
-| `editor.hard_tabs` | `false` | Indent with tabs. |
+| `editor.tab_size` | `4` | Fallback indent width; each file's own indent is detected. |
+| `editor.hard_tabs` | `false` | Fallback indent style; each file's own indent is detected. |
 | `editor.ligatures` | `false` | Font ligatures. |
 | `editor.cursor_width` | `1` | Cursor width in pixels. |
 | `editor.cursor_blink` | `true` | Blink the cursor. |

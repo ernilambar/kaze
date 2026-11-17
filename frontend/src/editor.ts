@@ -209,7 +209,10 @@ export function createModel(
 
 // editorOptions translates settings.json into Monaco options. Zoom passes the
 // effective font size, because the zoom offset is a session value and never
-// reaches the settings file.
+// reaches the settings file. tabSize, insertSpaces and detectIndentation are
+// model options: Monaco's standalone configuration carries them to every
+// buffer it creates, where the file's own indentation is detected and the
+// settings stand in only for new and empty buffers.
 export function editorOptions(
     settings: EditorSettings,
     fontSize = settings.fontSize,
@@ -233,20 +236,13 @@ export function editorOptions(
         autoClosingQuotes: settings.autoCloseBrackets ? 'languageDefined' : 'never',
         autoSurround: settings.autoCloseBrackets ? 'languageDefined' : 'never',
         autoIndent: settings.smartIndent ? 'full' : 'none',
-        detectIndentation: false,
+        // Detection guesses each file's indentation from its content, so a
+        // 2-space file indents with 2 spaces even under tab_size: 4; the
+        // settings values below are the fallback for new and empty buffers.
+        detectIndentation: true,
         tabSize: settings.tabSize,
         insertSpaces: !settings.hardTabs,
         padding: { top: 12, bottom: 12 },
-    };
-}
-
-// modelOptions is the indentation half of the settings. Monaco keeps tab size
-// and space insertion on the model, not the editor, so each buffer is told.
-export function modelOptions(settings: EditorSettings): monaco.editor.ITextModelUpdateOptions {
-    return {
-        tabSize: settings.tabSize,
-        indentSize: settings.tabSize,
-        insertSpaces: !settings.hardTabs,
     };
 }
 

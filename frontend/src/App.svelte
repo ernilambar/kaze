@@ -51,7 +51,7 @@
     import TabBar from './TabBar.svelte';
     import TitleBar from './TitleBar.svelte';
     import Welcome from './Welcome.svelte';
-    import { COMMANDS, listenForCommandPalette, listenForMenuCommand, rankCommands } from './commands';
+    import { COMMANDS, INDENT_PALETTE_COMMANDS, listenForCommandPalette, listenForMenuCommand, rankCommands } from './commands';
     import { treeMenuItems, type ContextMenuItem } from './contextmenu';
     import {
         createDiffDocument,
@@ -77,6 +77,7 @@
     } from './editor';
     import {
         listenForEditorCommands,
+        INDENT_COMMANDS,
         SELECTION_COMMANDS,
         VIEW_OPTIONS,
         type SelectionCommand,
@@ -177,7 +178,7 @@
         setSidebarFolders,
         sidebarLabel,
     } from './sidebar';
-    import { noticeFor } from './status';
+    import { indentationLabel, noticeFor } from './status';
     import {
         closeDocumentTab,
         findDocumentByPath,
@@ -397,7 +398,14 @@
     let line = $state(1);
     let column = $state(1);
     let selectionLength = $state(0);
+    // indentation is what the active buffer indents with. The editor pane
+    // reports it when the buffer is attached and whenever its model options
+    // change: detection, the settings and the picker all arrive that way.
+    let indentation = $state({ insertSpaces: true, tabSize: 4, indentSize: 4 });
     let languagePalette = $state(false);
+    // indentationPalette is the list the status bar's indentation item opens;
+    // it offers the same actions the command palette groups as Indentation.
+    let indentationPalette = $state(false);
     // languageModeItems is built on first use, after Monaco has registered its
     // languages, and reused for every keystroke in the mode palette.
     let languageModeItems: PaletteItem[] | undefined;
@@ -428,6 +436,13 @@
     // The active file's line ending decides the Monaco model's EOL, so edits
     // and the saved text use the same sequence the file started with.
     let editorEol = $derived(imageActive ? 'lf' : (active?.eol ?? 'lf'));
+    // The status bar prints the active buffer's indentation; a tab with no
+    // text buffer has none to configure.
+    let indentationText = $derived(
+        active?.kind === 'text'
+            ? indentationLabel(indentation.insertSpaces, indentation.indentSize, indentation.tabSize)
+            : '',
+    );
     // savedContent is what a clean buffer would hold. A moved dirty tab carries
     // a different text than the file on disk, so its tab records the baseline.
     let editorSavedContent = $derived(
@@ -1239,6 +1254,7 @@
 
     function showSettingsOverlay(): void {
         languagePalette = false;
+        indentationPalette = false;
         settingsOverlay = true;
     }
 
@@ -1449,6 +1465,7 @@
         commandPalette = false;
         recentOpen = false;
         languagePalette = false;
+        indentationPalette = false;
         quickOpen = true;
         quickOpenLoading = true;
         quickOpenTruncated = false;
@@ -1504,6 +1521,7 @@
         quickOpen = false;
         recentOpen = false;
         commandPalette = false;
+        indentationPalette = false;
         languagePalette = true;
     }
 
@@ -1519,10 +1537,45 @@
         editorPane?.setLanguage(tab.id, languageForDocument(tab.path, content, override ?? ''));
     }
 
+    // rankIndentation lists the actions the status bar's picker offers. The
+    // rows are static, so an empty query shows the whole list.
+    function rankIndentation(query: string): PaletteItem[] {
+        return rankCandidates(query, INDENT_PALETTE_COMMANDS, INDENT_PALETTE_COMMANDS.length);
+    }
+
+    function showIndentationPalette(): void {
+        if (active === undefined || active.kind !== 'text') {
+            return;
+        }
+        quickOpen = false;
+        recentOpen = false;
+        commandPalette = false;
+        languagePalette = false;
+        indentationPalette = true;
+    }
+
+    // runIndentAction runs one of Monaco's indentation actions on the active
+    // buffer. The actions live on the model, so only the showing tab's text
+    // and options change.
+    function runIndentAction(id: string): void {
+        const spec = INDENT_COMMANDS.find((entry) => entry.id === id);
+        if (spec === undefined || active === undefined || active.kind !== 'text') {
+            return;
+        }
+        searchActive = false;
+        editorPane?.runEditorAction(spec.action);
+    }
+
+    function chooseIndentation(id: string): void {
+        indentationPalette = false;
+        runIndentAction(id);
+    }
+
     function showCommandPalette(): void {
         quickOpen = false;
         recentOpen = false;
         languagePalette = false;
+        indentationPalette = false;
         commandPalette = true;
     }
 
@@ -1596,6 +1649,11 @@
         const selectionCommand = SELECTION_COMMANDS.find((entry) => entry.id === id);
         if (selectionCommand !== undefined) {
             runSelectionCommand(selectionCommand.id);
+            return;
+        }
+        const indentCommand = INDENT_COMMANDS.find((entry) => entry.id === id);
+        if (indentCommand !== undefined) {
+            runIndentAction(indentCommand.id);
             return;
         }
 
@@ -2702,6 +2760,7 @@
         quickOpen = false;
         commandPalette = false;
         languagePalette = false;
+        indentationPalette = false;
         searchActive = false;
         recentOpen = true;
     }
@@ -2912,6 +2971,7 @@
         commandPalette = false;
         recentOpen = false;
         languagePalette = false;
+        indentationPalette = false;
         searchOpen = true;
         searchActive = true;
         searchFocusToken++;
@@ -3574,6 +3634,9 @@
                         onDirtyChange={(id, dirty) => {
                             tabs = setDocumentDirty(tabs, id, dirty);
                         }}
+                        onIndentationChange={(insertSpaces, tabSize, indentSize) => {
+                            indentation = { insertSpaces, tabSize, indentSize };
+                        }}
                         onCursorMove={(nextLine, nextColumn) => {
                             line = nextLine;
                             column = nextColumn;
@@ -3630,6 +3693,7 @@
         {selectionLength}
         {language}
         eol={active?.kind === 'text' ? active.eol : ''}
+        indentation={indentationText}
         invalidUTF8={active?.kind === 'text' && active.invalidUTF8}
         {notice}
         {folderLabel}
@@ -3639,6 +3703,7 @@
         changesCount={gitChanges.length}
         onSwitchView={switchSidebarView}
         onToggleEol={toggleLineEnding}
+        onPickIndentation={active?.kind === 'text' ? showIndentationPalette : undefined}
         onChangeLanguage={active?.kind === 'text' ? showLanguagePalette : undefined}
     />
     {#if quickOpen}
@@ -3683,6 +3748,16 @@
             empty="No matching languages."
             onSelect={chooseLanguage}
             onClose={() => (languagePalette = false)}
+        />
+    {/if}
+    {#if indentationPalette}
+        <Palette
+            title="Select Indentation"
+            placeholder="Search indentation actions"
+            rank={rankIndentation}
+            empty="No matching actions."
+            onSelect={chooseIndentation}
+            onClose={() => (indentationPalette = false)}
         />
     {/if}
     {#if unsavedPrompt !== null}

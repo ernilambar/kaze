@@ -91,6 +91,48 @@ export const SELECTION_COMMANDS: readonly SelectionCommandSpec[] = [
 
 export type ZoomCommand = 'in' | 'out' | 'reset';
 
+// IndentCommand names one indentation action. The ids are palette ids; the
+// commands run Monaco's own editor actions, which act on the active buffer
+// only.
+export type IndentCommand =
+    | 'indent-using-spaces'
+    | 'indent-using-tabs'
+    | 'convert-indentation-to-spaces'
+    | 'convert-indentation-to-tabs';
+
+export interface IndentCommandSpec {
+    id: IndentCommand;
+    label: string;
+    // action is Monaco's built-in editor action.
+    action: string;
+}
+
+// INDENT_COMMANDS is the order the indentation picker and the command palette
+// show: the two choosers open Monaco's size picker, the two converters rewrite
+// the buffer's leading whitespace.
+export const INDENT_COMMANDS: readonly IndentCommandSpec[] = [
+    {
+        id: 'indent-using-spaces',
+        label: 'Indent Using Spaces…',
+        action: 'editor.action.indentUsingSpaces',
+    },
+    {
+        id: 'indent-using-tabs',
+        label: 'Indent Using Tabs…',
+        action: 'editor.action.indentUsingTabs',
+    },
+    {
+        id: 'convert-indentation-to-spaces',
+        label: 'Convert Indentation to Spaces',
+        action: 'editor.action.indentationToSpaces',
+    },
+    {
+        id: 'convert-indentation-to-tabs',
+        label: 'Convert Indentation to Tabs',
+        action: 'editor.action.indentationToTabs',
+    },
+];
+
 // ViewToggle is the app:toggle-view payload: the option and the state the menu
 // checkbox now shows.
 export interface ViewToggle {

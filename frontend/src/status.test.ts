@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCursorPosition, lineEndingLabel, noticeFor } from './status';
+import { formatCursorPosition, indentationLabel, lineEndingLabel, noticeFor } from './status';
 
 describe('formatCursorPosition', () => {
     it.each([
@@ -17,6 +17,18 @@ describe('lineEndingLabel', () => {
     it('names both sequences the editor writes', () => {
         expect(lineEndingLabel('lf')).toBe('LF');
         expect(lineEndingLabel('crlf')).toBe('CRLF');
+    });
+});
+
+describe('indentationLabel', () => {
+    it('names the indent unit a buffer inserts', () => {
+        expect(indentationLabel(true, 2, 4)).toBe('Spaces: 2');
+        expect(indentationLabel(true, 8, 8)).toBe('Spaces: 8');
+    });
+
+    it('names the width a tab renders at', () => {
+        expect(indentationLabel(false, 4, 4)).toBe('Tab Size: 4');
+        expect(indentationLabel(false, 2, 8)).toBe('Tab Size: 8');
     });
 });
 
