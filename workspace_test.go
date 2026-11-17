@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -26,6 +28,13 @@ func TestRecentFilesMoveToFrontAndDeduplicate(t *testing.T) {
 	want := []string{"/one.txt", "/two.txt"}
 	if !reflect.DeepEqual(files, want) {
 		t.Fatalf("recent files = %q, want %q", files, want)
+	}
+	stored, err := readSessionState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(stored.Recent.Files, want) {
+		t.Fatalf("session recent files = %q, want %q", stored.Recent.Files, want)
 	}
 }
 
@@ -60,6 +69,92 @@ func TestClearRecentFilesEmptiesTheList(t *testing.T) {
 	if files == nil || len(files) != 0 {
 		t.Fatalf("recent files = %#v, want a non-nil empty list", files)
 	}
+	files, err = app.GetRecentFiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if files == nil || len(files) != 0 {
+		t.Fatalf("GetRecentFiles() = %#v, want a non-nil empty list", files)
+	}
+}
+
+func TestLoadMigratesRecentFilesOutOfSettings(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	settingsPath, err := settingsFilePath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	settingsData := []byte(`{
+  "editor": { "font_family": "Menlo" },
+  "recent": { "files": ["/old/one.txt", " /old/two.txt ", "/old/one.txt"] },
+  "custom": { "keep": true }
+}`)
+	if err := os.WriteFile(settingsPath, settingsData, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	sessionPath, err := sessionFilePath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sessionPath, []byte(`{"version":1,"window":{"open_files":["/a.txt"]},"workspaces":{}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	app := NewApp()
+	files, err := app.GetRecentFiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"/old/one.txt", "/old/two.txt"}
+	if !reflect.DeepEqual(files, want) {
+		t.Fatalf("recent files = %q, want %q", files, want)
+	}
+
+	updated, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(updated, []byte(`"recent"`)) {
+		t.Fatalf("settings.json kept the recent section:\n%s", updated)
+	}
+	if !bytes.Contains(updated, []byte(`"custom": { "keep": true }`)) {
+		t.Fatalf("settings.json lost unrelated content:\n%s", updated)
+	}
+
+	state, err := readSessionState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Version != sessionVersion {
+		t.Fatalf("session version = %d, want %d", state.Version, sessionVersion)
+	}
+	if !reflect.DeepEqual(state.Recent.Files, want) {
+		t.Fatalf("session recent files = %q, want %q", state.Recent.Files, want)
+	}
+	if !reflect.DeepEqual(state.Window.OpenFiles, []string{"/a.txt"}) {
+		t.Fatalf("session tabs = %q, want the existing tab to survive", state.Window.OpenFiles)
+	}
+}
+
+// readSessionState reads the on-disk session file, bypassing the in-memory
+// store so a test sees exactly what was written.
+func readSessionState() (sessionFile, error) {
+	path, err := sessionFilePath()
+	if err != nil {
+		return sessionFile{}, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return sessionFile{}, err
+	}
+	var state sessionFile
+	err = json.Unmarshal(data, &state)
+	return state, err
 }
 
 func TestSetSessionPersistsNormalizedState(t *testing.T) {

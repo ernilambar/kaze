@@ -179,6 +179,14 @@ export function GetProductName(): $CancellablePromise<string> {
 }
 
 /**
+ * GetRecentFiles returns the Open Recent list, newest first. Every window reads
+ * the same list.
+ */
+export function GetRecentFiles(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(401165787);
+}
+
+/**
  * GetSettings loads the user's settings.json, creating it with defaults on
  * first run. The frontend calls this once at startup and applies the values to
  * the editor.

@@ -32,29 +32,23 @@ func (a *App) ClearRecentFiles() ([]string, error) {
 	return a.updateRecentFiles(func([]string) []string { return nil })
 }
 
-// updateRecentFiles reads settings.json, applies change to the recent list and
-// writes the result back. The list is normalized on both sides so an entry
-// trimmed here is the one the menu will show.
+// updateRecentFiles applies change to the session's recent list and writes it
+// back. The list is normalized on both sides so an entry trimmed here is the
+// one the menu will show.
 func (a *App) updateRecentFiles(change func([]string) []string) ([]string, error) {
-	path, err := settingsFilePath()
-	if err != nil {
-		return nil, err
-	}
+	a.sessionMu.Lock()
+	defer a.sessionMu.Unlock()
 
-	a.settingsMu.Lock()
-	defer a.settingsMu.Unlock()
-
-	settings, err := loadSettings(path)
+	state, err := a.loadSessionLocked()
 	if err != nil {
-		return settings.Recent.Files, err
+		return state.Recent.Files, err
 	}
-	before := settings.Recent
-	settings.Recent.Files = change(settings.Recent.Files)
-	settings.normalize()
-	if err := writeSettingsSections(path, settings, settingsSection{"recent", before, settings.Recent}); err != nil {
-		return settings.Recent.Files, err
+	state.Recent.Files = normalizeRecentFiles(change(state.Recent.Files))
+	a.sessionStore = state
+	if err := writeSessionFile(state); err != nil {
+		return state.Recent.Files, err
 	}
-	return settings.Recent.Files, nil
+	return state.Recent.Files, nil
 }
 
 // SetSidebarVisible records whether the folder tree is showing, so Cmd+B keeps

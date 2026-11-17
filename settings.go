@@ -31,12 +31,12 @@ type Settings struct {
 	Sidebar SidebarSettings `json:"sidebar"`
 	Files   FilesSettings   `json:"files"`
 	Search  SearchSettings  `json:"search"`
-	Recent  RecentSettings  `json:"recent"`
 	Theme   ThemeSettings   `json:"theme"`
 	UI      UISettings      `json:"ui"`
 	// Window is the frame the last window of a launch left behind. It is
 	// written by the backend, not by the settings overlay, and it is state
-	// rather than a user preference, like the recent list.
+	// rather than a user preference. Recent files are state too, kept in
+	// session.json beside the tab sets.
 	Window WindowSettings `json:"window"`
 }
 
@@ -112,11 +112,6 @@ type SearchSettings struct {
 	Exclude []string `json:"exclude"`
 }
 
-// RecentSettings is the Open Recent list, newest first.
-type RecentSettings struct {
-	Files []string `json:"files"`
-}
-
 // ThemeSettings selects the palette. Mode is system, light or dark; the other
 // two name the variant to use for each appearance. Names are variant names,
 // matching the `name` field inside a Zed theme file.
@@ -135,10 +130,6 @@ type UISettings struct {
 	IconStyle       string  `json:"icon_style"`
 	SidebarPosition string  `json:"sidebar_position"`
 }
-
-// maxRecentFiles caps the Open Recent list. More than a screenful is never
-// read, and the list is stored in settings.json.
-const maxRecentFiles = 20
 
 // defaultExcludePatterns is what a first run hides. Version control metadata
 // and installed packages hold thousands of files nobody opens by hand.
@@ -173,7 +164,6 @@ func defaultSettings() Settings {
 		Sidebar: SidebarSettings{Folders: []string{}, Visible: true, AutoReveal: true},
 		Files:   FilesSettings{Exclude: defaultExcludePatterns()},
 		Search:  SearchSettings{Exclude: defaultExcludePatterns()},
-		Recent:  RecentSettings{Files: []string{}},
 		Theme: ThemeSettings{
 			Mode:  defaultThemeMode,
 			Light: defaultThemeLight,
@@ -217,11 +207,6 @@ func (s *Settings) normalize() {
 	s.Sidebar.Folders = normalizeFolderList(s.Sidebar.Folders)
 	s.Files.Exclude = normalizePatternList(s.Files.Exclude)
 	s.Search.Exclude = normalizePatternList(s.Search.Exclude)
-
-	s.Recent.Files = normalizeFileList(s.Recent.Files)
-	if len(s.Recent.Files) > maxRecentFiles {
-		s.Recent.Files = s.Recent.Files[:maxRecentFiles]
-	}
 
 	s.Theme.Mode = normalizeThemeMode(s.Theme.Mode)
 	s.Theme.Light = strings.TrimSpace(s.Theme.Light)

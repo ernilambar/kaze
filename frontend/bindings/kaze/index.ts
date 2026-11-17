@@ -21,7 +21,6 @@ export type {
     LaunchBuffer,
     LaunchRequest,
     PrintRequest,
-    RecentSettings,
     ReplaceResult,
     SaveRequest,
     SaveResult,

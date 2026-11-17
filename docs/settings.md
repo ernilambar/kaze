@@ -106,14 +106,19 @@ dropped and duplicates are removed.
 
 ## Recent files and session
 
-`recent.files` is the only list left in `settings.json`:
+`recent.files` is no longer a setting. The Open Recent history is app state, so
+it lives in `session.json` beside `settings.json`:
 
 | Key | Type | Description |
 | --- | --- | --- |
 | `recent.files` | string[] | Files shown by **File → Open Recent…** (<kbd>Ctrl</kbd>+<kbd>R</kbd>), newest first, capped at 20. |
 
-Tabs and workspace sessions are app-written state in `session.json`, beside
-`settings.json`, not editable settings:
+An older `settings.json` that still contains `recent` is migrated on first
+load: its list moves to `session.json` and the key is removed, leaving the rest
+of the file untouched.
+
+Tabs and workspace sessions are app-written state in `session.json` too, not
+editable settings:
 
 - `window` holds the launch window's file-backed tabs, active tab, expanded
   folders and workspace path.
@@ -143,10 +148,11 @@ booleans above, not as a separate UI state.
 - Unknown keys are ignored.
 - Malformed JSON is reported in the developer console; Kaze runs with defaults
   and leaves the file untouched so it can be fixed.
-- Editor values, `sidebar.visible`, `sidebar.auto_reveal` and the recent list
-  are read at startup; excludes are read when a folder level is opened and when
-  a search runs. The settings panel applies changes immediately; after editing
-  the file by hand, restart Kaze to reread the editor values or the sidebar.
+- Editor values, `sidebar.visible` and `sidebar.auto_reveal` are read at
+  startup; the recent list is read from `session.json` then too. Excludes are
+  read when a folder level is opened and when a search runs. The settings panel
+  applies changes immediately; after editing the file by hand, restart Kaze to
+  reread the editor values or the sidebar.
 
 The settings panel (**Settings…**, <kbd>Cmd</kbd>+<kbd>,</kbd>) edits every
 configurable value in the file: editor typography, indentation, cursor, view
@@ -157,8 +163,8 @@ panel's toggles. The panel's **Advanced** section links to the JSON file, the de
 settings, the themes folder and the keybindings.
 
 `recent.files` is managed by the app: the Open Recent menu is its UI, so the
-panel does not list it as an editable setting. Tabs and workspace sessions live
-in `session.json` instead.
+panel does not list it as an editable setting. Tabs, workspace sessions and the
+recent list live in `session.json` instead.
 
 The shortcut launches `$VISUAL`, falling back to `$EDITOR`, and then to the
 platform's default file handler. The value may include arguments, e.g.

@@ -2,6 +2,7 @@ import type * as models from '../bindings/kaze/models';
 import {
     AddRecentFile,
     ClearRecentFiles,
+    GetRecentFiles,
     GetSettings,
     GetWindowSession,
     LoadWorkspace,
@@ -14,9 +15,9 @@ import {
 } from '../bindings/kaze/app';
 import { onWindowEvent } from './windowstate';
 
-// WorkspaceState is the part of settings.json that outlives a window: the
-// sidebar's visibility and reveal behavior plus the Open Recent list. Tabs live
-// in session.json, which is app-written state rather than user settings.
+// WorkspaceState is the state shared by every window: the sidebar's visibility
+// and reveal behavior from settings.json plus the Open Recent list from
+// session.json. Tabs live in session.json too, restored per launch.
 export interface WorkspaceState {
     sidebarVisible: boolean;
     autoReveal: boolean;
@@ -61,21 +62,23 @@ export function toWorkspaceSession(session: models.WorkspaceSession): SavedWorks
 }
 
 export async function loadWorkspaceState(): Promise<WorkspaceState> {
+    let settings: models.Settings | null = null;
+    let recentFiles: string[] = [];
     try {
-        const settings = await GetSettings();
-        return {
-            sidebarVisible: settings?.sidebar?.visible ?? true,
-            autoReveal: settings?.sidebar?.auto_reveal ?? true,
-            recentFiles: settings?.recent?.files ?? [],
-        };
+        settings = await GetSettings();
     } catch (error) {
         console.error('Failed to load workspace state.', error);
-        return {
-            sidebarVisible: true,
-            autoReveal: true,
-            recentFiles: [],
-        };
     }
+    try {
+        recentFiles = (await GetRecentFiles()) ?? [];
+    } catch (error) {
+        console.error('Failed to load recent files.', error);
+    }
+    return {
+        sidebarVisible: settings?.sidebar?.visible ?? true,
+        autoReveal: settings?.sidebar?.auto_reveal ?? true,
+        recentFiles,
+    };
 }
 
 // loadWindowSession returns the tabs the first window of a launch should

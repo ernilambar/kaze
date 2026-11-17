@@ -276,13 +276,6 @@ export interface PrintRequest {
 }
 
 /**
- * RecentSettings is the Open Recent list, newest first.
- */
-export interface RecentSettings {
-    "files": string[] | null;
-}
-
-/**
  * ReplaceResult reports how much Replace All changed. Skipped lists the files
  * whose mtime moved since the search, so the frontend can report them instead
  * of silently leaving a stale replacement behind.
@@ -405,14 +398,14 @@ export interface Settings {
     "sidebar": SidebarSettings;
     "files": FilesSettings;
     "search": SearchSettings;
-    "recent": RecentSettings;
     "theme": ThemeSettings;
     "ui": UISettings;
 
     /**
      * Window is the frame the last window of a launch left behind. It is
      * written by the backend, not by the settings overlay, and it is state
-     * rather than a user preference, like the recent list.
+     * rather than a user preference. Recent files are state too, kept in
+     * session.json beside the tab sets.
      */
     "window": WindowSettings;
 }

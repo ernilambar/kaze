@@ -13,12 +13,18 @@ import (
 )
 
 const (
+	// sessionVersion is the current session.json schema. Version 1 kept the
+	// Open Recent list in settings.json; loading an older file moves it here.
+	sessionVersion = 2
 	// maxWorkspaceSessions caps the parked tab sets in session.json. A user
 	// who opens many workspaces would otherwise keep every one forever.
 	maxWorkspaceSessions = 50
 	// maxSessionFiles caps one tab list, so a hand-edited session cannot make
 	// a launch restore an unbounded number of tabs.
 	maxSessionFiles = 40
+	// maxRecentFiles caps the Open Recent list. More than a screenful is never
+	// read.
+	maxRecentFiles = 20
 )
 
 // WindowSession is the state a relaunch restores for one window. It lives in
@@ -45,12 +51,19 @@ type WorkspaceSession struct {
 	Updated   int64    `json:"updated"`
 }
 
+// RecentFiles is the Open Recent history, newest first. It is state shared by
+// every window, so it lives beside the tab sets instead of in settings.json.
+type RecentFiles struct {
+	Files []string `json:"files"`
+}
+
 // sessionFile is the on-disk shape of session.json. Window belongs to the one
 // window that owns the launch session; every window may park a workspace tab
 // set in Workspaces. Teak's per-window array is not used because Kaze still
 // restores only the first window of a launch.
 type sessionFile struct {
 	Version    int                         `json:"version"`
+	Recent     RecentFiles                 `json:"recent"`
 	Window     WindowSession               `json:"window"`
 	Workspaces map[string]WorkspaceSession `json:"workspaces"`
 }
@@ -67,7 +80,8 @@ func sessionFilePath() (string, error) {
 // emptySession is a store with the map the JSON encoder expects and no tabs.
 func emptySession() sessionFile {
 	return sessionFile{
-		Version:    1,
+		Version:    sessionVersion,
+		Recent:     RecentFiles{Files: []string{}},
 		Window:     WindowSession{},
 		Workspaces: map[string]WorkspaceSession{},
 	}
@@ -86,9 +100,11 @@ func (a *App) loadSessionLocked() (sessionFile, error) {
 		return emptySession(), err
 	}
 	data, err := os.ReadFile(path)
+	migrateRecent := false
 	switch {
 	case errors.Is(err, os.ErrNotExist), err == nil && len(bytes.TrimSpace(data)) == 0:
 		a.sessionStore = emptySession()
+		migrateRecent = true
 	case err != nil:
 		return emptySession(), fmt.Errorf("read session file: %w", err)
 	default:
@@ -96,17 +112,55 @@ func (a *App) loadSessionLocked() (sessionFile, error) {
 		if json.Unmarshal(data, &state) != nil {
 			_ = os.Rename(path, path+".bak")
 			state = emptySession()
+			migrateRecent = true
+		} else if state.Version < sessionVersion {
+			migrateRecent = true
 		}
 		a.sessionStore = normalizeSession(state)
 	}
 	a.sessionLoaded = true
+	if migrateRecent {
+		a.adoptLegacyRecentLocked()
+	}
 	return a.sessionStore, nil
+}
+
+// adoptLegacyRecentLocked moves the Open Recent list that older builds kept in
+// settings.json into session.json and drops the old key. A failed read or write
+// leaves both files alone, so nothing is lost.
+func (a *App) adoptLegacyRecentLocked() {
+	settingsPath, err := settingsFilePath()
+	if err != nil {
+		return
+	}
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		return
+	}
+	var legacy struct {
+		Recent RecentFiles `json:"recent"`
+	}
+	if json.Unmarshal(data, &legacy) != nil {
+		return
+	}
+
+	if len(a.sessionStore.Recent.Files) == 0 && len(legacy.Recent.Files) > 0 {
+		a.sessionStore.Recent.Files = normalizeRecentFiles(legacy.Recent.Files)
+		if err := writeSessionFile(a.sessionStore); err != nil {
+			return
+		}
+	}
+
+	a.settingsMu.Lock()
+	defer a.settingsMu.Unlock()
+	_ = dropSettingsSection(settingsPath, "recent")
 }
 
 // normalizeSession repairs a file written by hand or by a future version that
 // added fields this build does not understand.
 func normalizeSession(state sessionFile) sessionFile {
-	state.Version = 1
+	state.Version = sessionVersion
+	state.Recent.Files = normalizeRecentFiles(state.Recent.Files)
 	state.Window = normalizeWindowSession(state.Window)
 	if state.Workspaces == nil {
 		state.Workspaces = map[string]WorkspaceSession{}
@@ -115,6 +169,32 @@ func normalizeSession(state sessionFile) sessionFile {
 		state.Workspaces[key] = normalizeWorkspaceSession(workspace)
 	}
 	return state
+}
+
+// normalizeRecentFiles trims entries, drops repeats past the cap and always
+// returns a non-nil list.
+func normalizeRecentFiles(files []string) []string {
+	normalized := normalizeFileList(files)
+	if len(normalized) > maxRecentFiles {
+		normalized = normalized[:maxRecentFiles]
+	}
+	if normalized == nil {
+		return []string{}
+	}
+	return normalized
+}
+
+// GetRecentFiles returns the Open Recent list, newest first. Every window reads
+// the same list.
+func (a *App) GetRecentFiles() ([]string, error) {
+	a.sessionMu.Lock()
+	defer a.sessionMu.Unlock()
+
+	state, err := a.loadSessionLocked()
+	if err != nil {
+		return nil, err
+	}
+	return state.Recent.Files, nil
 }
 
 func normalizeWindowSession(session WindowSession) WindowSession {

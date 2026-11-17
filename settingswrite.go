@@ -53,6 +53,57 @@ func writeSettingsSections(path string, settings Settings, sections ...settingsS
 	return writeSettingsFile(path, data)
 }
 
+// dropSettingsSection removes one top-level section and leaves the rest of the
+// file's text untouched. It is used once per upgrade, to move the Open Recent
+// list out of settings.json; a missing key or unreadable file is a no-op.
+func dropSettingsSection(path, name string) error {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) || (err == nil && len(bytes.TrimSpace(data)) == 0) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read settings file: %w", err)
+	}
+	fields, err := parseJSONObject(data)
+	if err != nil {
+		return err
+	}
+
+	for _, field := range fields {
+		if field.key != name {
+			continue
+		}
+		start := field.keyStart
+		end := field.valueEnd
+		next := skipJSONSpace(data, end)
+		if next < len(data) && data[next] == ',' {
+			end = next + 1
+			// The newline after the removed member ends the line that held it;
+			// dropping it too keeps the neighbouring members on adjacent lines.
+			if end < len(data) && data[end] == '\r' {
+				end++
+			}
+			if end < len(data) && data[end] == '\n' {
+				end++
+				for start > 0 && (data[start-1] == ' ' || data[start-1] == '\t') {
+					start--
+				}
+			}
+		} else {
+			// Last member: remove the separator before it instead.
+			previous := start
+			for previous > 0 && isJSONSpace(data[previous-1]) {
+				previous--
+			}
+			if previous > 0 && data[previous-1] == ',' {
+				start = previous - 1
+			}
+		}
+		return writeSettingsFile(path, applyEdits(data, []textEdit{{start, end, nil}}))
+	}
+	return nil
+}
+
 // changedMembers lists the keys of a settings section whose JSON value moved,
 // in struct order. Both sides are marshaled from the same Go type, so a key
 // equal on both sides is the one whose text the file already has.

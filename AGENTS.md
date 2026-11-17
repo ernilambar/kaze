@@ -107,20 +107,23 @@ No frontend linter/formatter is configured; don't add one unprompted.
   `app:close-tab`.
 - **Session is app state.** `workspace.ts` persists the window's file-backed
   tabs, active tab, expanded folders and workspace binding in `session.json`
-  (`session.go`), never in `settings.json` or a workspace file. Untitled buffers
-  are excluded. Each window parks its current tab set under its workspace path;
-  switching workspaces saves the current set, prompts to save dirty tabs, closes
-  them, and restores the target's parked set. Close Workspace closes tabs and
-  roots but keeps the parked set. Only the first window of a launch restores and
-  writes the launch entry; later windows still park workspace sets. Moving or
-  renaming a workspace file is handled by adopting a unique parked set with the
-  same canonical folders when the old file no longer exists; ambiguous matches
-  and workspaces whose file still exists are ignored. The map is capped at 50
-  workspaces, and a corrupt session file is moved to `session.json.bak`.
+  (`session.go`), never in `settings.json` or a workspace file. The file also
+  holds the Open Recent list: it is shared history, not a setting. Untitled
+  buffers are excluded. Each window parks its current tab set under its
+  workspace path; switching workspaces saves the current set, prompts to save
+  dirty tabs, closes them, and restores the target's parked set. Close Workspace
+  closes tabs and roots but keeps the parked set. Only the first window of a
+  launch restores and writes the launch entry; later windows still park
+  workspace sets. Moving or renaming a workspace file is handled by adopting a
+  unique parked set with the same canonical folders when the old file no longer
+  exists; ambiguous matches and workspaces whose file still exists are ignored.
+  The map is capped at 50 workspaces, and a corrupt session file is moved to
+  `session.json.bak`. Loading a version-1 file migrates a legacy
+  `recent` section out of `settings.json` and removes the key.
 - **Windows are independent editors in one process.** `windows.go` keeps one
   `windowSession` per window; each owns tabs, roots, search results and dirty
-  flag, while settings, recent files and theme stay shared. Menu actions hit the
-  focused window; targeted events carry the sender name checked by
+  flag, while settings and theme stay shared and the Open Recent list is shared
+  session state. Menu actions hit the focused window; targeted events carry the
   `windowstate.ts`. New/Close Window, Move Tab to New Window, Open Folder in New
   Window and Bring All to Front are in menus and palette. Closing asks that
   window's dirty buffers; the last window quits; Cmd+Q asks each dirty window.
@@ -161,11 +164,11 @@ No frontend linter/formatter is configured; don't add one unprompted.
 - **Settings live in `settings.json`** (`Kaze/settings.json`), created with
   defaults. Keep `frontend/src/settings.ts` defaults in sync with Go (TS is only
   the fallback); `loadSettings` decodes over defaults so absent keys keep theirs.
-  Sections: editor, sidebar, files, search, recent, theme, ui, window.
+  Sections: editor, sidebar, files, search, theme, ui, window.
   Write paths use `settingsMu` and `settingswrite.go`, which rewrites only
   changed keys so unknown keys and formatting survive. The overlay edits
-  configurable sections; recent files and the window frame are state, while
-  tabs and workspace sessions live in `session.json`.
+  configurable sections; the window frame is state kept here, while recent
+  files, tabs and workspace sessions live in `session.json`.
 - **Appearance is a Zed theme family.** `themes.go` embeds `themes/kaze.json` and
   reads `<config>/Kaze/themes`. UI keys become CSS variables, `editor.*` Monaco
   colors, `syntax` token rules (`theme.ts`). Missing keys fall back; malformed
