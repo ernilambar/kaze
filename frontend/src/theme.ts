@@ -12,10 +12,22 @@ import {
 // ThemeAppearance is the variant's own light/dark label, not the selected mode.
 export type ThemeAppearance = 'light' | 'dark';
 
+export interface ThemePreview {
+    background: string;
+    foreground: string;
+    accent: string;
+    keyword: string;
+    string: string;
+    comment: string;
+}
+
 export interface ThemeInfo {
     family: string;
     name: string;
     appearance: ThemeAppearance;
+    // Resolved swatches for the settings picker. Empty strings mean the theme
+    // file did not provide a usable color; CSS falls back to the live palette.
+    preview: ThemePreview;
 }
 
 export interface ThemeCatalog {
@@ -55,6 +67,14 @@ export function toThemeInfo(summary: models.ThemeSummary): ThemeInfo {
         family: summary.family,
         name: summary.name,
         appearance: appearanceOf(summary.appearance),
+        preview: {
+            background: summary.preview?.background ?? '',
+            foreground: summary.preview?.foreground ?? '',
+            accent: summary.preview?.accent ?? '',
+            keyword: summary.preview?.keyword ?? '',
+            string: summary.preview?.string ?? '',
+            comment: summary.preview?.comment ?? '',
+        },
     };
 }
 

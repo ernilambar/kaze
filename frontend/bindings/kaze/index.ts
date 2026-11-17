@@ -35,6 +35,7 @@ export type {
     SidebarSettings,
     ThemeCatalog,
     ThemePalette,
+    ThemePreview,
     ThemeSettings,
     ThemeSummary,
     UISettings,

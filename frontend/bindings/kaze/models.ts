@@ -480,6 +480,20 @@ export interface ThemePalette {
 }
 
 /**
+ * ThemePreview is the handful of colors the picker paints for a variant. It is
+ * resolved through mergeStyle, so a partial user theme still previews with the
+ * built-in contrast instead of blank swatches.
+ */
+export interface ThemePreview {
+    "background": string;
+    "foreground": string;
+    "accent": string;
+    "keyword": string;
+    "string": string;
+    "comment": string;
+}
+
+/**
  * ThemeSettings selects the palette. Mode is system, light or dark; the other
  * two name the variant to use for each appearance. Names are variant names,
  * matching the `name` field inside a Zed theme file.
@@ -498,6 +512,7 @@ export interface ThemeSummary {
     "family": string;
     "name": string;
     "appearance": string;
+    "preview": ThemePreview;
 }
 
 /**

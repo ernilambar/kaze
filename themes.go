@@ -75,9 +75,22 @@ type themeHighlight struct {
 // ThemeSummary is one variant in the theme picker. Name is what settings.json
 // stores; Family is what the file calls the group it belongs to.
 type ThemeSummary struct {
-	Family     string `json:"family"`
-	Name       string `json:"name"`
-	Appearance string `json:"appearance"`
+	Family     string       `json:"family"`
+	Name       string       `json:"name"`
+	Appearance string       `json:"appearance"`
+	Preview    ThemePreview `json:"preview"`
+}
+
+// ThemePreview is the handful of colors the picker paints for a variant. It is
+// resolved through mergeStyle, so a partial user theme still previews with the
+// built-in contrast instead of blank swatches.
+type ThemePreview struct {
+	Background string `json:"background"`
+	Foreground string `json:"foreground"`
+	Accent     string `json:"accent"`
+	Keyword    string `json:"keyword"`
+	String     string `json:"string"`
+	Comment    string `json:"comment"`
 }
 
 // ThemeCatalog is the set of readable themes plus the files that failed to
@@ -241,10 +254,20 @@ func normalizeAppearance(appearance string) string {
 func catalogFromEntries(entries []themeEntry) []ThemeSummary {
 	byName := make(map[string]ThemeSummary, len(entries))
 	for _, entry := range entries {
+		style := mergeStyle(builtinStyleFor(entry.Variant.Appearance), entry.Variant.Style)
+		foreground := firstColor(style.EditorForeground, style.Text)
 		byName[entry.Variant.Name] = ThemeSummary{
 			Family:     entry.Family,
 			Name:       entry.Variant.Name,
 			Appearance: entry.Variant.Appearance,
+			Preview: ThemePreview{
+				Background: firstColor(style.EditorBackground, style.Background),
+				Foreground: foreground,
+				Accent:     firstColor(style.TextAccent, foreground),
+				Keyword:    syntaxPreviewColor(style, "keyword", foreground),
+				String:     syntaxPreviewColor(style, "string", foreground),
+				Comment:    syntaxPreviewColor(style, "comment", foreground),
+			},
 		}
 	}
 	themes := make([]ThemeSummary, 0, len(byName))
@@ -258,6 +281,15 @@ func catalogFromEntries(entries []themeEntry) []ThemeSummary {
 		return themes[i].Name < themes[j].Name
 	})
 	return themes
+}
+
+// syntaxPreviewColor picks one resolved syntax color for the picker, falling
+// back to the editor foreground when the capture is absent.
+func syntaxPreviewColor(style themeStyle, capture, fallback string) string {
+	if highlight, ok := style.Syntax[capture]; ok {
+		return firstColor(highlight.Color, fallback)
+	}
+	return fallback
 }
 
 func findVariant(entries []themeEntry, name string) (themeEntry, bool) {

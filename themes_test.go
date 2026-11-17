@@ -150,6 +150,48 @@ func TestFirstColorRejectsMalformedValues(t *testing.T) {
 	}
 }
 
+func TestCatalogPreviewMatchesPalette(t *testing.T) {
+	// Use a temp config root so a user theme cannot change what is listed.
+	root := t.TempDir()
+	t.Setenv("HOME", root)
+
+	catalog := (&App{}).ListThemes()
+	for _, themeName := range []string{defaultThemeDark, defaultThemeLight} {
+		var summary *ThemeSummary
+		for index := range catalog.Themes {
+			if catalog.Themes[index].Name == themeName {
+				summary = &catalog.Themes[index]
+				break
+			}
+		}
+		if summary == nil {
+			t.Fatalf("ListThemes() did not include %q", themeName)
+		}
+		palette, err := (&App{}).LoadTheme(themeName)
+		if err != nil {
+			t.Fatalf("LoadTheme(%q) error = %v", themeName, err)
+		}
+		if summary.Preview.Background != palette.Editor["editor.background"] {
+			t.Errorf("%s preview background = %q, want %q", themeName, summary.Preview.Background, palette.Editor["editor.background"])
+		}
+		if summary.Preview.Foreground != palette.Editor["editor.foreground"] {
+			t.Errorf("%s preview foreground = %q, want %q", themeName, summary.Preview.Foreground, palette.Editor["editor.foreground"])
+		}
+		if summary.Preview.Accent != palette.UI["link"] {
+			t.Errorf("%s preview accent = %q, want %q", themeName, summary.Preview.Accent, palette.UI["link"])
+		}
+		for capture, got := range map[string]string{
+			"keyword": summary.Preview.Keyword,
+			"string":  summary.Preview.String,
+			"comment": summary.Preview.Comment,
+		} {
+			if expected := palette.Syntax[capture].Color; got != expected {
+				t.Errorf("%s preview %s = %q, want %q", themeName, capture, got, expected)
+			}
+		}
+	}
+}
+
 func TestLoadThemeAgreesWithCatalog(t *testing.T) {
 	// Use a temp config root so the test never touches the real user folder.
 	root := t.TempDir()
