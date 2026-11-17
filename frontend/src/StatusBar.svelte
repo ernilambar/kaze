@@ -57,6 +57,8 @@ let {
                 class:statusbar__view--active={sidebarView === 'explorer'}
                 role="tab"
                 aria-selected={sidebarView === 'explorer'}
+                aria-label="Explorer"
+                title="Explorer"
                 onclick={() => onSwitchView?.('explorer')}
             >
                 <svg aria-hidden="true" height="12" viewBox="0 0 12 12" width="12">
@@ -68,13 +70,14 @@ let {
                         stroke-width="1.2"
                     />
                 </svg>
-                <span>Explorer</span>
             </button>
             <button
                 class="statusbar__view"
                 class:statusbar__view--active={sidebarView === 'changes'}
                 role="tab"
                 aria-selected={sidebarView === 'changes'}
+                aria-label="Changes"
+                title="Changes"
                 onclick={() => onSwitchView?.('changes')}
             >
                 <svg aria-hidden="true" height="12" viewBox="0 0 12 12" width="12">
@@ -88,7 +91,6 @@ let {
                     <circle cx="9" cy="3" fill="none" r="1.4" stroke="currentColor" stroke-width="1.1" />
                     <circle cx="3" cy="9" fill="none" r="1.4" stroke="currentColor" stroke-width="1.1" />
                 </svg>
-                <span>Changes</span>
                 {#if changesCount > 0}<span class="statusbar__count">{changesCount}</span>{/if}
             </button>
         </div>
