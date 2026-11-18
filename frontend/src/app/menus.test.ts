@@ -126,17 +126,33 @@ describe('contextMenuItems', () => {
     const treeTarget: MenuTarget = { path: '/repo', isDir: true };
 
     it('shows nothing without a target', () => {
-        expect(contextMenuItems(null, tabs, '', false)).toEqual([]);
+        expect(contextMenuItems(null, tabs, '', false, [])).toEqual([]);
     });
 
     it('offers the tree menu for a tree row', () => {
-        expect(contextMenuItems(treeTarget, tabs, '', false)).toEqual(
-            treeMenuItems(''),
+        expect(contextMenuItems(treeTarget, tabs, '', false, [])).toEqual(
+            treeMenuItems('', false),
         );
     });
 
+    it('disables moving or deleting a sidebar root', () => {
+        const items = contextMenuItems(treeTarget, tabs, '', false, ['/repo']);
+
+        for (const id of ['cut', 'rename', 'move', 'trash']) {
+            expect(item(items, id)?.disabled).toBe(true);
+        }
+        expect(item(items, 'new-file')?.disabled).toBeUndefined();
+        expect(item(items, 'duplicate')?.disabled).toBeUndefined();
+    });
+
+    it('treats a file with a root path spelling as a plain row', () => {
+        const items = contextMenuItems({ path: '/repo', isDir: false }, tabs, '', false, ['/repo']);
+
+        expect(item(items, 'trash')?.disabled).toBeUndefined();
+    });
+
     it('enables Paste when a tree row has something cut', () => {
-        const items = contextMenuItems(treeTarget, tabs, '/repo/a.ts', false);
+        const items = contextMenuItems(treeTarget, tabs, '/repo/a.ts', false, []);
 
         expect(item(items, 'paste')?.disabled).toBe(false);
     });
@@ -144,7 +160,7 @@ describe('contextMenuItems', () => {
     it('offers the tab menu for a tab row', () => {
         const target: MenuTarget = { path: '/repo/a.ts', isDir: false, tabId: tabs[0].id };
 
-        expect(contextMenuItems(target, tabs, '', false)).toEqual(
+        expect(contextMenuItems(target, tabs, '', false, [])).toEqual(
             documentTabMenuItems(tabs[0], tabs, false),
         );
     });
@@ -152,12 +168,12 @@ describe('contextMenuItems', () => {
     it('shows nothing for a tab that has closed', () => {
         const target: MenuTarget = { path: '/repo/a.ts', isDir: false, tabId: 'gone' };
 
-        expect(contextMenuItems(target, tabs, '', false)).toEqual([]);
+        expect(contextMenuItems(target, tabs, '', false, [])).toEqual([]);
     });
 
     it('lets an open Find in Files tab keep the group closes enabled', () => {
         const target: MenuTarget = { path: '/repo/a.ts', isDir: false, tabId: tabs[0].id };
-        const items = contextMenuItems(target, tabs, '', true);
+        const items = contextMenuItems(target, tabs, '', true, []);
 
         expect(item(items, 'close-other-tabs')?.disabled).toBe(false);
     });

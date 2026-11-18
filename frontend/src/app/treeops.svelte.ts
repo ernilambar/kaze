@@ -1,4 +1,5 @@
 import { CopyText, RevealFile } from '../../bindings/kaze/app';
+import { ROOT_LOCKED_COMMANDS } from '../contextmenu';
 import {
     copyPath,
     createFile,
@@ -292,6 +293,11 @@ export class TreeOps {
     // moveEntry is a drop on a folder row. It is the same move Paste does, with
     // the source coming from the drag rather than the clipboard.
     moveEntry = async (source: string, folder: string): Promise<void> => {
+        // A root row is not draggable; a root reaching here is refused for the
+        // same reason the menu refuses to move one.
+        if (this.ctx.folders.includes(source)) {
+            return;
+        }
         this.busyPath = folder;
         try {
             const entry = await movePath(source, folder);
@@ -392,6 +398,11 @@ export class TreeOps {
     };
 
     runTreeCommand = async (id: string, path: string, isDir: boolean): Promise<void> => {
+        // The menu disables these for a root; refusing here keeps any other
+        // caller from moving or trashing a folder the sidebar still lists.
+        if (ROOT_LOCKED_COMMANDS.includes(id) && this.ctx.folders.includes(path)) {
+            return;
+        }
         if (id === 'reveal') {
             await this.revealPath(path);
             return;

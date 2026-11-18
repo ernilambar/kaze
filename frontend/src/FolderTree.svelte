@@ -258,7 +258,7 @@
         class:row--busy={busyPath === path}
         aria-busy={busyPath === path}
         style:padding-left={`${8 + depth * 14}px`}
-        draggable={onMovePath !== undefined}
+        draggable={onMovePath !== undefined && depth > 0}
         ondragstart={onRowDragStart}
         ondragend={onRowDragEnd}
         ondragover={onRowDragOver}

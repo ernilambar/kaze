@@ -624,7 +624,13 @@
     // contextMenuItems builds the row menu for the right-click the menu was
     // opened on. The builders are pure functions in app/menus.ts.
     function contextMenuItems(): ContextMenuItem[] {
-        return buildContextMenuItems(contextMenu, ctx.tabs, treeops.clipboardPath, search.open);
+        return buildContextMenuItems(
+            contextMenu,
+            ctx.tabs,
+            treeops.clipboardPath,
+            search.open,
+            ctx.folders,
+        );
     }
 
     // runContextMenu runs the item the row menu picked against the entry it was
