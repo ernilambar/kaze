@@ -19,6 +19,9 @@ import * as config$0 from "./internal/config/models.js";
 import * as document$0 from "./internal/document/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as fileops$0 from "./internal/fileops/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as find$0 from "./internal/find/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -85,7 +88,7 @@ export function CloseWindow(window: string): $CancellablePromise<void> {
  * there gets the next free " copy" name instead of failing, so pasting the same
  * file twice is not an error.
  */
-export function CopyPath(path: string, targetDir: string): $CancellablePromise<$models.FileTreeResult> {
+export function CopyPath(path: string, targetDir: string): $CancellablePromise<fileops$0.FileTreeResult> {
     return $Call.ByID(1297703531, path, targetDir);
 }
 
@@ -103,7 +106,7 @@ export function CopyText(text: string): $CancellablePromise<void> {
  * than an overwrite: the tree is a file manager here, so New File must never
  * truncate something the user already has.
  */
-export function CreateFile(parent: string, name: string): $CancellablePromise<$models.FileTreeResult> {
+export function CreateFile(parent: string, name: string): $CancellablePromise<fileops$0.FileTreeResult> {
     return $Call.ByID(3418645411, parent, name);
 }
 
@@ -112,7 +115,7 @@ export function CreateFile(parent: string, name: string): $CancellablePromise<$m
  * than trusted from the caller, because a name that walks up the tree would put
  * the new folder somewhere the user cannot see.
  */
-export function CreateFolder(parent: string, name: string): $CancellablePromise<$models.FileTreeResult> {
+export function CreateFolder(parent: string, name: string): $CancellablePromise<fileops$0.FileTreeResult> {
     return $Call.ByID(1403526973, parent, name);
 }
 
@@ -133,7 +136,7 @@ export function DefaultSettingsFile(): $CancellablePromise<string> {
  * user typed over something else. A directory is copied whole, so the duplicate
  * is a snapshot rather than a second name for the same contents.
  */
-export function DuplicatePath(path: string, target: string): $CancellablePromise<$models.FileTreeResult> {
+export function DuplicatePath(path: string, target: string): $CancellablePromise<fileops$0.FileTreeResult> {
     return $Call.ByID(3607991813, path, target);
 }
 
@@ -260,7 +263,7 @@ export function KeybindingsFile(): $CancellablePromise<string> {
  * hidden in the tree is hidden here too; .gitignore files and VCS directories
  * are skipped as well.
  */
-export function ListFiles(window: string): $CancellablePromise<$models.FileList> {
+export function ListFiles(window: string): $CancellablePromise<fileops$0.FileList> {
     return $Call.ByID(3557170708, window);
 }
 
@@ -324,7 +327,7 @@ export function MinimiseWindow(window: string): $CancellablePromise<void> {
  * copy-free path; when the two folders are on different volumes the contents are
  * copied and the source removed, which is what the user asked for either way.
  */
-export function MovePath(path: string, targetDir: string): $CancellablePromise<$models.FileTreeResult> {
+export function MovePath(path: string, targetDir: string): $CancellablePromise<fileops$0.FileTreeResult> {
     return $Call.ByID(2028899675, path, targetDir);
 }
 
@@ -405,7 +408,7 @@ export function PrintDocument(request: $models.PrintRequest): $CancellablePromis
  * relative to it, so an anchored `/build` hides only the top-level folder and
  * `docs/gen` hides a nested one, the same as Quick Open.
  */
-export function ReadFolder(path: string, root: string): $CancellablePromise<$models.FolderEntry[] | null> {
+export function ReadFolder(path: string, root: string): $CancellablePromise<fileops$0.FolderEntry[] | null> {
     return $Call.ByID(4221321413, path, root);
 }
 
@@ -431,7 +434,7 @@ export function RemoveSidebarFolder(window: string, folder: string): $Cancellabl
  * rename in place, so the common case is unchanged. The caller retargets the
  * open tabs afterwards, so a renamed file stays open under its new path.
  */
-export function RenamePath(path: string, target: string): $CancellablePromise<$models.FileTreeResult> {
+export function RenamePath(path: string, target: string): $CancellablePromise<fileops$0.FileTreeResult> {
     return $Call.ByID(1959759948, path, target);
 }
 

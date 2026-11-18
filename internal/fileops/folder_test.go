@@ -1,4 +1,4 @@
-package main
+package fileops
 
 import (
 	"os"
@@ -12,7 +12,7 @@ import (
 )
 
 func readFolder(path string) ([]FolderEntry, error) {
-	return readFolderExcluding(path, path, ignore.Matcher{})
+	return ReadFolder(path, path, ignore.Matcher{})
 }
 
 func TestReadFolderListsDirectoriesFirstThenNames(t *testing.T) {
@@ -128,12 +128,12 @@ func TestReadFolderExcludingDropsExcludedEntries(t *testing.T) {
 	writeTempFile(t, dir, "debug.log", "noise\n")
 	writeTempFile(t, dir, "main.go", "package main\n")
 
-	entries, err := readFolderExcluding(dir, dir, ignore.NewMatcher([]string{"node_modules", "*.log"}))
+	entries, err := ReadFolder(dir, dir, ignore.NewMatcher([]string{"node_modules", "*.log"}))
 	if err != nil {
-		t.Fatalf("readFolderExcluding() error = %v", err)
+		t.Fatalf("ReadFolder() error = %v", err)
 	}
 	if len(entries) != 1 || entries[0].Name != "main.go" {
-		t.Fatalf("readFolderExcluding() = %+v, want only main.go", entries)
+		t.Fatalf("ReadFolder() = %+v, want only main.go", entries)
 	}
 }
 
@@ -147,7 +147,7 @@ func TestReadFolderMatchesExcludesFromRoot(t *testing.T) {
 	excludes := ignore.NewMatcher([]string{"/build", "docs/gen"})
 
 	names := func(path string) []string {
-		entries, err := readFolderExcluding(path, root, excludes)
+		entries, err := ReadFolder(path, root, excludes)
 		if err != nil {
 			t.Fatal(err)
 		}

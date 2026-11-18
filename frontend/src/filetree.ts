@@ -1,4 +1,4 @@
-import type * as models from '../bindings/kaze/models';
+import type * as models from '../bindings/kaze/internal/fileops/models';
 import {
     CopyPath,
     CreateFile,

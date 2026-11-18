@@ -7,9 +7,6 @@ export {
 };
 
 export type {
-    FileList,
-    FileTreeResult,
-    FolderEntry,
     LaunchBuffer,
     LaunchRequest,
     PrintRequest,
