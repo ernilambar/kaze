@@ -164,3 +164,7 @@ func MergePatterns(lists ...[]string) []string {
 	}
 	return merged
 }
+
+// VCSDirectories are never searched, even when the user removes them from
+// search.exclude: version control metadata is machine state, not project text.
+var VCSDirectories = map[string]bool{".git": true, ".hg": true, ".svn": true}

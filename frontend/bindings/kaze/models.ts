@@ -166,22 +166,6 @@ export interface PrintRequest {
 }
 
 /**
- * ReplaceResult reports how much Replace All changed. Skipped lists the files
- * whose mtime moved since the search, so the frontend can report them instead
- * of silently leaving a stale replacement behind.
- * 
- * Failed names files that could not be read back or written. One failure does
- * not stop the rest: by then earlier files are already rewritten, and the
- * summary must describe what happened.
- */
-export interface ReplaceResult {
-    "files": number;
-    "matches": number;
-    "skipped": string[] | null;
-    "failed": string[] | null;
-}
-
-/**
  * SaveRequest is one buffer on its way to disk. ExpectedModified is the mtime
  * LoadDocument reported for the file the buffer was read from; a mismatch means
  * another program wrote it in the meantime, and nothing is written. Overwrite
@@ -231,50 +215,6 @@ export interface SaveResult {
     "modified": number;
     "conflict": boolean;
     "invalid_utf8": boolean;
-}
-
-/**
- * SearchMatch is one hit: where it is and the trimmed line it was found on.
- * Modified is the file's mtime in Unix milliseconds when the search read it.
- * Replace All hands it back so a file changed since the search is skipped.
- */
-export interface SearchMatch {
-    "path": string;
-    "name": string;
-    "line": number;
-    "column": number;
-    "text": string;
-    "modified": number;
-}
-
-/**
- * SearchRequest is one Find in Files query. The literal/regular-expression
- * switch, the case option and the include and exclude globs mirror what the
- * results panel shows. ExpectedModified maps a path to the mtime the search
- * read it at, in Unix milliseconds; a file that moved since is not rewritten.
- * OpenPaths names files open in a tab in the calling window: Replace All edits
- * those in the editor's buffer instead of writing them here, so they stay
- * unsaved and undoable.
- */
-export interface SearchRequest {
-    "query": string;
-    "regex": boolean;
-    "case_sensitive": boolean;
-    "include": string;
-    "exclude": string;
-    "replacement": string;
-    "expected_modified": { [_ in string]?: number } | null;
-    "open_paths": string[] | null;
-}
-
-/**
- * SearchResult is every hit a project search found, plus whether the cap cut
- * the list short.
- */
-export interface SearchResult {
-    "matches": SearchMatch[] | null;
-    "truncated": boolean;
-    "files": number;
 }
 
 /**

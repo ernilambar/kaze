@@ -3,9 +3,10 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
+
+	"kaze/internal/find"
 )
 
 // searchFixture writes a small project plus session state that points at it,
@@ -39,7 +40,7 @@ func searchFixture(t *testing.T) string {
 func TestSearchProjectRespectsExcludesAndGitignore(t *testing.T) {
 	root := searchFixture(t)
 
-	result, err := NewApp().SearchProject(defaultWindowName, SearchRequest{Query: "TODO"})
+	result, err := NewApp().SearchProject(defaultWindowName, find.SearchRequest{Query: "TODO"})
 	if err != nil {
 		t.Fatalf("SearchProject() error = %v", err)
 	}
@@ -60,7 +61,7 @@ func TestSearchProjectRespectsExcludesAndGitignore(t *testing.T) {
 func TestSearchProjectHonoursIncludeGlobs(t *testing.T) {
 	searchFixture(t)
 
-	result, err := NewApp().SearchProject(defaultWindowName, SearchRequest{Query: "TODO", Include: "*.go"})
+	result, err := NewApp().SearchProject(defaultWindowName, find.SearchRequest{Query: "TODO", Include: "*.go"})
 	if err != nil {
 		t.Fatalf("SearchProject() error = %v", err)
 	}
@@ -77,7 +78,7 @@ func TestSearchProjectHonoursIncludeGlobs(t *testing.T) {
 func TestSearchProjectLiteralQueryIsNotARegex(t *testing.T) {
 	searchFixture(t)
 
-	result, err := NewApp().SearchProject(defaultWindowName, SearchRequest{Query: "TODO f"})
+	result, err := NewApp().SearchProject(defaultWindowName, find.SearchRequest{Query: "TODO f"})
 	if err != nil {
 		t.Fatalf("SearchProject() error = %v", err)
 	}
@@ -85,7 +86,7 @@ func TestSearchProjectLiteralQueryIsNotARegex(t *testing.T) {
 		t.Fatalf("matches = %+v, want the literal TODO in main.go", result.Matches)
 	}
 
-	if _, err := NewApp().SearchProject(defaultWindowName, SearchRequest{Query: "(", Regex: true}); err == nil {
+	if _, err := NewApp().SearchProject(defaultWindowName, find.SearchRequest{Query: "(", Regex: true}); err == nil {
 		t.Fatal("SearchProject() error = nil for an invalid regex")
 	}
 }
@@ -93,13 +94,13 @@ func TestSearchProjectLiteralQueryIsNotARegex(t *testing.T) {
 func TestReplaceInProjectRewritesMatches(t *testing.T) {
 	root := searchFixture(t)
 	app := NewApp()
-	search, err := app.SearchProject(defaultWindowName, SearchRequest{Query: "TODO", Include: "*.go"})
+	search, err := app.SearchProject(defaultWindowName, find.SearchRequest{Query: "TODO", Include: "*.go"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	expected := searchExpected(search.Matches)
 
-	result, err := app.ReplaceInProject(defaultWindowName, SearchRequest{
+	result, err := app.ReplaceInProject(defaultWindowName, find.SearchRequest{
 		Query:            "TODO",
 		Include:          "*.go",
 		Replacement:      "DONE",
@@ -136,7 +137,7 @@ func TestReplaceInProjectRewritesMatches(t *testing.T) {
 
 // searchExpected mirrors what the frontend builds from search matches: the
 // mtime of each file at the moment the search read it.
-func searchExpected(matches []SearchMatch) map[string]int64 {
+func searchExpected(matches []find.SearchMatch) map[string]int64 {
 	expected := make(map[string]int64)
 	for _, match := range matches {
 		expected[match.Path] = match.Modified
@@ -147,7 +148,7 @@ func searchExpected(matches []SearchMatch) map[string]int64 {
 func TestReplaceInProjectSkipsFilesChangedSinceSearch(t *testing.T) {
 	root := searchFixture(t)
 	app := NewApp()
-	search, err := app.SearchProject(defaultWindowName, SearchRequest{Query: "TODO", Include: "*.go"})
+	search, err := app.SearchProject(defaultWindowName, find.SearchRequest{Query: "TODO", Include: "*.go"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +158,7 @@ func TestReplaceInProjectSkipsFilesChangedSinceSearch(t *testing.T) {
 	// Replace All must leave it alone and report it as skipped.
 	writeTempFile(t, root, "main.go", "package main\n// TODO edited elsewhere\n")
 
-	result, err := app.ReplaceInProject(defaultWindowName, SearchRequest{
+	result, err := app.ReplaceInProject(defaultWindowName, find.SearchRequest{
 		Query:            "TODO",
 		Include:          "*.go",
 		Replacement:      "DONE",
@@ -193,7 +194,7 @@ func TestReplaceInProjectSkipsFilesChangedSinceSearch(t *testing.T) {
 func TestReplaceInProjectLeavesOpenFilesOnDisk(t *testing.T) {
 	root := searchFixture(t)
 	app := NewApp()
-	search, err := app.SearchProject(defaultWindowName, SearchRequest{Query: "TODO", Include: "*.go"})
+	search, err := app.SearchProject(defaultWindowName, find.SearchRequest{Query: "TODO", Include: "*.go"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +202,7 @@ func TestReplaceInProjectLeavesOpenFilesOnDisk(t *testing.T) {
 
 	// main.go is open as a buffer, so Replace All edits it in the editor
 	// instead. Go leaves the bytes on disk alone but still counts the match.
-	result, err := app.ReplaceInProject(defaultWindowName, SearchRequest{
+	result, err := app.ReplaceInProject(defaultWindowName, find.SearchRequest{
 		Query:            "TODO",
 		Include:          "*.go",
 		Replacement:      "DONE",
@@ -228,52 +229,5 @@ func TestReplaceInProjectLeavesOpenFilesOnDisk(t *testing.T) {
 	}
 	if !strings.Contains(string(other), "DONE") {
 		t.Fatalf("helper.go = %q, want the file not open in a buffer replaced", other)
-	}
-}
-
-func TestPreviewLineTrimsIndentationAndCapsLength(t *testing.T) {
-	if got := previewLine([]byte("\t  hello")); got != "hello" {
-		t.Fatalf("previewLine() = %q, want hello", got)
-	}
-	long := strings.Repeat("a", maxSearchPreview+50)
-	if got := previewLine([]byte(long)); len([]rune(got)) != maxSearchPreview+1 {
-		t.Fatalf("previewLine() length = %d, want %d", len([]rune(got)), maxSearchPreview+1)
-	}
-}
-
-func TestUTF16ColumnCountsSurrogates(t *testing.T) {
-	line := []byte("a😀TODO")
-	index := strings.Index(string(line), "TODO")
-	if index < 0 {
-		t.Fatal("test line has no TODO")
-	}
-	if got := utf16Column(line, index); got != 4 {
-		t.Fatalf("utf16Column() = %d, want 4", got)
-	}
-	if got := utf16Column(line, 0); got != 1 {
-		t.Fatalf("utf16Column() at the start = %d, want 1", got)
-	}
-}
-
-func TestReplaceLinesMatchesJavaScriptTemplates(t *testing.T) {
-	cases := []struct {
-		name, data, pattern, replacement, want string
-	}{
-		{"group then text", "fooOld", `foo(Old)`, "$1New", "OldNew"},
-		{"whole match", "abc", `b`, "[$&]", "a[b]c"},
-		{"dollar", "abc", `b`, "$$", "a$c"},
-		{"named group", "key=value", `(?P<k>\w+)=(?P<v>\w+)`, "$<v>=$<k>", "value=key"},
-		{"unknown group stays text", "abc", `b`, "$9", "a$9c"},
-		{"per line anchors", "  a\n  b\n", `^\s+`, "", "a\nb\n"},
-		{"no cross-line match", "a b\nc d;", `a[^;]*`, "X", "X\nc d;"},
-		{"crlf kept", "a \r\nb \r\n", `\s+$`, "", "a\r\nb\r\n"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got, _ := replaceLines([]byte(tc.data), regexp.MustCompile(tc.pattern), tc.replacement, true)
-			if string(got) != tc.want {
-				t.Fatalf("replaceLines(%q) = %q, want %q", tc.data, got, tc.want)
-			}
-		})
 	}
 }

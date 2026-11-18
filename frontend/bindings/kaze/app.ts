@@ -16,6 +16,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as config$0 from "./internal/config/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as find$0 from "./internal/find/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as git$0 from "./internal/git/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -433,7 +436,7 @@ export function RenamePath(path: string, target: string): $CancellablePromise<$m
  * overwritten: someone may have edited it, and Replace All must not discard
  * that change. Skipped paths are reported so the frontend can say so.
  */
-export function ReplaceInProject(window: string, request: $models.SearchRequest): $CancellablePromise<$models.ReplaceResult> {
+export function ReplaceInProject(window: string, request: find$0.SearchRequest): $CancellablePromise<find$0.ReplaceResult> {
     return $Call.ByID(2481749581, window, request);
 }
 
@@ -485,7 +488,7 @@ export function SaveWorkspaceAs(folders: string[] | null): $CancellablePromise<$
  * and search.exclude decide what is read, and every .gitignore file on the way
  * is honoured, so generated and ignored trees stay out of the results.
  */
-export function SearchProject(window: string, request: $models.SearchRequest): $CancellablePromise<$models.SearchResult> {
+export function SearchProject(window: string, request: find$0.SearchRequest): $CancellablePromise<find$0.SearchResult> {
     return $Call.ByID(2238777482, window, request);
 }
 

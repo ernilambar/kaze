@@ -116,7 +116,7 @@ func walkFileRoot(
 		path := filepath.Join(dir, name)
 
 		if entry.IsDir() {
-			if vcsDirectories[strings.ToLower(name)] {
+			if ignore.VCSDirectories[strings.ToLower(name)] {
 				continue
 			}
 			if excludes.Matches(childRel, true) || ignore.Ignored(rules, path, true) {

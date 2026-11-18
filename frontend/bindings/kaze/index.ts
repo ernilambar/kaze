@@ -14,12 +14,8 @@ export type {
     LaunchBuffer,
     LaunchRequest,
     PrintRequest,
-    ReplaceResult,
     SaveRequest,
     SaveResult,
-    SearchMatch,
-    SearchRequest,
-    SearchResult,
     WindowSession,
     WorkspaceInfo,
     WorkspaceSession
