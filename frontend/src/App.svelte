@@ -1243,7 +1243,7 @@
                         name={ctx.active?.name ?? ''}
                     />
                 {:else if welcomeActive}
-                    <Welcome onCommand={selectCommand} />
+                    <Welcome />
                 {/if}
             </div>
         </div>

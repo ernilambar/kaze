@@ -5,12 +5,6 @@
         keys: string;
     }
 
-    interface Props {
-        onCommand: (id: string) => void;
-    }
-
-    let { onCommand }: Props = $props();
-
     // The key labels mirror the default accelerators in menu.go; a custom
     // keybindings.json entry may override one.
     const ACTIONS: readonly Entry[] = [
@@ -25,11 +19,9 @@
         <div class="welcome__logo" aria-hidden="true"></div>
         <ul class="welcome__list">
             {#each ACTIONS as entry (entry.command)}
-                <li>
-                    <button class="welcome__item" onclick={() => onCommand(entry.command)}>
-                        <span class="welcome__label">{entry.label}</span>
-                        <kbd class="welcome__keys">{entry.keys}</kbd>
-                    </button>
+                <li class="welcome__item">
+                    <span class="welcome__label">{entry.label}</span>
+                    <span class="welcome__keys">{entry.keys}</span>
                 </li>
             {/each}
         </ul>
@@ -89,25 +81,9 @@
         align-items: center;
         justify-content: space-between;
         gap: 16px;
-        width: 100%;
         padding: 8px 10px;
-        border: none;
-        border-radius: 6px;
-        background: transparent;
         color: var(--fg);
-        font: inherit;
         font-size: var(--ui-font-size);
-        text-align: left;
-        cursor: pointer;
-    }
-
-    .welcome__item:hover {
-        background: var(--bg-hover);
-    }
-
-    .welcome__item:focus-visible {
-        outline: 2px solid var(--fg-muted);
-        outline-offset: -2px;
     }
 
     .welcome__label {
@@ -119,11 +95,7 @@
 
     .welcome__keys {
         flex: 0 0 auto;
-        padding: 2px 6px;
-        border-radius: 5px;
-        background: var(--bg-raised);
         color: var(--fg-muted);
-        font-family: inherit;
         font-size: var(--ui-font-small);
     }
 </style>
