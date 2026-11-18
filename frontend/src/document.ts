@@ -1,6 +1,6 @@
 import type * as cli from '../bindings/kaze/internal/cli/models';
 import type * as documentModels from '../bindings/kaze/internal/document/models';
-import { GetLaunchRequest, LoadDocument } from '../bindings/kaze/app';
+import { GetLaunchRequest, LoadDocument } from '../bindings/kaze/internal/app/app';
 import { onWindowEvent } from './windowstate';
 
 // LaunchBuffer mirrors LaunchBuffer in internal/cli/cli.go: one tab handed to another

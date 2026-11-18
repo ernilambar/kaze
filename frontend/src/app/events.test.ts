@@ -11,7 +11,7 @@ const { listeners, onWindowEvent, getLaunchRequest } = vi.hoisted(() => {
 });
 
 vi.mock('../windowstate', () => ({ onWindowEvent }));
-vi.mock('../../bindings/kaze/app', () => ({ GetLaunchRequest: getLaunchRequest }));
+vi.mock('../../bindings/kaze/internal/app/app', () => ({ GetLaunchRequest: getLaunchRequest }));
 
 import { subscribeAll, type AppEventHandlers } from './events';
 

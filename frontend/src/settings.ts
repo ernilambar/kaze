@@ -6,7 +6,7 @@ import {
     UpdateSearchSettings,
     UpdateThemeSettings,
     UpdateUISettings,
-} from '../bindings/kaze/app';
+} from '../bindings/kaze/internal/app/app';
 
 export interface EditorSettings {
     fontFamily: string;

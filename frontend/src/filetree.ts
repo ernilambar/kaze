@@ -8,7 +8,7 @@ import {
     MovePath,
     RenamePath,
     TrashPath,
-} from '../bindings/kaze/app';
+} from '../bindings/kaze/internal/app/app';
 
 // FileTreeResult mirrors FileTreeResult in internal/fileops/filetree.go: the path a tree command
 // produced and the same path with symlinks resolved. A tab matches on the

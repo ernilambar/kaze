@@ -13,9 +13,9 @@ rest of this guide covers conventions and review.
 
 | Path | Purpose |
 | --- | --- |
-| `main.go` | Wails bootstrap; embeds `frontend/dist` |
-| `app.go` | `App` struct; exported methods become frontend bindings |
-| `settings.go` | Loads and validates `settings.json`; defaults on first run |
+| `main.go` | Entry point; embeds `frontend/dist` and `build/config.yml`, calls `app.Run` |
+| `internal/app/` | `App` struct, windows, menus, native glue; exported methods become frontend bindings |
+| `internal/<pkg>/` | App-free logic: settings, git, search, documents, file tree, themes |
 | `frontend/src/` | Svelte UI (`App.svelte` and components, `main.ts`, `style.css`) |
 | `frontend/bindings/` | Generated bindings; never edit by hand |
 | `docs/` | User documentation (`settings.md`) and developer documentation (`development.md`) |
