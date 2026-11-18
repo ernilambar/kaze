@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 
+	"kaze/internal/cli"
 	"kaze/internal/pathutil"
 	"kaze/internal/workspacefile"
 )
@@ -129,8 +130,8 @@ func writeWorkspaceTestFileAt(t *testing.T, folder, name string) string {
 func TestLaterWindowsParkWithoutReplacingTheLaunchSession(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	app := NewApp()
-	app.registerWindow("main", emptyLaunchRequest())
-	app.registerWindow("window-2", emptyLaunchRequest())
+	app.registerWindow("main", cli.EmptyLaunchRequest())
+	app.registerWindow("window-2", cli.EmptyLaunchRequest())
 	folder := t.TempDir()
 	workspace := writeWorkspaceTestFileAt(t, folder, "work"+workspacefile.Extension)
 

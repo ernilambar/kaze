@@ -1,5 +1,7 @@
 package main
 
+import "kaze/internal/cli"
+
 // dropLaunchRequest turns the paths a native file drop reported into the same
 // request a command line launch uses. Files open as tabs and folders become
 // sidebar roots, because the frontend handles both through applyLaunch. With
@@ -7,8 +9,8 @@ package main
 // that window's only root, matching File → Open Folder in New Window. A drop
 // that names no file or folder has nothing to open, so holding Option over it
 // does not create an empty window.
-func dropLaunchRequest(paths []string, newWindow bool) LaunchRequest {
-	request := parseLaunchRequest(paths)
+func dropLaunchRequest(paths []string, newWindow bool) cli.LaunchRequest {
+	request := cli.ParseLaunchRequest(paths)
 	if !newWindow || (len(request.Files) == 0 && len(request.Folders) == 0) {
 		return request
 	}

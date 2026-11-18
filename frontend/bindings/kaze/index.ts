@@ -7,8 +7,6 @@ export {
 };
 
 export type {
-    LaunchBuffer,
-    LaunchRequest,
     PrintRequest,
     WindowSession
 } from "./models.js";

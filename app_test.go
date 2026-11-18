@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"kaze/internal/cli"
+)
 
 func TestMenuCommandsBeforeAttachAreNoOps(t *testing.T) {
 	app := NewApp()
@@ -24,7 +28,7 @@ func TestMenuCommandsBeforeAttachAreNoOps(t *testing.T) {
 
 func TestQuitGuardAsksBeforeDroppingUnsavedBuffers(t *testing.T) {
 	app := NewApp()
-	app.registerWindow("main", emptyLaunchRequest())
+	app.registerWindow("main", cli.EmptyLaunchRequest())
 
 	// Nothing modified: quitting needs no prompt.
 	if !app.shouldQuit() {
@@ -55,8 +59,8 @@ func TestQuitGuardAsksBeforeDroppingUnsavedBuffers(t *testing.T) {
 
 func TestOnlyTheFirstWindowOwnsTheSession(t *testing.T) {
 	app := NewApp()
-	first := app.registerWindow("main", emptyLaunchRequest())
-	second := app.registerWindow("window-2", emptyLaunchRequest())
+	first := app.registerWindow("main", cli.EmptyLaunchRequest())
+	second := app.registerWindow("window-2", cli.EmptyLaunchRequest())
 
 	if !app.ShouldRestoreSession("main") {
 		t.Fatal("ShouldRestoreSession(main) = false")
@@ -74,9 +78,9 @@ func TestOnlyTheFirstWindowOwnsTheSession(t *testing.T) {
 
 func TestMovedBufferStaysWithItsWindow(t *testing.T) {
 	app := NewApp()
-	first := app.registerWindow("main", emptyLaunchRequest())
-	moved := LaunchBuffer{Name: "notes.txt", Path: "/notes.txt", Kind: "text", Content: "draft", Dirty: true}
-	second := app.registerWindow("window-2", LaunchRequest{Buffers: []LaunchBuffer{moved}})
+	first := app.registerWindow("main", cli.EmptyLaunchRequest())
+	moved := cli.LaunchBuffer{Name: "notes.txt", Path: "/notes.txt", Kind: "text", Content: "draft", Dirty: true}
+	second := app.registerWindow("window-2", cli.LaunchRequest{Buffers: []cli.LaunchBuffer{moved}})
 
 	if request := first.takeLaunch(); len(request.Buffers) != 0 {
 		t.Fatalf("the original window received the moved buffer: %+v", request.Buffers)
@@ -89,8 +93,8 @@ func TestMovedBufferStaysWithItsWindow(t *testing.T) {
 
 func TestQuitAsksEachDirtyWindowOnce(t *testing.T) {
 	app := NewApp()
-	app.registerWindow("main", emptyLaunchRequest())
-	app.registerWindow("window-2", emptyLaunchRequest())
+	app.registerWindow("main", cli.EmptyLaunchRequest())
+	app.registerWindow("window-2", cli.EmptyLaunchRequest())
 	app.SetUnsavedChanges("main", true)
 	app.SetUnsavedChanges("window-2", true)
 

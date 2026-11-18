@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"kaze/internal/cli"
 )
 
 func TestAppListFilesReadsSidebarFolders(t *testing.T) {
@@ -34,8 +36,8 @@ func TestAppListFilesReadsSidebarFolders(t *testing.T) {
 func TestListFilesUsesTheCallingWindowsRoots(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	app := NewApp()
-	app.registerWindow(defaultWindowName, emptyLaunchRequest())
-	app.registerWindow("window-2", emptyLaunchRequest())
+	app.registerWindow(defaultWindowName, cli.EmptyLaunchRequest())
+	app.registerWindow("window-2", cli.EmptyLaunchRequest())
 	first := t.TempDir()
 	second := t.TempDir()
 	writeTempFile(t, first, "first.txt", "one\n")

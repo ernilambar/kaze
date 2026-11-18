@@ -3,6 +3,8 @@ package main
 import (
 	"reflect"
 	"testing"
+
+	"kaze/internal/cli"
 )
 
 func TestDropLaunchRequestOpensFilesAndAddsFolders(t *testing.T) {
@@ -69,8 +71,8 @@ func TestDropLaunchRequestWithOptionAndNothingDoesNotOpenWindow(t *testing.T) {
 
 func TestHandleFileDropUsesTheWindowItLandedIn(t *testing.T) {
 	app := NewApp()
-	first := app.registerWindow("main", emptyLaunchRequest())
-	dropped := app.registerWindow("window-2", emptyLaunchRequest())
+	first := app.registerWindow("main", cli.EmptyLaunchRequest())
+	dropped := app.registerWindow("window-2", cli.EmptyLaunchRequest())
 	file := writeTempFile(t, t.TempDir(), "notes.txt", "hello")
 
 	app.handleFileDrop(dropped, []string{file}, false)

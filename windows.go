@@ -7,6 +7,8 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+
+	"kaze/internal/cli"
 )
 
 // ClosePrompt is the payload of app:confirm-close. The frontend titles the
@@ -25,7 +27,7 @@ type windowSession struct {
 	window *application.WebviewWindow
 
 	mu        sync.Mutex
-	pending   LaunchRequest
+	pending   cli.LaunchRequest
 	listening bool
 	// reason is what the current close prompt is asking about.
 	reason string
@@ -72,28 +74,28 @@ func (s *windowSession) show() {
 }
 
 // takeLaunch marks the window as listening and returns what it should open.
-func (s *windowSession) takeLaunch() LaunchRequest {
+func (s *windowSession) takeLaunch() cli.LaunchRequest {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.listening = true
-	request := s.pending.normalized()
-	s.pending = emptyLaunchRequest()
+	request := s.pending.Normalized()
+	s.pending = cli.EmptyLaunchRequest()
 	return request
 }
 
 // queueLaunch records a request for a window that is still starting up, or
 // returns it for delivery when the window is already listening.
-func (s *windowSession) queueLaunch(request LaunchRequest) (LaunchRequest, bool) {
+func (s *windowSession) queueLaunch(request cli.LaunchRequest) (cli.LaunchRequest, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.pending.Merge(request)
 	if !s.listening {
-		return LaunchRequest{}, false
+		return cli.LaunchRequest{}, false
 	}
-	payload := s.pending.normalized()
-	s.pending = emptyLaunchRequest()
+	payload := s.pending.Normalized()
+	s.pending = cli.EmptyLaunchRequest()
 	return payload, true
 }
 
@@ -107,19 +109,19 @@ func (s *windowSession) allowClose() bool {
 // registerWindow adds a session before its webview starts loading, so the
 // frontend can collect its launch request as soon as it runs. The first window
 // adopts any request queued before a window existed.
-func (a *App) registerWindow(name string, request LaunchRequest) *windowSession {
+func (a *App) registerWindow(name string, request cli.LaunchRequest) *windowSession {
 	a.windowsMu.Lock()
 	first := len(a.windows) == 0
 	if first {
 		request.RestoreSession = true
 		if !a.pending.Empty() {
 			request.Merge(a.pending)
-			a.pending = emptyLaunchRequest()
+			a.pending = cli.EmptyLaunchRequest()
 		}
 	}
 	session := &windowSession{
 		name:            name,
-		pending:         request.normalized(),
+		pending:         request.Normalized(),
 		restoreGeometry: first,
 		owner:           first,
 	}
@@ -225,7 +227,7 @@ func (a *App) nextWindowName() string {
 // openWindow creates one editor window and its session. The session is
 // registered before the webview starts, so the frontend's GetLaunchRequest can
 // never race the request that created it.
-func (a *App) openWindow(request LaunchRequest) error {
+func (a *App) openWindow(request cli.LaunchRequest) error {
 	if a.wails == nil {
 		return errNoWindow
 	}
@@ -590,7 +592,7 @@ func (a *App) quit() {
 // NewWindow opens an empty editor window. It shares the saved sidebar roots and
 // settings, but its tabs are its own.
 func (a *App) NewWindow() error {
-	return a.openWindow(emptyLaunchRequest())
+	return a.openWindow(cli.EmptyLaunchRequest())
 }
 
 // CloseWindow closes one window through the same unsaved-buffer guard as its
@@ -621,14 +623,14 @@ func (a *App) OpenFolderInNewWindow() error {
 	if path == "" {
 		return nil
 	}
-	return a.openWindow(LaunchRequest{Folders: []string{path}, ReplaceFolders: true})
+	return a.openWindow(cli.LaunchRequest{Folders: []string{path}, ReplaceFolders: true})
 }
 
 // MoveTabToNewWindow hands one buffer to a new window. The frontend removes the
 // tab from its own list once this returns, because the buffer now lives in the
 // new window.
-func (a *App) MoveTabToNewWindow(buffer LaunchBuffer) error {
-	return a.openWindow(LaunchRequest{Buffers: []LaunchBuffer{buffer}})
+func (a *App) MoveTabToNewWindow(buffer cli.LaunchBuffer) error {
+	return a.openWindow(cli.LaunchRequest{Buffers: []cli.LaunchBuffer{buffer}})
 }
 
 // BringAllToFront raises every window, restoring minimised ones.

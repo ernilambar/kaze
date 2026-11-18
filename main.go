@@ -8,6 +8,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
+	"kaze/internal/cli"
 	"kaze/internal/config"
 )
 
@@ -37,17 +38,17 @@ func main() {
 
 	// Help and version print in this process, before the single-instance lock,
 	// so they never open or forward to a window.
-	switch parseCLIAction(os.Args[1:]) {
-	case cliActionHelp:
+	switch cli.ParseAction(os.Args[1:]) {
+	case cli.ActionHelp:
 		fmt.Print(cliUsageText(meta))
 		return
-	case cliActionVersion:
+	case cli.ActionVersion:
 		fmt.Print(cliVersionText(meta))
 		return
 	}
 
 	// Paths on the command line are opened by the UI once it is live.
-	app.queueLaunch(parseLaunchRequest(os.Args[1:]))
+	app.queueLaunch(cli.ParseLaunchRequest(os.Args[1:]))
 
 	wailsApp := application.New(application.Options{
 		Name:        meta.ProductName,
@@ -99,7 +100,7 @@ func main() {
 	// The first window adopts the paths queued before it existed. Later windows
 	// are created by New Window, Open Folder in New Window and Move Tab to New
 	// Window, each with its own launch request.
-	if err := app.openWindow(emptyLaunchRequest()); err != nil {
+	if err := app.openWindow(cli.EmptyLaunchRequest()); err != nil {
 		println("Error:", err.Error())
 		return
 	}

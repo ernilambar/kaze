@@ -13,6 +13,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as cli$0 from "./internal/cli/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as config$0 from "./internal/config/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -200,7 +203,7 @@ export function GetKeybindings(): $CancellablePromise<keybindings$0.KeybindingsS
  * frontend calls it once after attaching its listener, so anything passed in
  * before the UI was ready is still opened.
  */
-export function GetLaunchRequest(window: string): $CancellablePromise<$models.LaunchRequest> {
+export function GetLaunchRequest(window: string): $CancellablePromise<cli$0.LaunchRequest> {
     return $Call.ByID(2194906801, window);
 }
 
@@ -336,7 +339,7 @@ export function MovePath(path: string, targetDir: string): $CancellablePromise<f
  * tab from its own list once this returns, because the buffer now lives in the
  * new window.
  */
-export function MoveTabToNewWindow(buffer: $models.LaunchBuffer): $CancellablePromise<void> {
+export function MoveTabToNewWindow(buffer: cli$0.LaunchBuffer): $CancellablePromise<void> {
     return $Call.ByID(116838076, buffer);
 }
 

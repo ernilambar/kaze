@@ -1,4 +1,4 @@
-import type * as models from '../bindings/kaze/models';
+import type * as cli from '../bindings/kaze/internal/cli/models';
 import type * as documentModels from '../bindings/kaze/internal/document/models';
 import { GetLaunchRequest, LoadDocument } from '../bindings/kaze/app';
 import { onWindowEvent } from './windowstate';
@@ -43,7 +43,7 @@ export const emptyLaunchRequest: LaunchRequest = {
 // toLaunchRequest normalizes the binding model, whose slices are nullable
 // because a nil Go slice encodes as null. The rest of the frontend works with
 // arrays only.
-export function toLaunchRequest(request: models.LaunchRequest): LaunchRequest {
+export function toLaunchRequest(request: cli.LaunchRequest): LaunchRequest {
     return {
         files: request.files ?? [],
         folders: request.folders ?? [],

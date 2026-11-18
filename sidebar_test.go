@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	"kaze/internal/cli"
 	"kaze/internal/config"
 )
 
@@ -231,8 +232,8 @@ func TestSetSidebarFoldersKeepsOldListOnMissingFolder(t *testing.T) {
 func TestSidebarRootsAreIsolatedPerWindow(t *testing.T) {
 	useTempSettingsDir(t)
 	app := NewApp()
-	app.registerWindow(defaultWindowName, emptyLaunchRequest())
-	app.registerWindow("window-2", emptyLaunchRequest())
+	app.registerWindow(defaultWindowName, cli.EmptyLaunchRequest())
+	app.registerWindow("window-2", cli.EmptyLaunchRequest())
 	first := t.TempDir()
 	second := t.TempDir()
 
@@ -262,8 +263,8 @@ func TestSidebarRootsAreIsolatedPerWindow(t *testing.T) {
 func TestOnlyLaunchWindowSavesSidebarRoots(t *testing.T) {
 	useTempSettingsDir(t)
 	app := NewApp()
-	app.registerWindow(defaultWindowName, emptyLaunchRequest())
-	app.registerWindow("window-2", emptyLaunchRequest())
+	app.registerWindow(defaultWindowName, cli.EmptyLaunchRequest())
+	app.registerWindow("window-2", cli.EmptyLaunchRequest())
 	second := t.TempDir()
 
 	if _, err := app.SetSidebarFolders("window-2", []string{second}); err != nil {

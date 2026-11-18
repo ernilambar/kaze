@@ -11,6 +11,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
+	"kaze/internal/cli"
 	"kaze/internal/config"
 )
 
@@ -29,7 +30,7 @@ type App struct {
 	windows   map[string]*windowSession
 	order     []string
 	// pending holds a launch request that arrived before any window existed.
-	pending LaunchRequest
+	pending cli.LaunchRequest
 	// windowSeq names windows main, window-2, window-3, … so a frontend can
 	// address its own session and menu commands can find the focused one.
 	windowSeq atomic.Int64
@@ -98,7 +99,7 @@ type App struct {
 func NewApp() *App {
 	return &App{
 		windows:         map[string]*windowSession{},
-		pending:         emptyLaunchRequest(),
+		pending:         cli.EmptyLaunchRequest(),
 		sidebarRoots:    map[string][]string{},
 		viewItems:       map[string]*application.MenuItem{},
 		appearanceItems: map[string]*application.MenuItem{},
@@ -729,17 +730,17 @@ func (a *App) GetProductName() string {
 // GetLaunchRequest hands one window the paths it was started with. The
 // frontend calls it once after attaching its listener, so anything passed in
 // before the UI was ready is still opened.
-func (a *App) GetLaunchRequest(window string) LaunchRequest {
+func (a *App) GetLaunchRequest(window string) cli.LaunchRequest {
 	session := a.session(window)
 	if session == nil {
-		return emptyLaunchRequest()
+		return cli.EmptyLaunchRequest()
 	}
 	return session.takeLaunch()
 }
 
 // queueLaunch records what a command line asked to open and, when the focused
 // window is already listening, hands it over immediately.
-func (a *App) queueLaunch(request LaunchRequest) {
+func (a *App) queueLaunch(request cli.LaunchRequest) {
 	a.queueLaunchTo(a.targetSession(), request)
 }
 
@@ -748,7 +749,7 @@ func (a *App) queueLaunch(request LaunchRequest) {
 // a background window does not open the files somewhere else. A request marked
 // NewWindow opens a window of its own instead of reusing the target; the flag
 // is consumed here, so no frontend has to know about it.
-func (a *App) queueLaunchTo(session *windowSession, request LaunchRequest) {
+func (a *App) queueLaunchTo(session *windowSession, request cli.LaunchRequest) {
 	if request.NewWindow {
 		request.NewWindow = false
 		// Before the runtime is attached there is nothing to open a window in:
@@ -788,7 +789,7 @@ func (a *App) queueLaunchTo(session *windowSession, request LaunchRequest) {
 // second instance's working directory as the bundle's executable directory, so
 // it cannot be trusted for this.
 func (a *App) queueLaunchPaths(paths []string) {
-	a.queueLaunch(parseLaunchRequest(paths))
+	a.queueLaunch(cli.ParseLaunchRequest(paths))
 }
 
 // InstallCommandLineTool installs the command line launcher in /usr/local/bin, asking
