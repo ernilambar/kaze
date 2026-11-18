@@ -6,14 +6,20 @@ export interface ContextMenuItem {
     disabled?: boolean;
 }
 
+// ROOT_LOCKED_COMMANDS are the tree commands that would move or delete a
+// sidebar root itself. The sidebar keeps the old path, so a root has to be
+// removed from the sidebar rather than renamed, moved or trashed in place.
+export const ROOT_LOCKED_COMMANDS: readonly string[] = ['cut', 'rename', 'move', 'trash'];
+
 // treeMenuItems is the row menu for a file-tree entry, in display order. The
 // groups follow the order the editors people come from use: the row's own
 // opener and the Finder hand-off first, then creating beside it, then the
 // clipboard, then the three plain-text spellings of its path, then the commands
 // that rewrite the entry itself. Creating comes before the clipboard because
-// New File is the tree's most used action.
-export function treeMenuItems(clipboardPath: string): ContextMenuItem[] {
-    return [
+// New File is the tree's most used action. A sidebar root keeps every item but
+// the ones that would move or delete it.
+export function treeMenuItems(clipboardPath: string, isRoot: boolean): ContextMenuItem[] {
+    const items: ContextMenuItem[] = [
         { id: 'open', label: 'Open' },
         { id: 'reveal', label: 'Reveal in Finder' },
         { id: '', label: '' },
@@ -33,4 +39,10 @@ export function treeMenuItems(clipboardPath: string): ContextMenuItem[] {
         { id: 'move', label: 'Move…' },
         { id: 'trash', label: 'Delete' },
     ];
+    if (!isRoot) {
+        return items;
+    }
+    return items.map((item) =>
+        ROOT_LOCKED_COMMANDS.includes(item.id) ? { ...item, disabled: true } : item,
+    );
 }

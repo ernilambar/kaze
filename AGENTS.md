@@ -49,7 +49,15 @@ No frontend linter/formatter is configured; don't add one unprompted.
   tree's only file-manager UI; `NamePrompt.svelte` stays open on backend errors.
 - **Rename/move keeps tabs open.** `retargetDocumentPaths` (`tabs.ts`) rewrites
   paths; the tab `id` survives, so Monaco keeps model, undo and dirty state.
-- **Tabs are frontend state.** `App.svelte` holds them; `tabs.ts` has pure rules.
+- **Frontend controllers** (`src/app/*.svelte.ts`). `App.svelte` builds one set
+  per window during init and keeps the effects, palettes and markup.
+  `WindowContext` holds tabs, `activeId`, folders, notice, `searchActive` and an
+  `editorPane` getter; `Prompts`, `GitController`, `SearchController`,
+  `Appearance`, `Documents`, `TreeOps` and `WorkspaceController` take the
+  context plus the controllers they use. One built later is reached through a
+  closure. Methods are arrow fields, so they pass as callbacks.
+- **Tabs are frontend state.** `WindowContext` holds them and `Documents`
+  changes them; `tabs.ts` has pure rules.
   Tabs match on symlink-resolved `realPath`; `path` keeps the opened spelling.
   `EditorPane` owns one model per id. New File creates on disk; New Buffer
   (<kbd>Cmd</kbd>+<kbd>N</kbd>) is untitled.
@@ -90,6 +98,8 @@ No frontend linter/formatter is configured; don't add one unprompted.
   rewrites only changed keys so unknown keys and formatting survive.
   Settings/keybindings files open in Kaze tabs; `configwatch.go` live-reloads
   `settings.json` into every window, and a broken file keeps current values.
+  The overlay has one component per section in `src/settings/`, built from
+  `SettingRow`.
 - **Themes** are Zed theme families (`themes.go`, `theme.ts`); user themes in
   `<config>/Kaze/themes` shadow built-ins. The first frame paints a palette
   cached in `localStorage` (`kaze.theme.startup`); keep the inline script in
@@ -114,6 +124,9 @@ No frontend linter/formatter is configured; don't add one unprompted.
 - Svelte 5 runes only (no `export let`/`$:`); scoped styles, shared tokens in
   `style.css`; `FolderTree` imports itself (no `<svelte:self>`).
 - pnpm only; never `package-lock.json`.
+- `src/*.ts` holds pure, stateless helpers; `src/app/*.svelte.ts` holds the
+  stateful window controllers. Never destructure context or controller state
+  (`const { tabs } = ctx` is a stale snapshot); read `ctx.tabs`.
 - Tests are colocated. Vitest covers pure TS helpers, not Svelte/Monaco/bindings.
 - Version lives in `build/config.yml` (`info.version`); bump it, then run
   `wails3 task common:update:build-assets`.

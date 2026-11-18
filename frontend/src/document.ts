@@ -320,8 +320,8 @@ export function toBufferDocument(buffer: LaunchBuffer): OpenDocument {
         dirty: buffer.dirty,
         bom: buffer.bom,
         eol: buffer.eol === 'crlf' ? 'crlf' : 'lf',
-            invalidUTF8: buffer.invalid_utf8,
-            deleted: false,
+        invalidUTF8: buffer.invalid_utf8,
+        deleted: false,
     };
 }
 
