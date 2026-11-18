@@ -36,6 +36,7 @@
     } from '../bindings/kaze/app';
     import type { SaveResult, SearchMatch, WorkspaceInfo } from '../bindings/kaze/models';
     import { dispatchCommand, type CommandHandlers } from './app/dispatch';
+    import { subscribeAll } from './app/events';
     import { contextMenuItems as buildContextMenuItems } from './app/menus';
     import { type CaseTransform } from './case';
     import ChangesView from './ChangesView.svelte';
@@ -53,13 +54,12 @@
     import TabBar from './TabBar.svelte';
     import TitleBar from './TitleBar.svelte';
     import Welcome from './Welcome.svelte';
-    import { COMMANDS, INDENT_PALETTE_COMMANDS, listenForCommandPalette, listenForMenuCommand, rankCommands } from './commands';
+    import { COMMANDS, INDENT_PALETTE_COMMANDS, rankCommands } from './commands';
     import type { ContextMenuItem } from './contextmenu';
     import {
         createDiffDocument,
         createUntitledDocument,
         diffTabId,
-        listenForLaunch,
         normalizeEol,
         readDocument,
         shownPath,
@@ -78,14 +78,13 @@
         WELCOME_KEY,
     } from './editor';
     import {
-        listenForEditorCommands,
         INDENT_COMMANDS,
         VIEW_OPTIONS,
         type SelectionCommand,
         type ViewOption,
         type ZoomCommand,
     } from './editorcommands';
-    import { listenForCloseRequest, listenForFileCommands, type CloseReason } from './filecommands';
+    import type { CloseReason } from './filecommands';
     import {
         copyPath,
         createFile,
@@ -113,7 +112,6 @@
     import { previewKindFor, type PreviewKind } from './preview';
     import {
         listFiles,
-        listenForQuickOpen,
         rankAll,
         rankCandidates,
         rankFileRows,
@@ -158,9 +156,6 @@
         applyUISettings,
         cacheStartupTheme,
         listThemes,
-        listenForAppearance,
-        listenForConfigChanges,
-        listenForSettingsOverlay,
         loadTheme,
         monacoThemeName,
         resolveThemeName,
@@ -173,7 +168,6 @@
         addSidebarFolder,
         closeAllSidebarFolders,
         errorMessage,
-        listenForAddFolder,
         loadSidebarFolders,
         openFolderDialog,
         relativePath,
@@ -185,8 +179,6 @@
     import {
         closeDocumentTab,
         findDocumentByPath,
-        listenForCloseTab,
-        listenForTabCommands,
         moveDocumentTab,
         openDocumentTab,
         setDocumentDirty,
@@ -204,7 +196,6 @@
     } from './text';
     import {
         clearRecentFiles,
-        listenForWatchedChanges,
         loadWindowSession,
         loadWorkspace,
         loadWorkspaceState,
@@ -219,7 +210,7 @@
         type SavedWindowSession,
         type SavedWorkspaceSession,
     } from './workspace';
-    import { listenForWorkspaceCommands, type CopyPathKind } from './workspacecommands';
+    import type { CopyPathKind } from './workspacecommands';
     import { resolveWindowName, setWindowName } from './windowstate';
 
     // UnsavedPrompt is the dialog asking what to do with modified buffers
@@ -3221,20 +3212,6 @@
 
     onMount(() => {
         let unsubscribe: (() => void) | undefined;
-        let unsubscribeMenu: (() => void) | undefined;
-        let unsubscribeClose: (() => void) | undefined;
-        let unsubscribeQuickOpen: (() => void) | undefined;
-        let unsubscribeCommandPalette: (() => void) | undefined;
-        let unsubscribeMenuCommand: (() => void) | undefined;
-        let unsubscribeFileCommands: (() => void) | undefined;
-        let unsubscribeCloseRequest: (() => void) | undefined;
-        let unsubscribeEditorCommands: (() => void) | undefined;
-        let unsubscribeWatched: (() => void) | undefined;
-        let unsubscribeWorkspace: (() => void) | undefined;
-        let unsubscribeTabs: (() => void) | undefined;
-        let unsubscribeConfig: (() => void) | undefined;
-        let unsubscribeAppearance: (() => void) | undefined;
-        let unsubscribeSettings: (() => void) | undefined;
         let systemTheme: MediaQueryList | undefined;
         let disposed = false;
 
@@ -3321,85 +3298,83 @@
                 console.error('Failed to update the Appearance menu.', error),
             );
 
-            const off = await listenForLaunch(windowName, (request) => void applyLaunch(request));
+            const off = await subscribeAll(windowName, {
+                launch: (request) => void applyLaunch(request),
+                addFolder: () => void addFolderFromDialog(),
+                closeTab: () => {
+                    if (activeId !== '') {
+                        void closeTab(activeId);
+                    }
+                },
+                quickOpen: () => void showQuickOpen(),
+                commandPalette: showCommandPalette,
+                menuCommand: selectCommand,
+                fileCommands: {
+                    'new-file': () => void newFileFromMenu(),
+                    'new-folder': () => void newFolderFromMenu(),
+                    'new-buffer': newFile,
+                    'open-file': () => void openFromDialog(),
+                    'save': () => saveActive(),
+                    'save-as': () => saveActive(true),
+                    'save-all': () => void saveAll(),
+                    'print': () => void printActive(),
+                },
+                closeRequest: (reason) => void confirmClose(reason),
+                editorCommands: {
+                    transformSelection,
+                    trimWhitespace,
+                    selectionCommand: runSelectionCommand,
+                    zoom,
+                    togglePreview,
+                    setViewOption,
+                    find: () => runEditorAction('actions.find'),
+                    replace: () => runEditorAction('editor.action.startFindReplaceAction'),
+                    goToLine: () => runEditorAction('editor.action.gotoLine'),
+                    nextFindResult: () => void stepFindResult(1),
+                    previousFindResult: () => void stepFindResult(-1),
+                },
+                watchedChanges: (paths) => void handleWatchedChanges(paths),
+                workspaceCommands: {
+                    openRecent: showRecentFiles,
+                    openWorkspace: () => void openWorkspaceFromDialog(),
+                    saveWorkspaceAs: () => void saveWorkspaceAsDialog(),
+                    closeWorkspace: () => void closeWorkspace(),
+                    refresh: () => void refreshWorkspace(),
+                    findInFiles: showFindInFiles,
+                    toggleSidebar,
+                    closeAllFolders: () => void closeAllFolders(),
+                    revealFile: () => void revealActiveFile(),
+                    copyPath: (kind) => void copyActivePath(kind),
+                },
+                tabCommands: {
+                    next: () => stepTab(1),
+                    previous: () => stepTab(-1),
+                    reopen: () => void reopenClosedTab(),
+                    goToTab,
+                    moveToNewWindow: () => void moveTabToNewWindow(),
+                },
+                configChange: (change) => {
+                    if (change.themes) {
+                        void (async () => {
+                            await refreshThemes();
+                            await applyCurrentTheme();
+                        })();
+                    }
+                    if (change.keybindings) {
+                        void refreshKeybindings();
+                    }
+                    if (change.settings) {
+                        void reloadSettings();
+                    }
+                },
+                appearance: (mode) => void changeThemeSettings({ ...themeSettings, mode }),
+                settingsOverlay: showSettingsOverlay,
+            });
             if (disposed) {
                 off();
                 return;
             }
             unsubscribe = off;
-            unsubscribeMenu = listenForAddFolder(() => void addFolderFromDialog());
-            unsubscribeClose = listenForCloseTab(() => {
-                if (activeId !== '') {
-                    void closeTab(activeId);
-                }
-            });
-            unsubscribeQuickOpen = listenForQuickOpen(() => void showQuickOpen());
-            unsubscribeCommandPalette = listenForCommandPalette(showCommandPalette);
-            unsubscribeMenuCommand = listenForMenuCommand(selectCommand);
-            unsubscribeFileCommands = listenForFileCommands({
-                'new-file': () => void newFileFromMenu(),
-                'new-folder': () => void newFolderFromMenu(),
-                'new-buffer': newFile,
-                'open-file': () => void openFromDialog(),
-                'save': () => saveActive(),
-                'save-as': () => saveActive(true),
-                'save-all': () => void saveAll(),
-                'print': () => void printActive(),
-            });
-            unsubscribeCloseRequest = listenForCloseRequest((reason) => void confirmClose(reason));
-            unsubscribeEditorCommands = listenForEditorCommands({
-                transformSelection,
-                trimWhitespace,
-                selectionCommand: runSelectionCommand,
-                zoom,
-                togglePreview,
-                setViewOption,
-                find: () => runEditorAction('actions.find'),
-                replace: () => runEditorAction('editor.action.startFindReplaceAction'),
-                goToLine: () => runEditorAction('editor.action.gotoLine'),
-                nextFindResult: () => void stepFindResult(1),
-                previousFindResult: () => void stepFindResult(-1),
-            });
-            unsubscribeWatched = listenForWatchedChanges(
-                (paths) => void handleWatchedChanges(paths),
-            );
-            unsubscribeWorkspace = listenForWorkspaceCommands({
-                openRecent: showRecentFiles,
-                openWorkspace: () => void openWorkspaceFromDialog(),
-                saveWorkspaceAs: () => void saveWorkspaceAsDialog(),
-                closeWorkspace: () => void closeWorkspace(),
-                refresh: () => void refreshWorkspace(),
-                findInFiles: showFindInFiles,
-                toggleSidebar,
-                closeAllFolders: () => void closeAllFolders(),
-                revealFile: () => void revealActiveFile(),
-                copyPath: (kind) => void copyActivePath(kind),
-            });
-            unsubscribeTabs = listenForTabCommands({
-                next: () => stepTab(1),
-                previous: () => stepTab(-1),
-                reopen: () => void reopenClosedTab(),
-                goToTab,
-                moveToNewWindow: () => void moveTabToNewWindow(),
-            });
-            unsubscribeConfig = listenForConfigChanges((change) => {
-                if (change.themes) {
-                    void (async () => {
-                        await refreshThemes();
-                        await applyCurrentTheme();
-                    })();
-                }
-                if (change.keybindings) {
-                    void refreshKeybindings();
-                }
-                if (change.settings) {
-                    void reloadSettings();
-                }
-            });
-            unsubscribeAppearance = listenForAppearance((mode) =>
-                void changeThemeSettings({ ...themeSettings, mode }),
-            );
-            unsubscribeSettings = listenForSettingsOverlay(showSettingsOverlay);
             installEditorKeybindings(runKeybindingCommand);
             await refreshKeybindings();
             void WatchConfig();
@@ -3411,20 +3386,6 @@
         return () => {
             disposed = true;
             unsubscribe?.();
-            unsubscribeMenu?.();
-            unsubscribeClose?.();
-            unsubscribeQuickOpen?.();
-            unsubscribeCommandPalette?.();
-            unsubscribeMenuCommand?.();
-            unsubscribeFileCommands?.();
-            unsubscribeCloseRequest?.();
-            unsubscribeEditorCommands?.();
-            unsubscribeWatched?.();
-            unsubscribeWorkspace?.();
-            unsubscribeTabs?.();
-            unsubscribeConfig?.();
-            unsubscribeAppearance?.();
-            unsubscribeSettings?.();
             systemTheme?.removeEventListener('change', onSystemTheme);
             disposeKeybindings?.();
         };
