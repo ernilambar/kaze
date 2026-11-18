@@ -50,7 +50,6 @@
     import TitleBar from './TitleBar.svelte';
     import Welcome from './Welcome.svelte';
     import { INDENT_PALETTE_COMMANDS, rankCommands } from './commands';
-    import type { ContextMenuItem } from './contextmenu';
     import {
         shownPath,
         type DocumentEOL,
@@ -621,17 +620,21 @@
         bringAllToFront: () => runWindowCommand(() => BringAllToFront()),
     };
 
-    // contextMenuItems builds the row menu for the right-click the menu was
-    // opened on. The builders are pure functions in app/menus.ts.
-    function contextMenuItems(): ContextMenuItem[] {
-        return buildContextMenuItems(
-            contextMenu,
-            ctx.tabs,
-            treeops.clipboardPath,
-            search.open,
-            ctx.folders,
-        );
-    }
+    // contextMenuItems is the row menu for the right-click the menu was opened
+    // on. The builders are pure functions in app/menus.ts. It is empty when the
+    // right-clicked tab closed while the menu was up, and the menu then closes
+    // instead of drawing an empty box.
+    let contextMenuItems = $derived(
+        buildContextMenuItems(contextMenu, ctx.tabs, treeops.clipboardPath, search.open, ctx.folders),
+    );
+
+    // A menu with nothing to offer is closed rather than kept hidden, so a tab
+    // reopened under the same id cannot bring the old menu back.
+    $effect(() => {
+        if (contextMenu !== null && contextMenuItems.length === 0) {
+            contextMenu = null;
+        }
+    });
 
     // runContextMenu runs the item the row menu picked against the entry it was
     // opened on: a tab command for a tab, a file-tree command for a tree row.
@@ -1338,11 +1341,11 @@
             onCancel={() => prompts.answerConfirm('cancel')}
         />
     {/if}
-    {#if contextMenu !== null}
+    {#if contextMenu !== null && contextMenuItems.length > 0}
         <ContextMenu
             x={contextMenu.x}
             y={contextMenu.y}
-            items={contextMenuItems()}
+            items={contextMenuItems}
             onSelect={runContextMenu}
             onClose={closeContextMenu}
         />
