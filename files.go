@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"kaze/internal/ignore"
 )
 
 // maxListedFiles caps Quick Open's file list. A large root would otherwise
@@ -37,20 +39,20 @@ func (a *App) ListFiles(window string) (FileList, error) {
 	if err != nil {
 		return FileList{}, err
 	}
-	return listFilesExcluding(roots, newExcludeMatcher(settings.Files.Exclude)), nil
+	return listFilesExcluding(roots, ignore.NewMatcher(settings.Files.Exclude)), nil
 }
 
 // listFilesExcluding walks each root and skips excluded trees, ignored trees,
 // unreadable directories and symlinks. A stale root is ignored instead of
 // failing the whole list, so one folder moved outside the app cannot empty the
 // palette.
-func listFilesExcluding(roots []string, excludes excludeMatcher) FileList {
+func listFilesExcluding(roots []string, excludes ignore.Matcher) FileList {
 	return listFilesCapped(roots, excludes, maxListedFiles)
 }
 
 // listFilesCapped is listFilesExcluding with an explicit cap, so a test can
 // reach the truncation branch without creating fifty thousand files.
-func listFilesCapped(roots []string, excludes excludeMatcher, limit int) FileList {
+func listFilesCapped(roots []string, excludes ignore.Matcher, limit int) FileList {
 	files := make([]string, 0)
 	seen := make(map[string]bool)
 	truncated := false
@@ -76,8 +78,8 @@ func listFilesCapped(roots []string, excludes excludeMatcher, limit int) FileLis
 func walkFileRoot(
 	dir string,
 	rel string,
-	excludes excludeMatcher,
-	rules []ignoreRule,
+	excludes ignore.Matcher,
+	rules []ignore.Rule,
 	files *[]string,
 	seen map[string]bool,
 	truncated *bool,
@@ -91,8 +93,8 @@ func walkFileRoot(
 		return
 	}
 
-	if local := readIgnoreRules(dir); len(local) > 0 {
-		merged := make([]ignoreRule, 0, len(rules)+len(local))
+	if local := ignore.ReadRules(dir); len(local) > 0 {
+		merged := make([]ignore.Rule, 0, len(rules)+len(local))
 		merged = append(merged, rules...)
 		merged = append(merged, local...)
 		rules = merged
@@ -116,7 +118,7 @@ func walkFileRoot(
 			if vcsDirectories[strings.ToLower(name)] {
 				continue
 			}
-			if excludes.matches(childRel, true) || ignored(rules, path, true) {
+			if excludes.Matches(childRel, true) || ignore.Ignored(rules, path, true) {
 				continue
 			}
 			walkFileRoot(path, childRel, excludes, rules, files, seen, truncated, limit)
@@ -125,7 +127,7 @@ func walkFileRoot(
 		if !entry.Type().IsRegular() {
 			continue
 		}
-		if excludes.matches(childRel, false) || ignored(rules, path, false) {
+		if excludes.Matches(childRel, false) || ignore.Ignored(rules, path, false) {
 			continue
 		}
 		if seen[path] {

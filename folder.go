@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"kaze/internal/ignore"
 	"kaze/internal/pathutil"
 )
 
@@ -34,19 +35,19 @@ func (a *App) ReadFolder(path, root string) ([]FolderEntry, error) {
 
 // filesExcludeMatcher loads the files.exclude patterns. A missing or broken
 // settings file hides nothing: browsing still works while the user repairs it.
-func (a *App) filesExcludeMatcher() excludeMatcher {
+func (a *App) filesExcludeMatcher() ignore.Matcher {
 	path, err := settingsFilePath()
 	if err != nil {
-		return excludeMatcher{}
+		return ignore.Matcher{}
 	}
 	settings, err := loadSettings(path)
 	if err != nil {
-		return excludeMatcher{}
+		return ignore.Matcher{}
 	}
-	return newExcludeMatcher(settings.Files.Exclude)
+	return ignore.NewMatcher(settings.Files.Exclude)
 }
 
-func readFolderExcluding(path, root string, excludes excludeMatcher) ([]FolderEntry, error) {
+func readFolderExcluding(path, root string, excludes ignore.Matcher) ([]FolderEntry, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
@@ -74,7 +75,7 @@ func readFolderExcluding(path, root string, excludes excludeMatcher) ([]FolderEn
 	entries := make([]FolderEntry, 0, len(dirEntries))
 	for _, entry := range dirEntries {
 		isDir := isDirectory(path, entry)
-		if excludes.matches(prefix+entry.Name(), isDir) {
+		if excludes.Matches(prefix+entry.Name(), isDir) {
 			continue
 		}
 		entries = append(entries, FolderEntry{

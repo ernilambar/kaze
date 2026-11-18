@@ -5,12 +5,14 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"kaze/internal/ignore"
 )
 
 // listFiles is listFilesExcluding with the first-run patterns, which is what
 // an untouched settings file produces.
 func listFiles(roots []string) []string {
-	return listFilesExcluding(roots, newExcludeMatcher(defaultExcludePatterns())).Files
+	return listFilesExcluding(roots, ignore.NewMatcher(defaultExcludePatterns())).Files
 }
 
 func TestListFilesWalksRootsAndSkipsGeneratedTrees(t *testing.T) {
@@ -132,7 +134,7 @@ func TestListFilesReportsTruncationAtTheCap(t *testing.T) {
 		writeTempFile(t, root, name, "text\n")
 	}
 
-	list := listFilesCapped([]string{root}, newExcludeMatcher(defaultExcludePatterns()), 2)
+	list := listFilesCapped([]string{root}, ignore.NewMatcher(defaultExcludePatterns()), 2)
 	if !list.Truncated {
 		t.Fatal("Truncated = false, want the cap reported")
 	}

@@ -4,12 +4,15 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
+
+	"kaze/internal/ignore"
 )
 
 func readFolder(path string) ([]FolderEntry, error) {
-	return readFolderExcluding(path, path, excludeMatcher{})
+	return readFolderExcluding(path, path, ignore.Matcher{})
 }
 
 func TestReadFolderListsDirectoriesFirstThenNames(t *testing.T) {
@@ -114,5 +117,53 @@ func TestReadFolderTreatsSymlinkedDirectoryAsFolder(t *testing.T) {
 	}
 	if byName["broken"].IsDir {
 		t.Error("a broken symlink must not claim to be a folder")
+	}
+}
+
+func TestReadFolderExcludingDropsExcludedEntries(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "node_modules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeTempFile(t, dir, "debug.log", "noise\n")
+	writeTempFile(t, dir, "main.go", "package main\n")
+
+	entries, err := readFolderExcluding(dir, dir, ignore.NewMatcher([]string{"node_modules", "*.log"}))
+	if err != nil {
+		t.Fatalf("readFolderExcluding() error = %v", err)
+	}
+	if len(entries) != 1 || entries[0].Name != "main.go" {
+		t.Fatalf("readFolderExcluding() = %+v, want only main.go", entries)
+	}
+}
+
+func TestReadFolderMatchesExcludesFromRoot(t *testing.T) {
+	root := t.TempDir()
+	for _, dir := range []string{"build", "src/build", "docs/gen"} {
+		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	excludes := ignore.NewMatcher([]string{"/build", "docs/gen"})
+
+	names := func(path string) []string {
+		entries, err := readFolderExcluding(path, root, excludes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, entry := range entries {
+			out = append(out, entry.Name)
+		}
+		return out
+	}
+	if got := names(root); slices.Contains(got, "build") {
+		t.Fatalf("root lists %v, want /build hidden", got)
+	}
+	if got := names(filepath.Join(root, "src")); !slices.Contains(got, "build") {
+		t.Fatalf("src lists %v, want nested build kept", got)
+	}
+	if got := names(filepath.Join(root, "docs")); slices.Contains(got, "gen") {
+		t.Fatalf("docs lists %v, want docs/gen hidden", got)
 	}
 }

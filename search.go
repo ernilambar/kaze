@@ -12,6 +12,7 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
+	"kaze/internal/ignore"
 	"kaze/internal/pathutil"
 )
 
@@ -223,12 +224,12 @@ func searchExpression(request SearchRequest) (*regexp.Regexp, error) {
 // read. The filters are applied while walking, so an excluded tree is never
 // descended into.
 func collectSearchFiles(settings Settings, roots []string, request SearchRequest) []string {
-	excludes := newExcludeMatcher(mergePatterns(
+	excludes := ignore.NewMatcher(ignore.MergePatterns(
 		settings.Files.Exclude,
 		settings.Search.Exclude,
-		splitPatternList(request.Exclude),
+		ignore.SplitPatternList(request.Exclude),
 	))
-	includes := newExcludeMatcher(splitPatternList(request.Include))
+	includes := ignore.NewMatcher(ignore.SplitPatternList(request.Include))
 
 	files := make([]string, 0)
 	seen := make(map[string]bool)
@@ -256,9 +257,9 @@ func collectSearchFiles(settings Settings, roots []string, request SearchRequest
 func walkSearchRoot(
 	dir string,
 	rel string,
-	excludes excludeMatcher,
-	includes excludeMatcher,
-	rules []ignoreRule,
+	excludes ignore.Matcher,
+	includes ignore.Matcher,
+	rules []ignore.Rule,
 	visit func(path string),
 ) {
 	entries, err := os.ReadDir(dir)
@@ -266,8 +267,8 @@ func walkSearchRoot(
 		return
 	}
 
-	if local := readIgnoreRules(dir); len(local) > 0 {
-		merged := make([]ignoreRule, 0, len(rules)+len(local))
+	if local := ignore.ReadRules(dir); len(local) > 0 {
+		merged := make([]ignore.Rule, 0, len(rules)+len(local))
 		merged = append(merged, rules...)
 		merged = append(merged, local...)
 		rules = merged
@@ -288,7 +289,7 @@ func walkSearchRoot(
 			if vcsDirectories[strings.ToLower(name)] {
 				continue
 			}
-			if excludes.matches(childRel, true) || ignored(rules, path, true) {
+			if excludes.Matches(childRel, true) || ignore.Ignored(rules, path, true) {
 				continue
 			}
 			walkSearchRoot(path, childRel, excludes, includes, rules, visit)
@@ -297,10 +298,10 @@ func walkSearchRoot(
 		if !entry.Type().IsRegular() {
 			continue
 		}
-		if excludes.matches(childRel, false) || ignored(rules, path, false) {
+		if excludes.Matches(childRel, false) || ignore.Ignored(rules, path, false) {
 			continue
 		}
-		if !includes.empty() && !includes.matches(childRel, false) {
+		if !includes.Empty() && !includes.Matches(childRel, false) {
 			continue
 		}
 		visit(path)
