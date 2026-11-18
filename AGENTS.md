@@ -38,15 +38,21 @@ No frontend linter/formatter is configured; don't add one unprompted.
   `App` methods and regenerate. Go owns file I/O, dialogs and OS integration;
   the frontend never imports Node APIs. `main.go` calls `app.attach(...)` before
   `Run`; tests never attach, so every use is nil-checked.
-- **Launch.** `cli.go` parses argv into a `LaunchRequest` that survives the
-  frontend not being ready. `+`, **Add Folder to Sidebar…**, `kaze <folder>` and
-  Finder drops (`drop.go`) all funnel through `addFolderFromDialog`/`applyLaunch`;
-  Option on drop opens a new window.
-- **File tree** (`filetree.go`). Create/rename/move/duplicate refuse taken names;
-  `MovePath` copies-then-deletes only on `EXDEV`; nothing deletes permanently
-  (`TrashPath`, AppKit, main thread). Rename/Move take a full typed path and
-  create missing folders. The row context menu (`ContextMenu.svelte`) is the
-  tree's only file-manager UI; `NamePrompt.svelte` stays open on backend errors.
+- **Go layout.** `package main` holds `App`, windows, menus, native glue and the
+  thin exported `App` methods; App-free logic lives in `internal/<pkg>`, which
+  never imports `main`. Models of internal types generate under
+  `frontend/bindings/kaze/internal/<pkg>/models.ts`. Keep Go type names when
+  moving one, so its TS model name stays stable.
+- **Launch.** `internal/cli` parses argv into a `LaunchRequest` that survives
+  the frontend not being ready. `+`, **Add Folder to Sidebar…**, `kaze <folder>`
+  and Finder drops (`drop.go`) all funnel through
+  `addFolderFromDialog`/`applyLaunch`; Option on drop opens a new window.
+- **File tree** (`filetree.go`, `internal/fileops`).
+  Create/rename/move/duplicate refuse taken names; `MovePath`
+  copies-then-deletes only on `EXDEV`; nothing deletes permanently (`TrashPath`,
+  AppKit, main thread). Rename/Move take a full typed path and create missing
+  folders. The row context menu (`ContextMenu.svelte`) is the tree's only
+  file-manager UI; `NamePrompt.svelte` stays open on backend errors.
 - **Rename/move keeps tabs open.** `retargetDocumentPaths` (`tabs.ts`) rewrites
   paths; the tab `id` survives, so Monaco keeps model, undo and dirty state.
 - **Frontend controllers** (`src/app/*.svelte.ts`). `App.svelte` builds one set
@@ -63,10 +69,10 @@ No frontend linter/formatter is configured; don't add one unprompted.
   (<kbd>Cmd</kbd>+<kbd>N</kbd>) is untitled.
 - **Sidebar** is multi-root; `ReadFolder(path, root)` lists one level, filtered by
   `files.exclude` relative to the root.
-- **Excludes are globs** (`exclude.go`): bare name at any depth, leading `/`
+- **Excludes are globs** (`internal/ignore`): bare name at any depth, leading `/`
   anchors, `**` spans directories, trailing `/` folders only. Search also honours
-  `.gitignore` (`gitignore.go`); VCS directories are never searched.
-- **Workspaces** (`workspacefile.go`): `.kaze-workspace` holds folders only,
+  `.gitignore` (also `internal/ignore`); VCS directories are never searched.
+- **Workspaces** (`internal/workspacefile`): `.kaze-workspace` holds folders only,
   relative where inside its directory. VS Code `.code-workspace` is read
   (`folders` only); Save As always writes `.kaze-workspace`.
 - **Session vs settings.** `session.json` (`session.go`, `workspace.ts`) holds
@@ -81,29 +87,30 @@ No frontend linter/formatter is configured; don't add one unprompted.
 - **Window geometry** (`windowgeometry.go`): a saved frame is used only if ≥120×48
   points of its title bar are on a screen; else centred 1200×800. Windows are
   created hidden and placed on `WindowRuntimeReady`.
-- **Saving** (`save.go`): `SaveDocument` returns `Conflict: true` without writing
-  if mtime moved. Close/quit with dirty buffers emits `app:confirm-close`,
-  answered by `ResolveClose`.
+- **Saving** (`save.go`, `internal/document`): `SaveDocument` returns
+  `Conflict: true` without writing if mtime moved. Close/quit with dirty buffers
+  emits `app:confirm-close`, answered by `ResolveClose`.
 - **Encoding is preserved.** UTF-8 BOM stripped, LF/CRLF kept. Invalid UTF-8
   opens with U+FFFD; save refuses until `allow_invalid_utf8`. NUL byte = binary.
 - **Watching polls** (`watch.go`, `configwatch.go`) every second. Clean buffers
   reload; dirty ones keep a notice.
-- **Git is read-only** (`git.go`): status, `diff HEAD`, `show HEAD:<path>`. Never
-  stages, commits or checks out. Diff tabs are read-only and not persisted.
-- **Find in Files is Go-side** (`search.go`). Replace All uses JS-style `$1`
+- **Git is read-only** (`internal/git`): status, `diff HEAD`,
+  `show HEAD:<path>`. Never stages, commits or checks out. Diff tabs are
+  read-only and not persisted.
+- **Find in Files is Go-side** (`internal/find`). Replace All uses JS-style `$1`
   templates expanded identically in Go and `search.ts`, edits open files through
   Monaco unsaved, skips files whose mtime moved, and reports unwritable files.
 - **Settings** (`settings.json`). Keep `frontend/src/settings.ts` defaults in
-  sync with Go. Writes go through `settingsMu` and `settingswrite.go`, which
+  sync with Go. Writes go through `settingsMu` and `internal/config`, which
   rewrites only changed keys so unknown keys and formatting survive.
   Settings/keybindings files open in Kaze tabs; `configwatch.go` live-reloads
   `settings.json` into every window, and a broken file keeps current values.
   The overlay has one component per section in `src/settings/`, built from
   `SettingRow`.
-- **Themes** are Zed theme families (`themes.go`, `theme.ts`); user themes in
-  `<config>/Kaze/themes` shadow built-ins. The first frame paints a palette
-  cached in `localStorage` (`kaze.theme.startup`); keep the inline script in
-  `index.html` in sync with `theme.ts`.
+- **Themes** are Zed theme families (`internal/themes`, `theme.ts`); user
+  themes in `<config>/Kaze/themes` shadow built-ins. The first frame paints a
+  palette cached in `localStorage` (`kaze.theme.startup`); keep the inline
+  script in `index.html` in sync with `theme.ts`.
 - **Keybindings are VS Code-shaped** (`keybindings.json`, JSONC). Defaults
   (`docs/keymaps.md`) live in three places: menu accelerators (`menu.go`),
   `DEFAULT_KEYBINDINGS` (`keybindings.ts`) and Monaco rules (`editor.ts`).

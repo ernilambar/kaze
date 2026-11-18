@@ -45,7 +45,7 @@ export interface ThemePalette {
     family: string;
     name: string;
     appearance: ThemeAppearance;
-    // CSS custom property names without the `--`, matching settings.go.
+    // CSS custom property names without the `--`, matching internal/themes/themes.go.
     ui: Record<string, string>;
     // Monaco color ids.
     editor: Record<string, string>;

@@ -10,7 +10,7 @@ import {
 } from '../bindings/kaze/app';
 import { onWindowEvent } from './windowstate';
 
-// FolderEntry mirrors FolderEntry in folder.go: one child of a folder. The
+// FolderEntry mirrors FolderEntry in internal/fileops/folder.go: one child of a folder. The
 // backend lists one level at a time, so the tree only reads what it expands.
 export interface FolderEntry {
     path: string;
