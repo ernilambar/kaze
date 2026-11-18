@@ -96,7 +96,7 @@
         background: transparent;
         color: var(--fg);
         font: inherit;
-        font-size: calc(var(--ui-font-size) + 3px);
+        font-size: var(--ui-font-size);
         text-align: left;
         cursor: pointer;
     }
