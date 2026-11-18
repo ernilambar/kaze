@@ -13,7 +13,6 @@
         OpenFolderInNewWindow,
         OpenThemesFolder,
         PrintDocument,
-        RevealFile,
         SetAppearanceMode,
         SetUnsavedChanges,
         SettingsFile,
@@ -23,7 +22,6 @@
         WatchConfig,
         ZoomWindow,
     } from '../bindings/kaze/app';
-    import type { WorkspaceInfo } from '../bindings/kaze/models';
     import { Appearance } from './app/appearance.svelte';
     import { WindowContext } from './app/context.svelte';
     import { dispatchCommand, type CommandHandlers } from './app/dispatch';
@@ -33,6 +31,8 @@
     import { contextMenuItems as buildContextMenuItems } from './app/menus';
     import { Prompts } from './app/prompts.svelte';
     import { SearchController } from './app/search.svelte';
+    import { TreeOps } from './app/treeops.svelte';
+    import { WorkspaceController } from './app/workspace.svelte';
     import { type CaseTransform } from './case';
     import ChangesView from './ChangesView.svelte';
     import ContextMenu from './ContextMenu.svelte';
@@ -52,11 +52,8 @@
     import { INDENT_PALETTE_COMMANDS, rankCommands } from './commands';
     import type { ContextMenuItem } from './contextmenu';
     import {
-        readDocument,
         shownPath,
-        toBufferDocument,
         type DocumentEOL,
-        type LaunchRequest,
         type OpenDocument,
     } from './document';
     import {
@@ -73,16 +70,7 @@
         type ZoomCommand,
     } from './editorcommands';
     import {
-        copyPath,
-        createFile,
-        createFolder,
-        duplicatePath,
-        duplicatePathSuggestion,
         entryName,
-        movePath,
-        parentPath,
-        renamePath,
-        trashPath,
     } from './filetree';
     import {
         type SidebarView,
@@ -106,41 +94,27 @@
         applyUISettings,
     } from './theme';
     import {
-        addSidebarFolder,
-        closeAllSidebarFolders,
         errorMessage,
         loadSidebarFolders,
-        openFolderDialog,
         relativePath,
-        removeSidebarFolder,
         setSidebarFolders,
         sidebarLabel,
     } from './sidebar';
-    import { indentationLabel, noticeFor } from './status';
+    import { indentationLabel } from './status';
     import {
-        findDocumentByPath,
         setDocumentDirty,
-        pathWithin,
-        retargetDocumentPaths,
         tabsToClose,
         updateDocument,
     } from './tabs';
     import type { LineTransform } from './text';
     import {
-        clearRecentFiles,
         loadWindowSession,
         loadWorkspace,
         loadWorkspaceState,
-        openWorkspaceDialog,
-        rememberRecentFile,
         saveSession,
         saveSidebarAutoReveal,
         saveSidebarVisible,
-        saveWorkspaceAs,
-        toWorkspaceSession,
         watchPaths,
-        type SavedWindowSession,
-        type SavedWorkspaceSession,
     } from './workspace';
     import type { CopyPathKind } from './workspacecommands';
     import { resolveWindowName, setWindowName } from './windowstate';
@@ -157,10 +131,6 @@
     // appName comes from the build config; it is empty only until mount.
     let appName = $state('');
 
-    // activeWorkspace is the file the roots came from. It is session state: the
-    // roots themselves are what settings.json restores.
-    let activeWorkspace = $state<WorkspaceInfo | null>(null);
-
     // Git is read-only. The sidebar shows the status marks from gitChanges,
     // while the status bar shows the active file's branch.
     let sidebarView = $state<SidebarView>('explorer');
@@ -176,25 +146,8 @@
     let recentOpen = $state(false);
 
     // Workspace state that outlives a window.
-    let recentFiles = $state<string[]>([]);
     let sidebarVisible = $state(true);
     let sidebarAutoReveal = $state(true);
-    // revealedPath is the row the tree expands to. It follows the active tab
-    // only while auto-reveal is on.
-    let revealedPath = $state('');
-    let expandedPaths = $state<string[]>([]);
-    let treeRefreshToken = $state(0);
-    let sessionReady = $state(false);
-    // Only the window that restored the saved tabs owns session.json's launch
-    // entry. Later windows have their own tabs and must not replace it, though
-    // they still park their workspace tab sets.
-    let sessionOwner = $state(false);
-    // sessionSuspended stops the live session writer while a workspace switch
-    // or close is moving tabs, so the state between the two tab lists is never
-    // written to disk. It is reactive because the save effect returns before it
-    // subscribes to the tab list when suspended; clearing it must run the
-    // effect again.
-    let sessionSuspended = $state(false);
 
     let imageSize = $state<{ id: string; width: number; height: number } | null>(null);
 
@@ -208,16 +161,6 @@
         isDir: boolean;
         tabId?: string;
     } | null>(null);
-
-    // clipboardPath is the tree entry Cut or Copy put aside. The operating
-    // system clipboard is not used: moving a file is not the same thing as
-    // copying its path, and the tree only ever moves one entry.
-    let clipboardPath = $state('');
-    let clipboardCut = $state(false);
-
-    // busyPath is the entry a tree command is running on, so its row can show
-    // that something is happening instead of the command looking ignored.
-    let busyPath = $state('');
 
     let line = $state(1);
     let column = $state(1);
@@ -241,25 +184,28 @@
     // callbacks are the functions that still live in this component.
     const ctx = new WindowContext(() => editorPane);
     const prompts = new Prompts();
-    // git and search reach documents through closures: documents is built
-    // last because it uses both, and the closures only run after init.
+    // Controllers built later are reached through closures, which only run
+    // after init: git and search need documents, and documents, search and
+    // appearance need the tree and the workspace.
     const git = new GitController(ctx, {
         showDocument: (document, record) => documents.showDocument(document, record),
     });
     const search = new SearchController(ctx, prompts, git, {
-        openFile: (path) => documents.openFile(path),
-        refreshTree,
+        openFile: (path): Promise<string> => documents.openFile(path),
+        refreshTree: () => treeops.refreshTree(),
     });
     const appearance = new Appearance(ctx, {
-        refreshTree,
+        refreshTree: () => treeops.refreshTree(),
         sidebarVisible: () => sidebarVisible,
         selectCommand,
     });
     const documents = new Documents(ctx, prompts, git, appearance, {
         appName: () => appName,
-        recordRecent,
-        refreshTree,
+        recordRecent: (path): Promise<void> => workspaces.recordRecent(path),
+        refreshTree: () => treeops.refreshTree(),
     });
+    const treeops = new TreeOps(ctx, prompts, git, documents);
+    const workspaces = new WorkspaceController(ctx, prompts, git, search, documents, treeops);
 
     let imageActive = $derived(ctx.active?.kind === 'image');
     let previewActive = $derived(preview !== null && preview.id === ctx.activeId);
@@ -298,8 +244,8 @@
     );
     let openIds = $derived(ctx.tabs.map((tab) => tab.id));
     let folderLabel = $derived(
-        activeWorkspace !== null && activeWorkspace.name !== ''
-            ? activeWorkspace.name
+        workspaces.activeWorkspace !== null && workspaces.activeWorkspace.name !== ''
+            ? workspaces.activeWorkspace.name
             : sidebarLabel(ctx.folders),
     );
     let imageSizeLabel = $derived(
@@ -307,16 +253,8 @@
             ? `${imageSize.width} × ${imageSize.height}`
             : '',
     );
-    let recentItems = $derived(toRecentPaletteItems(recentFiles, ctx.folders));
-    // The session records file-backed tabs only: an untitled buffer has no
-    // text on disk, and a diff is a view of a file that is already recorded.
-    let sessionFiles = $derived(
-        ctx.tabs.filter((tab) => tab.kind === 'text' && tab.path !== '').map((tab) => tab.path),
-    );
-    // A diff tab records the file it shows, so a relaunch restores the file
-    // itself as the active tab.
-    let sessionActive = $derived(ctx.active?.path || ctx.active?.sourcePath || '');
-    let watchedPaths = $derived(Array.from(new Set([...sessionFiles, ...expandedPaths])));
+    let recentItems = $derived(toRecentPaletteItems(workspaces.recentFiles, ctx.folders));
+    let watchedPaths = $derived(Array.from(new Set([...workspaces.sessionFiles, ...treeops.expandedPaths])));
     let quickOpenEmpty = $derived(
         quickOpenLoading
             ? 'Loading files…'
@@ -324,75 +262,6 @@
               ? 'Add a folder to the sidebar to search its files.'
               : 'No matching files.',
     );
-
-    // addFolders saves each root from a launch request and adopts the result.
-    // The backend deduplicates, so relaunching with the same folder is a no-op.
-    // The first failure is returned so the caller can show it in the status bar.
-    async function addFolders(paths: string[]): Promise<string> {
-        let failure = '';
-        let latest = ctx.folders;
-        for (const path of paths) {
-            try {
-                latest = await addSidebarFolder(ctx.windowName, path);
-            } catch (error) {
-                if (failure === '') {
-                    failure = errorMessage(error);
-                }
-            }
-        }
-        ctx.folders = latest;
-        void git.refreshGitStatus();
-        return failure;
-    }
-
-    async function applyLaunch(request: LaunchRequest): Promise<void> {
-        let failure = '';
-        if (request.replace_folders) {
-            // Open Folder in New Window: the new window starts with exactly the
-            // chosen folder, and the roots are saved for the next launch.
-            try {
-                ctx.folders = await setSidebarFolders(ctx.windowName, request.folders);
-                void git.refreshGitStatus();
-            } catch (error) {
-                failure = errorMessage(error);
-            }
-        } else if (request.folders.length > 0) {
-            failure = await addFolders(request.folders);
-        }
-
-        // A tab moved from another window arrives as a buffer. Text keeps the
-        // text the other window held, so unsaved edits survive the move; an
-        // image or diff is read again from its path.
-        for (const buffer of request.buffers) {
-            if (buffer.kind === 'image' && buffer.path !== '') {
-                await documents.openFile(buffer.path);
-                continue;
-            }
-            if (buffer.kind === 'diff' && buffer.source_path !== '') {
-                await git.openDiff(buffer.source_path);
-                continue;
-            }
-            documents.showDocument(toBufferDocument(buffer), false);
-        }
-
-        for (const path of request.files) {
-            const existing = findDocumentByPath(ctx.tabs, path);
-            if (existing !== undefined) {
-                ctx.activeId = existing.id;
-                continue;
-            }
-            const opened = await readDocument(path);
-            if (opened === undefined) {
-                if (failure === '') {
-                    failure = `Cannot open ${path}`;
-                }
-                continue;
-            }
-            documents.showDocument(opened);
-        }
-
-        ctx.notice = failure !== '' ? failure : noticeFor(request);
-    }
 
     // switchSidebarView moves between the explorer and the changes list. The
     // switch lives in the status bar, which stays visible when the sidebar does
@@ -419,46 +288,6 @@
         const eol: DocumentEOL = tab.eol === 'crlf' ? 'lf' : 'crlf';
         editorPane?.setEol(tab.id, eol);
         ctx.tabs = updateDocument(ctx.tabs, tab.id, { eol });
-    }
-
-    // newFileFromMenu is File → New File: the file is created inside a sidebar
-    // folder, so it exists on disk from the start. The folder is the one the
-    // selected entry lives in; with no folders there is nowhere to create one,
-    // so the menu opens a buffer instead rather than doing nothing.
-    async function newFileFromMenu(): Promise<void> {
-        const folder = selectedFolder();
-        if (folder === '') {
-            ctx.notice = 'Add a folder to the sidebar to create a file.';
-            documents.newFile();
-            return;
-        }
-        await newFileInFolder(folder);
-    }
-
-    // newFolderFromMenu is File → New Folder, in the selected entry's folder.
-    async function newFolderFromMenu(): Promise<void> {
-        const folder = selectedFolder();
-        if (folder === '') {
-            ctx.notice = 'Add a folder to the sidebar to create a folder.';
-            return;
-        }
-        await newFolderInFolder(folder);
-    }
-
-    // selectedFolder is the folder a menu command acts on. The tree highlights
-    // the entry the command left behind, so a selected file means the folder it
-    // lives in and a selected folder means itself; with nothing selected the
-    // first root is the workspace's default.
-    function selectedFolder(): string {
-        const selected = revealedPath;
-        if (selected === '') {
-            return ctx.folders[0] ?? '';
-        }
-        const tab = findDocumentByPath(ctx.tabs, selected);
-        if (tab !== undefined && tab.path !== '') {
-            return parentPath(selected);
-        }
-        return selected;
     }
 
     async function openSettings(): Promise<void> {
@@ -731,8 +560,8 @@
     // keybinding command. It is built once because the functions it names are
     // stable for the life of the window.
     const commandHandlers: CommandHandlers = {
-        newFile: () => void newFileFromMenu(),
-        newFolder: () => void newFolderFromMenu(),
+        newFile: () => void treeops.newFileFromMenu(),
+        newFolder: () => void treeops.newFolderFromMenu(),
         newBuffer: documents.newFile,
         openFile: () => void documents.openFromDialog(),
         save: () => saveActive(),
@@ -750,7 +579,7 @@
         showQuickOpen: () => void showQuickOpen(),
         showCommandPalette,
         showRecentFiles,
-        clearRecent: () => void clearRecent(),
+        clearRecent: () => void workspaces.clearRecent(),
         showFindInFiles,
         showSettings: showSettingsOverlay,
         showAbout: () => void ShowAbout(),
@@ -758,7 +587,7 @@
         togglePreview,
         switchSidebarView,
         zoom,
-        addFolder: () => void addFolderFromDialog(),
+        addFolder: () => void workspaces.addFolderFromDialog(),
         closeActiveTab: () => {
             if (ctx.activeId !== '') {
                 void documents.closeTab(ctx.activeId);
@@ -768,7 +597,7 @@
         stepTab: documents.stepTab,
         reopenClosedTab: () => void documents.reopenClosedTab(),
         closeAllTabs: () => void closeAllTabs(),
-        closeAllFolders: () => void closeAllFolders(),
+        closeAllFolders: () => void workspaces.closeAllFolders(),
         moveTabToNewWindow: () => void documents.moveTabToNewWindow(),
         openSettingsJson: () => void openSettings(),
         openDefaultSettings: () => void openDefaultSettings(),
@@ -776,10 +605,10 @@
         openKeybindings: () => void openKeybindings(),
         installCommandLineTool: () => void installCommandLineTool(),
         setAppearanceMode: (mode) => void appearance.changeThemeSettings({ ...appearance.themeSettings, mode }),
-        openWorkspace: () => void openWorkspaceFromDialog(),
-        saveWorkspaceAs: () => void saveWorkspaceAsDialog(),
-        closeWorkspace: () => void closeWorkspace(),
-        refreshWorkspace: () => void refreshWorkspace(),
+        openWorkspace: () => void workspaces.openWorkspaceFromDialog(),
+        saveWorkspaceAs: () => void workspaces.saveWorkspaceAsDialog(),
+        closeWorkspace: () => void workspaces.closeWorkspace(),
+        refreshWorkspace: () => void workspaces.refreshWorkspace(),
         toggleSidebar,
         revealActiveFile: () => void revealActiveFile(),
         copyActivePath: (kind) => void copyActivePath(kind),
@@ -792,526 +621,10 @@
         bringAllToFront: () => runWindowCommand(() => BringAllToFront()),
     };
 
-    async function addFolderFromDialog(): Promise<void> {
-        if (ctx.busy) {
-            return;
-        }
-        ctx.busy = true;
-        try {
-            const path = await openFolderDialog();
-            // Cancelling the dialog is a decision, not a failure.
-            if (path === '') {
-                return;
-            }
-            ctx.folders = await addSidebarFolder(ctx.windowName, path);
-            void git.refreshGitStatus();
-            ctx.notice = '';
-        } catch (error) {
-            ctx.notice = errorMessage(error);
-        } finally {
-            ctx.busy = false;
-        }
-    }
-
-    // restoreWorkspaceTabs opens the file-backed tabs parked under a workspace.
-    // Missing files are skipped, so one deleted file does not stop the rest.
-    async function restoreWorkspaceTabs(session: SavedWorkspaceSession): Promise<void> {
-        for (const path of session.openFiles) {
-            if (findDocumentByPath(ctx.tabs, path) !== undefined) {
-                continue;
-            }
-            const opened = await readDocument(path);
-            if (opened === undefined) {
-                continue;
-            }
-            documents.showDocument(opened, false);
-        }
-        const restoredActive = findDocumentByPath(ctx.tabs, session.active);
-        if (restoredActive !== undefined) {
-            ctx.activeId = restoredActive.id;
-        }
-    }
-
-    // clearWorkspaceTabs drops every document tab and the Find Results tab.
-    // The old set has already been parked in session.json, and the Reopen
-    // Closed Tab stack is cleared so it cannot pull tabs from another
-    // workspace back into this one.
-    function clearWorkspaceTabs(): void {
-        ctx.tabs = [];
-        ctx.activeId = '';
-        documents.closedTabs = [];
-        if (search.open) {
-            search.closeSearchTab();
-        }
-    }
-
-    // prepareWorkspaceSwitch is the one prompt before a switch replaces the
-    // tab set. Saving all is the default because the parked tab set is a
-    // convenience, not a place to discard edits.
-    async function prepareWorkspaceSwitch(title: string, message: string): Promise<boolean> {
-        const dirty = ctx.tabs.filter((tab) => tab.dirty);
-        if (dirty.length === 0) {
-            return true;
-        }
-        const answer = await prompts.askUnsaved({
-            title,
-            message,
-            details: dirty.map((tab) => tab.path || tab.name),
-            confirmLabel: 'Save All and Continue',
-        });
-        if (answer === 'cancel') {
-            return false;
-        }
-        if (answer === 'save') {
-            return await documents.saveAll();
-        }
-        return true;
-    }
-
-    // switchWorkspace parks the current tabs, replaces the roots and restores
-    // the target workspace's parked tabs. The two tab lists never coexist in
-    // the live session writer.
-    async function switchWorkspace(target: WorkspaceInfo): Promise<boolean> {
-        await persistSession();
-        if (!(await prepareWorkspaceSwitch(
-            'Switch Workspace',
-            'Switching workspaces closes the open tabs. Save them first?',
-        ))) {
-            return false;
-        }
-
-        sessionSuspended = true;
-        let switched = false;
-        try {
-            ctx.folders = await setSidebarFolders(ctx.windowName, target.folders ?? []);
-            activeWorkspace = target;
-            const parked = toWorkspaceSession(target.session);
-            expandedPaths = parked.expanded;
-            clearWorkspaceTabs();
-            await restoreWorkspaceTabs(parked);
-            switched = true;
-            ctx.notice = '';
-        } catch (error) {
-            ctx.notice = errorMessage(error);
-        } finally {
-            sessionSuspended = false;
-        }
-        if (switched) {
-            void git.refreshGitStatus();
-            await persistSession();
-        }
-        return switched;
-    }
-
-    // openWorkspaceFromDialog replaces the window's workspace with the picked
-    // file. The previous tab set stays parked under its own workspace.
-    async function openWorkspaceFromDialog(): Promise<void> {
-        if (ctx.busy || prompts.unsaved !== null || prompts.confirm !== null) {
-            return;
-        }
-        ctx.busy = true;
-        try {
-            const workspace = await openWorkspaceDialog();
-            if (workspace.path === '') {
-                return;
-            }
-            await switchWorkspace(workspace);
-        } catch (error) {
-            ctx.notice = errorMessage(error);
-        } finally {
-            ctx.busy = false;
-        }
-    }
-
-    // saveWorkspaceAsDialog writes the current roots to a workspace file, binds
-    // the window to it and parks the current tabs under the new name.
-    async function saveWorkspaceAsDialog(): Promise<void> {
-        if (ctx.busy || prompts.unsaved !== null || prompts.confirm !== null) {
-            return;
-        }
-        ctx.busy = true;
-        try {
-            const workspace = await saveWorkspaceAs(ctx.folders);
-            if (workspace.path === '') {
-                return;
-            }
-            activeWorkspace = workspace;
-            await persistSession();
-            ctx.notice = `Saved workspace ${workspace.name}`;
-        } catch (error) {
-            ctx.notice = errorMessage(error);
-        } finally {
-            ctx.busy = false;
-        }
-    }
-
-    // closeWorkspace clears the roots and closes the tabs after the save
-    // prompt. The parked tab set stays in session.json, so reopening the
-    // workspace later restores it.
-    async function closeWorkspace(): Promise<void> {
-        if (ctx.busy || prompts.unsaved !== null || prompts.confirm !== null) {
-            return;
-        }
-        if (activeWorkspace === null && ctx.folders.length === 0) {
-            return;
-        }
-        ctx.busy = true;
-        try {
-            await persistSession();
-            if (!(await prepareWorkspaceSwitch(
-                'Close Workspace',
-                'Closing the workspace closes its tabs. Save them first?',
-            ))) {
-                return;
-            }
-
-            sessionSuspended = true;
-            try {
-                ctx.folders = await closeAllSidebarFolders(ctx.windowName);
-                activeWorkspace = null;
-                expandedPaths = [];
-                clearWorkspaceTabs();
-                ctx.notice = '';
-            } finally {
-                sessionSuspended = false;
-            }
-            void git.refreshGitStatus();
-            await persistSession();
-        } catch (error) {
-            ctx.notice = errorMessage(error);
-        } finally {
-            ctx.busy = false;
-        }
-    }
-
-    // Removing a root only drops it from the sidebar: tabs stay open, because
-    // they hold their own buffers and are closed from the tab bar.
-    async function removeFolder(path: string): Promise<void> {
-        try {
-            ctx.folders = await removeSidebarFolder(ctx.windowName, path);
-            if (ctx.folders.length === 0) {
-                activeWorkspace = null;
-            }
-            void git.refreshGitStatus();
-            ctx.notice = '';
-        } catch (error) {
-            ctx.notice = errorMessage(error);
-        }
-    }
-
-    // ---- File tree operations -------------------------------------------------
-    //
-    // New File, New Folder, Rename, Duplicate, Cut/Copy/Paste, Delete (to the
-    // Trash) and drag to move all run against the explorer. Every one of them
-    // is a Go binding, because the file system is the backend's business; the
-    // frontend only decides which entry, asks for a name and retargets the tabs
-    // that follow a path.
-
-    // refreshTree rereads the tree after a command changed what is on disk.
-    function refreshTree(): void {
-        treeRefreshToken++;
-    }
-
-    // applyTreeMove retargets every tab whose file the command moved. A buffer
-    // keeps its text, edits and undo history; only the path it saves to changes.
-    // The renamed file's git baseline and diff marks are reread, because HEAD
-    // still knows the old name.
-    function applyTreeMove(from: string, to: string): void {
-        if (from === '' || to === '' || from === to) {
-            return;
-        }
-        const previous = ctx.tabs;
-        const next = retargetDocumentPaths(ctx.tabs, [{ from, to }]);
-        if (next === previous) {
-            return;
-        }
-        ctx.tabs = next;
-        for (const tab of next) {
-            const before = previous.find((entry) => entry.id === tab.id);
-            if (before === undefined || before.path === tab.path) {
-                continue;
-            }
-            // HEAD still knows the old name, so the gutter bars are recomputed
-            // against the path the file now has.
-            if (tab.kind === 'text') {
-                void git.loadBaseline(tab.id, tab.path);
-            }
-        }
-        // A diff tab followed its file, so the snapshot it shows is stale.
-        if (next.some((tab) => tab.kind === 'diff')) {
-            void git.refreshDiffTabs();
-        }
-        void git.refreshGitStatus();
-    }
-
-    // treeError reports a failed tree command in the status bar, where every
-    // other notice appears, and keeps the tree as it was.
-    function treeError(error: unknown): void {
-        ctx.notice = errorMessage(error);
-    }
-
-    // newFileInFolder is New File from the tree: the file is created on disk
-    // first, so an empty file exists even if the user never types into it, then
-    // opened as a tab.
-    async function newFileInFolder(folder: string): Promise<void> {
-        await prompts.askName({
-            title: 'New File',
-            label: `Name for the new file in ${entryName(folder)}`,
-            submitLabel: 'Create File',
-            run: async (name) => {
-                try {
-                    const entry = await createFile(folder, name);
-                    refreshTree();
-                    await documents.openFile(entry.path);
-                    ctx.notice = '';
-                    return '';
-                } catch (error) {
-                    ctx.notice = '';
-                    return errorMessage(error);
-                }
-            },
-        });
-    }
-
-    // newFolderInFolder is New Folder. The new folder is expanded so the user
-    // sees where it went, which matters when it lands between many siblings.
-    async function newFolderInFolder(folder: string): Promise<void> {
-        await prompts.askName({
-            title: 'New Folder',
-            label: `Name for the new folder in ${entryName(folder)}`,
-            submitLabel: 'Create Folder',
-            run: async (name) => {
-                try {
-                    const entry = await createFolder(folder, name);
-                    refreshTree();
-                    revealInTree(entry.path);
-                    ctx.notice = '';
-                    return '';
-                } catch (error) {
-                    ctx.notice = '';
-                    return errorMessage(error);
-                }
-            },
-        });
-    }
-
-    // renameEntry accepts a new name and, when the text carries a folder, a new
-    // location too. The field holds the whole path with only the file stem
-    // selected, so typing replaces the name and leaves the folder alone. The tab
-    // that holds the file follows the new path, so the buffer stays open and
-    // keeps its edits and undo history.
-    async function renameEntry(path: string): Promise<void> {
-        await prompts.askName({
-            title: 'Rename',
-            value: path,
-            selectStem: true,
-            submitLabel: 'Rename',
-            run: async (target) => {
-                try {
-                    const entry = await renamePath(path, target);
-                    applyTreeMove(path, entry.path);
-                    refreshTree();
-                    revealInTree(entry.path);
-                    // A Cut waiting on the old path would move nothing, so it is
-                    // dropped rather than left pointing at a file that is gone.
-                    if (clipboardPath === path) {
-                        clipboardPath = entry.path;
-                    }
-                    ctx.notice = '';
-                    return '';
-                } catch (error) {
-                    ctx.notice = '';
-                    return errorMessage(error);
-                }
-            },
-        });
-    }
-
-    // duplicateEntry asks for the copy's path, prefilled with the free " copy"
-    // name the backend suggests. Accepting it does what Finder does; editing it
-    // names the copy before it is written, and a folder in the text puts the
-    // copy there. The copy is not opened: the user asked for a second file, not
-    // for a second tab.
-    async function duplicateEntry(path: string): Promise<void> {
-        let suggestion: string;
-        try {
-            suggestion = await duplicatePathSuggestion(path);
-        } catch (error) {
-            treeError(error);
-            return;
-        }
-        await prompts.askName({
-            title: 'Duplicate',
-            value: suggestion,
-            selectStem: true,
-            submitLabel: 'Duplicate',
-            run: async (target) => {
-                try {
-                    const entry = await duplicatePath(path, target);
-                    refreshTree();
-                    revealInTree(entry.path);
-                    await git.refreshGitStatus();
-                    ctx.notice = `Created ${entry.name}`;
-                    return '';
-                } catch (error) {
-                    ctx.notice = '';
-                    return errorMessage(error);
-                }
-            },
-        });
-    }
-
-    // cutEntry puts the entry aside for Paste. It changes nothing on disk: the
-    // move happens when the user chooses a folder to paste into.
-    function cutEntry(path: string): void {
-        clipboardPath = path;
-        clipboardCut = true;
-        ctx.notice = `Ready to move ${entryName(path)}`;
-    }
-
-    function copyEntry(path: string): void {
-        clipboardPath = path;
-        clipboardCut = false;
-        ctx.notice = `Ready to copy ${entryName(path)}`;
-    }
-
-    // pasteInto copies or moves the entry the clipboard holds into a folder. A
-    // cut is cleared after the move, so a second Paste cannot fail on a source
-    // that is no longer there.
-    async function pasteInto(folder: string): Promise<void> {
-        const source = clipboardPath;
-        if (source === '') {
-            return;
-        }
-        busyPath = folder;
-        try {
-            if (clipboardCut) {
-                const entry = await movePath(source, folder);
-                applyTreeMove(source, entry.path);
-                clipboardPath = '';
-                clipboardCut = false;
-                revealInTree(entry.path);
-                ctx.notice = `Moved ${entry.name}`;
-            } else {
-                const entry = await copyPath(source, folder);
-                revealInTree(entry.path);
-                ctx.notice = `Copied ${entry.name}`;
-            }
-            refreshTree();
-            await git.refreshGitStatus();
-        } catch (error) {
-            treeError(error);
-        } finally {
-            busyPath = '';
-        }
-    }
-
-    // moveEntry is a drop on a folder row. It is the same move Paste does, with
-    // the source coming from the drag rather than the clipboard.
-    async function moveEntry(source: string, folder: string): Promise<void> {
-        busyPath = folder;
-        try {
-            const entry = await movePath(source, folder);
-            applyTreeMove(source, entry.path);
-            finishTreeMove(source, entry.path, entry.name);
-        } catch (error) {
-            treeError(error);
-        } finally {
-            busyPath = '';
-        }
-    }
-
-    // finishTreeMove rereads what a move invalidated: the tree, because the
-    // entry left one folder and landed in another, and git, because a repository
-    // may have gained or lost a path. The moved entry is revealed so it never
-    // lands out of sight.
-    function finishTreeMove(source: string, target: string, name: string): void {
-        applyTreeMove(source, target);
-        refreshTree();
-        revealInTree(target);
-        void git.refreshGitStatus();
-        ctx.notice = `Moved ${name}`;
-    }
-
-    // moveTreeEntry is Move…: the field holds the entry's full path with the
-    // folder selected, so typing replaces where it lives and the file name stays
-    // visible and intact. Move and Rename share the path operation; only the
-    // initial selection differs. A refusal reopens the prompt on the same text
-    // so a typo is corrected in place.
-    async function moveTreeEntry(path: string): Promise<void> {
-        await prompts.askName({
-            title: 'Move',
-            value: path,
-            selectFolder: true,
-            submitLabel: 'Move',
-            run: async (target) => {
-                busyPath = path;
-                try {
-                    const entry = await renamePath(path, target);
-                    finishTreeMove(path, entry.path, entry.name);
-                    return '';
-                } catch (error) {
-                    ctx.notice = '';
-                    return errorMessage(error);
-                } finally {
-                    busyPath = '';
-                }
-            },
-        });
-    }
-
-    // trashEntry asks first, then moves the entry to the platform's Trash. Its
-    // tabs close with it: the files they show no longer exist, and a tab that
-    // cannot be saved is worse than no tab. A modified buffer asks about its
-    // edits before the file goes, so nothing is lost by accident.
-    async function trashEntry(path: string): Promise<void> {
-        const affected = ctx.tabs.filter(
-            (tab) =>
-                (tab.path !== '' && pathWithin(tab.path, path)) ||
-                (tab.kind === 'diff' && pathWithin(tab.sourcePath ?? '', path)),
-        );
-        const dirty = affected.filter((tab) => tab.dirty);
-        const confirmed = await prompts.askConfirm(
-            'Delete',
-            dirty.length > 0
-                ? `Delete ${entryName(path)}? It moves to the Trash, and ${dirty.length === 1 ? 'one open buffer has' : `${dirty.length} open buffers have`} unsaved changes that will be lost.`
-                : `Delete ${entryName(path)}? It moves to the Trash, so you can put it back from there.`,
-            'Delete',
-        );
-        if (!confirmed) {
-            return;
-        }
-        busyPath = path;
-        try {
-            await trashPath(path);
-            for (const tab of affected) {
-                documents.removeTab(tab.id);
-            }
-            if (pathWithin(clipboardPath, path)) {
-                clipboardPath = '';
-                clipboardCut = false;
-            }
-            refreshTree();
-            await git.refreshGitStatus();
-            ctx.notice = `Moved ${entryName(path)} to the Trash`;
-        } catch (error) {
-            treeError(error);
-        } finally {
-            busyPath = '';
-        }
-    }
-
-    // revealInTree expands the tree to path and scrolls it into view. New
-    // entries use it so they never land out of sight.
-    function revealInTree(path: string): void {
-        revealedPath = path;
-        treeRefreshToken++;
-    }
-
     // contextMenuItems builds the row menu for the right-click the menu was
     // opened on. The builders are pure functions in app/menus.ts.
     function contextMenuItems(): ContextMenuItem[] {
-        return buildContextMenuItems(contextMenu, ctx.tabs, clipboardPath, search.open);
+        return buildContextMenuItems(contextMenu, ctx.tabs, treeops.clipboardPath, search.open);
     }
 
     // runContextMenu runs the item the row menu picked against the entry it was
@@ -1326,7 +639,7 @@
             void runTabContextCommand(id, target.tabId);
             return;
         }
-        void runTreeCommand(id, target.path, target.isDir);
+        void treeops.runTreeCommand(id, target.path, target.isDir);
     }
 
     // runTabContextCommand runs a tab menu item against the right-clicked tab.
@@ -1337,7 +650,7 @@
         }
         switch (id) {
             case 'reveal':
-                await revealPath(tab.path || tab.sourcePath || '');
+                await treeops.revealPath(tab.path || tab.sourcePath || '');
                 break;
             case 'close-tab':
                 await documents.closeTab(tabId);
@@ -1404,97 +717,8 @@
         await documents.closeTabsInOrder(tabsToClose(ctx.tabs, '', 'deleted'));
     }
 
-    async function runTreeCommand(id: string, path: string, isDir: boolean): Promise<void> {
-        if (id === 'reveal') {
-            await revealPath(path);
-            return;
-        }
-        // Commands that create or paste need a folder: a file row means the
-        // folder it lives in.
-        const folder = isDir ? path : parentPath(path);
-        switch (id) {
-            case 'open':
-                await openTreeEntry(path, isDir);
-                break;
-            case 'new-file':
-                await newFileInFolder(folder);
-                break;
-            case 'new-folder':
-                await newFolderInFolder(folder);
-                break;
-            case 'cut':
-                cutEntry(path);
-                break;
-            case 'copy':
-                copyEntry(path);
-                break;
-            case 'paste':
-                await pasteInto(folder);
-                break;
-            case 'copy-name':
-                await copyTreeText('name', path);
-                break;
-            case 'copy-path':
-                await copyTreeText('file', path);
-                break;
-            case 'copy-relative-path':
-                await copyTreeText('relative', path);
-                break;
-            case 'duplicate':
-                await duplicateEntry(path);
-                break;
-            case 'rename':
-                await renameEntry(path);
-                break;
-            case 'move':
-                await moveTreeEntry(path);
-                break;
-            case 'trash':
-                await trashEntry(path);
-                break;
-        }
-    }
-
-    // openTreeEntry is the row's primary action: a file opens in the editor, a
-    // folder expands in the tree. A file that is already open is focused rather
-    // than reread, so edits in its buffer survive.
-    async function openTreeEntry(path: string, isDir: boolean): Promise<void> {
-        if (isDir) {
-            revealInTree(path);
-            return;
-        }
-        await documents.openFile(path);
-    }
-
-    // copyTreeText copies a path spelling of one tree entry. The variants match
-    // the Copy Path items that act on the active buffer, so the same three
-    // strings are reachable from the tree.
-    async function copyTreeText(kind: CopyPathKind, path: string): Promise<void> {
-        const text =
-            kind === 'file'
-                ? path
-                : kind === 'relative'
-                  ? relativePath(path, ctx.folders)
-                  : entryName(path);
-        try {
-            await CopyText(text);
-            ctx.notice = `Copied ${text}`;
-        } catch (error) {
-            ctx.notice = errorMessage(error);
-        }
-    }
-
-    // recordRecent puts an opened file at the top of Open Recent.
-    async function recordRecent(path: string): Promise<void> {
-        try {
-            recentFiles = await rememberRecentFile(path);
-        } catch (error) {
-            console.error('Failed to remember the recent file.', error);
-        }
-    }
-
     function showRecentFiles(): void {
-        if (recentFiles.length === 0) {
+        if (workspaces.recentFiles.length === 0) {
             ctx.notice = 'No recent files.';
             return;
         }
@@ -1514,22 +738,13 @@
         return rankCandidates(query, recentItems);
     }
 
-    async function clearRecent(): Promise<void> {
-        try {
-            recentFiles = await clearRecentFiles();
-            ctx.notice = 'Recent files cleared.';
-        } catch (error) {
-            ctx.notice = errorMessage(error);
-        }
-    }
-
     // revealActiveFileInTree selects and expands to the active file's row. A
     // diff tab names the file it was made from, which is the row to show.
     $effect(() => {
         if (!sidebarAutoReveal) {
             return;
         }
-        revealedPath = ctx.active?.path || ctx.active?.sourcePath || '';
+        treeops.revealedPath = ctx.active?.path || ctx.active?.sourcePath || '';
     });
 
     // setSidebarAutoReveal records the choice so the next launch keeps it.
@@ -1559,45 +774,6 @@
         setSidebarVisible(!sidebarVisible);
     }
 
-    // setExpanded tracks which folders the tree has open, so their contents can
-    // be watched for external changes.
-    function setExpanded(path: string, open: boolean): void {
-        if (open) {
-            if (!expandedPaths.includes(path)) {
-                expandedPaths = [...expandedPaths, path];
-            }
-            return;
-        }
-        expandedPaths = expandedPaths.filter((entry) => entry !== path);
-    }
-
-    async function closeAllFolders(): Promise<void> {
-        try {
-            ctx.folders = await closeAllSidebarFolders(ctx.windowName);
-            activeWorkspace = null;
-            expandedPaths = [];
-            void git.refreshGitStatus();
-            ctx.notice = '';
-        } catch (error) {
-            ctx.notice = errorMessage(error);
-        }
-    }
-
-    async function refreshWorkspace(): Promise<void> {
-        treeRefreshToken++;
-        await documents.refreshOpenDocuments();
-        await git.refreshDiffTabs();
-        await git.refreshGitStatus();
-        // HEAD may have moved since the buffers were opened, so the gutter
-        // baselines are reread too.
-        for (const tab of ctx.tabs) {
-            if (tab.kind === 'text' && tab.path !== '') {
-                void git.loadBaseline(tab.id, tab.path);
-            }
-        }
-        ctx.notice = '';
-    }
-
     function showFindInFiles(): void {
         quickOpen = false;
         commandPalette = false;
@@ -1609,16 +785,6 @@
         search.focusToken++;
     }
 
-    // revealPath shows one file in the platform's file manager.
-    async function revealPath(path: string): Promise<void> {
-        try {
-            await RevealFile(path);
-            ctx.notice = '';
-        } catch (error) {
-            ctx.notice = errorMessage(error);
-        }
-    }
-
     async function revealActiveFile(): Promise<void> {
         // A diff tab has no path of its own, but it names the file it was made
         // from, which is the file worth revealing.
@@ -1627,7 +793,7 @@
             ctx.notice = 'Open a saved file to reveal it in Finder.';
             return;
         }
-        await revealPath(path);
+        await treeops.revealPath(path);
     }
 
     // showContextMenu opens the right-click menu for path at the pointer. An
@@ -1702,45 +868,6 @@
         }
     }
 
-    // restoreSession reopens the files the previous run left open. Missing
-    // files are skipped, so one deleted file does not stop the rest.
-    async function restoreSession(session: SavedWindowSession): Promise<void> {
-        for (const path of session.openFiles) {
-            if (findDocumentByPath(ctx.tabs, path) !== undefined) {
-                continue;
-            }
-            const opened = await readDocument(path);
-            if (opened === undefined) {
-                continue;
-            }
-            documents.showDocument(opened, false);
-        }
-        const restoredActive = findDocumentByPath(ctx.tabs, session.active);
-        if (restoredActive !== undefined) {
-            ctx.activeId = restoredActive.id;
-        }
-    }
-
-    // persistSession writes the current window state immediately. The live
-    // effect below covers ordinary tab changes; workspace switching and closing
-    // call this so the old set is on disk before the tab list is replaced.
-    async function persistSession(): Promise<void> {
-        if (ctx.windowName === '') {
-            return;
-        }
-        try {
-            await saveSession(ctx.windowName, {
-                workspace: activeWorkspace?.path ?? '',
-                folders: [...ctx.folders],
-                openFiles: [...sessionFiles],
-                active: sessionActive,
-                expanded: [...expandedPaths],
-            });
-        } catch (error) {
-            console.error('Failed to save the session.', error);
-        }
-    }
-
     // A preview belongs to the tab it was opened on; selecting another tab puts
     // the editor back rather than showing a stale snapshot.
     $effect(() => {
@@ -1768,15 +895,15 @@
     // begins with. A non-owner window parks its workspace set but never
     // replaces the launch window's tabs.
     $effect(() => {
-        if (!sessionReady || sessionSuspended || ctx.windowName === '') {
+        if (!workspaces.sessionReady || workspaces.sessionSuspended || ctx.windowName === '') {
             return;
         }
-        const files = sessionFiles;
-        const activePath = sessionActive;
-        const workspacePath = activeWorkspace?.path ?? '';
+        const files = workspaces.sessionFiles;
+        const activePath = workspaces.sessionActive;
+        const workspacePath = workspaces.activeWorkspace?.path ?? '';
         const currentFolders = ctx.folders;
-        const expanded = expandedPaths;
-        if (!sessionOwner && workspacePath === '') {
+        const expanded = treeops.expandedPaths;
+        if (!workspaces.sessionOwner && workspacePath === '') {
             return;
         }
         void saveSession(ctx.windowName, {
@@ -1830,17 +957,17 @@
             // restores and writes the shared session. Only the session flag is
             // read now; the request itself is collected once its listener is
             // installed, so nothing queued meanwhile can be lost.
-            sessionOwner = await ShouldRestoreSession(ctx.windowName);
+            workspaces.sessionOwner = await ShouldRestoreSession(ctx.windowName);
 
             const workspace = await loadWorkspaceState();
             sidebarVisible = workspace.sidebarVisible;
             sidebarAutoReveal = workspace.autoReveal;
-            recentFiles = workspace.recentFiles;
+            workspaces.recentFiles = workspace.recentFiles;
             ctx.folders = await loadSidebarFolders(ctx.windowName);
             // Git status may walk a large repository; the session restore does
             // not wait for it, and the branch appears when the read lands.
             void git.refreshGitStatus();
-            if (sessionOwner) {
+            if (workspaces.sessionOwner) {
                 const saved = await loadWindowSession(ctx.windowName);
                 if (saved.folders.length > 0) {
                     try {
@@ -1852,7 +979,7 @@
                 if (saved.workspace !== '') {
                     try {
                         const info = await loadWorkspace(saved.workspace);
-                        activeWorkspace = info;
+                        workspaces.activeWorkspace = info;
                         ctx.folders = await setSidebarFolders(ctx.windowName, info.folders ?? []);
                         void git.refreshGitStatus();
                     } catch (error) {
@@ -1861,12 +988,12 @@
                         console.error('Failed to restore the workspace.', error);
                     }
                 }
-                expandedPaths = saved.expanded;
-                await restoreSession(saved);
+                treeops.expandedPaths = saved.expanded;
+                await workspaces.restoreSession(saved);
             }
             // From here on tab changes are saved as the session; before this
             // point an empty list is just startup, not the user closing tabs.
-            sessionReady = true;
+            workspaces.sessionReady = true;
 
             const loaded = await loadEditorSettings();
             if (disposed) {
@@ -1891,8 +1018,8 @@
             );
 
             const off = await subscribeAll(ctx.windowName, {
-                launch: (request) => void applyLaunch(request),
-                addFolder: () => void addFolderFromDialog(),
+                launch: (request) => void workspaces.applyLaunch(request),
+                addFolder: () => void workspaces.addFolderFromDialog(),
                 closeTab: () => {
                     if (ctx.activeId !== '') {
                         void documents.closeTab(ctx.activeId);
@@ -1902,8 +1029,8 @@
                 commandPalette: showCommandPalette,
                 menuCommand: selectCommand,
                 fileCommands: {
-                    'new-file': () => void newFileFromMenu(),
-                    'new-folder': () => void newFolderFromMenu(),
+                    'new-file': () => void treeops.newFileFromMenu(),
+                    'new-folder': () => void treeops.newFolderFromMenu(),
                     'new-buffer': documents.newFile,
                     'open-file': () => void documents.openFromDialog(),
                     'save': () => saveActive(),
@@ -1928,13 +1055,13 @@
                 watchedChanges: (paths) => void documents.handleWatchedChanges(paths),
                 workspaceCommands: {
                     openRecent: showRecentFiles,
-                    openWorkspace: () => void openWorkspaceFromDialog(),
-                    saveWorkspaceAs: () => void saveWorkspaceAsDialog(),
-                    closeWorkspace: () => void closeWorkspace(),
-                    refresh: () => void refreshWorkspace(),
+                    openWorkspace: () => void workspaces.openWorkspaceFromDialog(),
+                    saveWorkspaceAs: () => void workspaces.saveWorkspaceAsDialog(),
+                    closeWorkspace: () => void workspaces.closeWorkspace(),
+                    refresh: () => void workspaces.refreshWorkspace(),
                     findInFiles: showFindInFiles,
                     toggleSidebar,
-                    closeAllFolders: () => void closeAllFolders(),
+                    closeAllFolders: () => void workspaces.closeAllFolders(),
                     revealFile: () => void revealActiveFile(),
                     copyPath: (kind) => void copyActivePath(kind),
                 },
@@ -1993,24 +1120,24 @@
                     changes={git.changes}
                     busy={ctx.busy}
                     onOpenDiff={(path) => void git.openDiff(path)}
-                    onRefresh={() => void refreshWorkspace()}
+                    onRefresh={() => void workspaces.refreshWorkspace()}
                 />
             {:else}
                 <Sidebar
                     folders={ctx.folders}
-                    selectedPath={revealedPath}
+                    selectedPath={treeops.revealedPath}
                     busy={ctx.busy}
-                    refreshToken={treeRefreshToken}
-                    {busyPath}
+                    refreshToken={treeops.treeRefreshToken}
+                    busyPath={treeops.busyPath}
                     statuses={git.statuses}
                     iconStyle={appearance.uiSettings.iconStyle}
-                    onAddFolder={() => void addFolderFromDialog()}
-                    onRemoveFolder={(path) => void removeFolder(path)}
+                    onAddFolder={() => void workspaces.addFolderFromDialog()}
+                    onRemoveFolder={(path) => void workspaces.removeFolder(path)}
                     onOpenFile={(path) => void documents.openFile(path)}
                     onContextMenu={showContextMenu}
                     onEmptyAreaMenu={showEmptyAreaMenu}
-                    onExpandedChange={setExpanded}
-                    onMovePath={(source, folder) => void moveEntry(source, folder)}
+                    onExpandedChange={treeops.setExpanded}
+                    onMovePath={(source, folder) => void treeops.moveEntry(source, folder)}
                 />
             {/if}
         </div>
