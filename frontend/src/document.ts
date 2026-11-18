@@ -1,4 +1,5 @@
 import type * as models from '../bindings/kaze/models';
+import type * as documentModels from '../bindings/kaze/internal/document/models';
 import { GetLaunchRequest, LoadDocument } from '../bindings/kaze/app';
 import { onWindowEvent } from './windowstate';
 
@@ -267,7 +268,7 @@ export function shownPath(document: OpenDocument | undefined): string {
     return document.path !== '' ? document.path : document.name;
 }
 
-export function toOpenDocument(document: models.Document): OpenDocument {
+export function toOpenDocument(document: documentModels.Document): OpenDocument {
     return {
         id: document.path,
         path: document.path,

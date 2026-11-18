@@ -7,14 +7,11 @@ export {
 };
 
 export type {
-    Document,
     FileList,
     FileTreeResult,
     FolderEntry,
     LaunchBuffer,
     LaunchRequest,
     PrintRequest,
-    SaveRequest,
-    SaveResult,
     WindowSession
 } from "./models.js";

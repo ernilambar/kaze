@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"kaze/internal/document"
 	"kaze/internal/git"
 	"kaze/internal/pathutil"
 )
@@ -73,7 +74,7 @@ func (a *App) GetGitBaseline(path string) (git.GitBaseline, error) {
 	if err != nil {
 		return git.GitBaseline{InRepo: true}, nil
 	}
-	if len(content) > maxDocumentSize {
+	if len(content) > document.MaxSize {
 		return git.GitBaseline{}, fmt.Errorf("%s is too large to diff", filepath.Base(path))
 	}
 	return git.GitBaseline{InRepo: true, Tracked: true, Content: string(content)}, nil
@@ -122,8 +123,8 @@ func (a *App) GetGitDiff(path string) (string, error) {
 		}
 	}
 
-	if len(diff) > maxDocumentSize {
-		return "", fmt.Errorf("the diff is larger than %d MB", maxDocumentSize>>20)
+	if len(diff) > document.MaxSize {
+		return "", fmt.Errorf("the diff is larger than %d MB", document.MaxSize>>20)
 	}
 	return diff, nil
 }

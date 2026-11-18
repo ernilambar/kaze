@@ -16,6 +16,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as config$0 from "./internal/config/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as document$0 from "./internal/document/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as find$0 from "./internal/find/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -277,7 +280,7 @@ export function ListThemes(): $CancellablePromise<themes$0.ThemeCatalog> {
  * small mis-encoded log would be less useful than showing it. Supported image
  * formats are returned as a data URL for the image viewer.
  */
-export function LoadDocument(path: string): $CancellablePromise<$models.Document> {
+export function LoadDocument(path: string): $CancellablePromise<document$0.Document> {
     return $Call.ByID(3916855336, path);
 }
 
@@ -464,7 +467,7 @@ export function RevealFile(path: string): $CancellablePromise<void> {
  * it passes the whole buffer instead of a path Go could reread: an unsaved edit
  * is exactly what should land in the file.
  */
-export function SaveDocument(request: $models.SaveRequest): $CancellablePromise<$models.SaveResult> {
+export function SaveDocument(request: document$0.SaveRequest): $CancellablePromise<document$0.SaveResult> {
     return $Call.ByID(83010905, request);
 }
 

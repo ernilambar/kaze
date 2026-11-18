@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"kaze/internal/config"
+	"kaze/internal/document"
 	"kaze/internal/find"
 )
 
@@ -93,7 +94,7 @@ func (a *App) ReplaceInProject(window string, request find.SearchRequest) (find.
 			result.Matches += matches
 			continue
 		}
-		conflict, err := changedOnDisk(path, expected)
+		conflict, err := document.ChangedOnDisk(path, expected)
 		if err != nil {
 			result.Failed = append(result.Failed, path)
 			continue
