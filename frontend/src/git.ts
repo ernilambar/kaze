@@ -1,4 +1,4 @@
-import type * as models from '../bindings/kaze/models';
+import type * as models from '../bindings/kaze/internal/git/models';
 import { GetGitBaseline, GetGitDiff, GetGitStatus } from '../bindings/kaze/app';
 import { isWithin, relativePath } from './sidebar';
 

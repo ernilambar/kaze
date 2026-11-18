@@ -83,50 +83,6 @@ export interface FolderEntry {
 }
 
 /**
- * GitBaseline is the HEAD version of a file. The gutter diffs the buffer
- * against it, so changed lines show while the user is still typing.
- */
-export interface GitBaseline {
-    /**
-     * InRepo says whether the path belongs to a repository at all. Untracked
-     * files return InRepo=true and Tracked=false, because every line is new.
-     */
-    "in_repo": boolean;
-    "tracked": boolean;
-    "content": string;
-}
-
-/**
- * GitChange is one file git reports as different from HEAD. Status is one of
- * modified, added, deleted, renamed, copied, conflicted or untracked.
- */
-export interface GitChange {
-    "path": string;
-    "root": string;
-    "status": string;
-}
-
-/**
- * GitRepo is one repository behind a sidebar root. Branch is the checked-out
- * branch, or the short commit hash when HEAD is detached.
- */
-export interface GitRepo {
-    "root": string;
-    "branch": string;
-    "ahead": number;
-    "behind": number;
-}
-
-/**
- * GitSnapshot is the whole read-only picture for the sidebar roots: the
- * repositories they live in and the changed files inside them.
- */
-export interface GitSnapshot {
-    "repos": GitRepo[] | null;
-    "changes": GitChange[] | null;
-}
-
-/**
  * LaunchBuffer is one tab handed to another window. A text buffer carries its
  * text, so unsaved edits move with the tab; an image or diff travels by path
  * and the receiving window reads it again.

@@ -16,6 +16,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as config$0 from "./internal/config/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as git$0 from "./internal/git/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as keybindings$0 from "./internal/keybindings/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -149,7 +152,7 @@ export function FileExists(path: string): $CancellablePromise<boolean> {
  * repository, or one HEAD does not contain, reports that instead of an error:
  * the gutter only needs to know whether it has a baseline to compare against.
  */
-export function GetGitBaseline(path: string): $CancellablePromise<$models.GitBaseline> {
+export function GetGitBaseline(path: string): $CancellablePromise<git$0.GitBaseline> {
     return $Call.ByID(3065424274, path);
 }
 
@@ -167,7 +170,7 @@ export function GetGitDiff(path: string): $CancellablePromise<string> {
  * changed files inside them. A root outside a repository is skipped silently:
  * a non-repository folder is normal, not a failure.
  */
-export function GetGitStatus(folders: string[] | null): $CancellablePromise<$models.GitSnapshot> {
+export function GetGitStatus(folders: string[] | null): $CancellablePromise<git$0.GitSnapshot> {
     return $Call.ByID(4123560639, folders);
 }
 
