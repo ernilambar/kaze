@@ -1,5 +1,6 @@
 import { ListFiles } from '../bindings/kaze/app';
 import { onWindowEvent } from './windowstate';
+import type { PaletteItem } from './palette';
 import { folderName, isWithin } from './sidebar';
 
 // QuickOpenFile is one row in the palette: the file's absolute path, its name
@@ -201,6 +202,34 @@ export function rankQuickOpen(
     limit: number = QUICK_OPEN_LIMIT,
 ): QuickOpenFile[] {
     return rankCandidates(query, files, limit);
+}
+
+// toPaletteItem maps a Quick Open row onto the palette's common shape. The path
+// is the id the palette hands back, so selecting the row opens that file.
+export function toPaletteItem(file: QuickOpenFile): PaletteItem {
+    return { id: file.path, name: file.name, detail: file.detail };
+}
+
+// rankFileRows ranks Quick Open rows and maps them onto palette rows. The two
+// palettes share Palette.svelte, so the ordering and the shape stay one step.
+export function rankFileRows(query: string, files: readonly QuickOpenFile[]): PaletteItem[] {
+    return rankQuickOpen(query, files).map(toPaletteItem);
+}
+
+// toRecentItems turns Open Recent's paths into palette rows. The detail keeps
+// the root's name, exactly like Quick Open, so the same file reads the same way
+// in both lists.
+export function toRecentItems(
+    paths: readonly string[],
+    roots: readonly string[],
+): PaletteItem[] {
+    return paths.map((path) => toPaletteItem(toQuickOpenFile(path, roots)));
+}
+
+// rankAll ranks a fixed list in full: the command, language and indentation
+// palettes scroll rather than dropping rows past a cap.
+export function rankAll(query: string, items: readonly PaletteItem[]): PaletteItem[] {
+    return rankCandidates(query, items, items.length);
 }
 
 function innermostRoot(path: string, roots: readonly string[]): string {

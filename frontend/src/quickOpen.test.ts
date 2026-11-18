@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
     fuzzyScore,
+    rankAll,
+    rankFileRows,
     rankQuickOpen,
+    toPaletteItem,
     toQuickOpenFile,
     toQuickOpenFiles,
+    toRecentItems,
     type QuickOpenFile,
 } from './quickOpen';
 
@@ -103,5 +107,64 @@ describe('rankQuickOpen', () => {
 
     it('excludes files that do not match', () => {
         expect(rankQuickOpen('zzz', [file('app.ts')])).toEqual([]);
+    });
+});
+
+describe('toPaletteItem', () => {
+    it('uses the path as the id the palette hands back', () => {
+        expect(toPaletteItem(file('app.ts', 'src'))).toEqual({
+            id: '/src/app.ts',
+            name: 'app.ts',
+            detail: 'src',
+        });
+    });
+});
+
+describe('rankFileRows', () => {
+    it('ranks and maps in one step', () => {
+        const files = [file('main.go', 'cmd'), file('App.svelte', 'frontend')];
+
+        expect(rankFileRows('appsv', files)).toEqual([
+            { id: '/frontend/App.svelte', name: 'App.svelte', detail: 'frontend' },
+        ]);
+    });
+
+    it('returns no rows when nothing matches', () => {
+        expect(rankFileRows('zzz', [file('app.ts')])).toEqual([]);
+    });
+});
+
+describe('toRecentItems', () => {
+    it('labels a path the same way Quick Open does', () => {
+        expect(toRecentItems(['/repo/src/app.ts'], ['/repo'])).toEqual([
+            toPaletteItem(toQuickOpenFile('/repo/src/app.ts', ['/repo'])),
+        ]);
+    });
+
+    it('keeps the opened spelling as the id', () => {
+        const path = '/repo/link/../src/app.ts';
+
+        expect(toRecentItems([path], ['/repo'])[0]?.id).toBe(path);
+    });
+});
+
+describe('rankAll', () => {
+    it('shows the whole list for an empty query', () => {
+        const items = [
+            { id: 'a', name: 'Alpha', detail: '' },
+            { id: 'b', name: 'Beta', detail: '' },
+        ];
+
+        expect(rankAll('', items)).toEqual(items);
+    });
+
+    it('never truncates a fixed list', () => {
+        const items = Array.from({ length: 120 }, (_, index) => ({
+            id: `${index}`,
+            name: `Command ${index}`,
+            detail: '',
+        }));
+
+        expect(rankAll('command', items)).toHaveLength(120);
     });
 });

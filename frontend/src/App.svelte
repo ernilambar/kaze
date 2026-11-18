@@ -35,7 +35,9 @@
         ZoomWindow,
     } from '../bindings/kaze/app';
     import type { SaveResult, SearchMatch, WorkspaceInfo } from '../bindings/kaze/models';
-    import { CASE_TRANSFORMS, type CaseTransform } from './case';
+    import { dispatchCommand, type CommandHandlers } from './app/dispatch';
+    import { contextMenuItems as buildContextMenuItems } from './app/menus';
+    import { type CaseTransform } from './case';
     import ChangesView from './ChangesView.svelte';
     import ContextMenu from './ContextMenu.svelte';
     import EditorPane from './EditorPane.svelte';
@@ -52,7 +54,7 @@
     import TitleBar from './TitleBar.svelte';
     import Welcome from './Welcome.svelte';
     import { COMMANDS, INDENT_PALETTE_COMMANDS, listenForCommandPalette, listenForMenuCommand, rankCommands } from './commands';
-    import { treeMenuItems, type ContextMenuItem } from './contextmenu';
+    import type { ContextMenuItem } from './contextmenu';
     import {
         createDiffDocument,
         createUntitledDocument,
@@ -78,8 +80,6 @@
     import {
         listenForEditorCommands,
         INDENT_COMMANDS,
-        LINE_COMMANDS,
-        SELECTION_COMMANDS,
         VIEW_OPTIONS,
         type SelectionCommand,
         type ViewOption,
@@ -114,10 +114,11 @@
     import {
         listFiles,
         listenForQuickOpen,
+        rankAll,
         rankCandidates,
-        rankQuickOpen,
-        toQuickOpenFile,
+        rankFileRows,
         toQuickOpenFiles,
+        toRecentItems as toRecentPaletteItems,
         type QuickOpenFile,
     } from './quickOpen';
     import {
@@ -487,7 +488,7 @@
     let searchLabel = $derived(
         searchSummary(searchGroups.length, searchMatches.length, searchTruncated),
     );
-    let recentItems = $derived(toRecentItems(recentFiles));
+    let recentItems = $derived(toRecentPaletteItems(recentFiles, folders));
     // The session records file-backed tabs only: an untitled buffer has no
     // text on disk, and a diff is a view of a file that is already recorded.
     let sessionFiles = $derived(
@@ -1567,11 +1568,7 @@
     // The two palettes share Palette.svelte, so Quick Open rows are mapped onto
     // the common row shape and ranked with the same function.
     function rankFiles(query: string): PaletteItem[] {
-        return rankQuickOpen(query, quickOpenFiles).map(toPaletteItem);
-    }
-
-    function toPaletteItem(file: QuickOpenFile): PaletteItem {
-        return { id: file.path, name: file.name, detail: file.detail };
+        return rankFileRows(query, quickOpenFiles);
     }
 
     function rankCommandRows(query: string): PaletteItem[] {
@@ -1583,7 +1580,7 @@
     // fixed syntax and an image has none.
     function rankLanguages(query: string): PaletteItem[] {
         const items = languageModeItems ?? (languageModeItems = languageChoices());
-        return rankCandidates(query, items, items.length);
+        return rankAll(query, items);
     }
 
     function showLanguagePalette(): void {
@@ -1612,7 +1609,7 @@
     // rankIndentation lists the actions the status bar's picker offers. The
     // rows are static, so an empty query shows the whole list.
     function rankIndentation(query: string): PaletteItem[] {
-        return rankCandidates(query, INDENT_PALETTE_COMMANDS, INDENT_PALETTE_COMMANDS.length);
+        return rankAll(query, INDENT_PALETTE_COMMANDS);
     }
 
     function showIndentationPalette(): void {
@@ -1702,230 +1699,78 @@
     }
 
     // selectCommand closes the palette before running the command, so commands
-    // that open another dialog (Quick Open, the folder picker) start clean.
+    // that open another dialog (Quick Open, the folder picker) start clean. The
+    // command id table lives in app/dispatch.ts; this object is what each id
+    // runs in this window.
     function selectCommand(id: string): void {
         commandPalette = false;
-
-        // The case and view toggles are generated from their shared tables, so a
-        // new transform needs no second switch arm here.
-        const transform = CASE_TRANSFORMS.find((entry) => `case-${entry.id}` === id);
-        if (transform !== undefined) {
-            transformSelection(transform.id);
-            return;
-        }
-        const viewOption = VIEW_OPTIONS.find((entry) => `toggle-${entry.id}` === id);
-        if (viewOption !== undefined) {
-            toggleViewOption(viewOption.id);
-            return;
-        }
-        const selectionCommand = SELECTION_COMMANDS.find((entry) => entry.id === id);
-        if (selectionCommand !== undefined) {
-            runSelectionCommand(selectionCommand.id);
-            return;
-        }
-        const lineCommand = LINE_COMMANDS.find((entry) => entry.id === id);
-        if (lineCommand !== undefined) {
-            transformLines(lineCommand.id);
-            return;
-        }
-        const indentCommand = INDENT_COMMANDS.find((entry) => entry.id === id);
-        if (indentCommand !== undefined) {
-            runIndentAction(indentCommand.id);
-            return;
-        }
-
-        if (id.startsWith('go-to-tab-')) {
-            goToTab(Number(id.slice('go-to-tab-'.length)));
-            return;
-        }
-
-        switch (id) {
-            case 'new-file':
-                void newFileFromMenu();
-                break;
-            case 'new-folder':
-                void newFolderFromMenu();
-                break;
-            case 'new-buffer':
-                newFile();
-                break;
-            case 'open-file':
-                void openFromDialog();
-                break;
-            case 'save':
-                saveActive();
-                break;
-            case 'save-as':
-                saveActive(true);
-                break;
-            case 'save-all':
-                void saveAll();
-                break;
-            case 'print':
-                void printActive();
-                break;
-            case 'trim-whitespace':
-                trimWhitespace();
-                break;
-            case 'change-language-mode':
-                showLanguagePalette();
-                break;
-            case 'find':
-                runEditorAction('actions.find');
-                break;
-            case 'replace':
-                runEditorAction('editor.action.startFindReplaceAction');
-                break;
-            case 'go-to-line':
-                runEditorAction('editor.action.gotoLine');
-                break;
-            case 'go-to-symbol':
-                runEditorAction('editor.action.quickOutline');
-                break;
-            case 'find-next-result':
-                void stepFindResult(1);
-                break;
-            case 'find-previous-result':
-                void stepFindResult(-1);
-                break;
-            case 'toggle-preview':
-                togglePreview();
-                break;
-            case 'show-explorer':
-                switchSidebarView('explorer');
-                break;
-            case 'show-changes':
-                switchSidebarView('changes');
-                break;
-            case 'zoom-in':
-                zoom('in');
-                break;
-            case 'zoom-out':
-                zoom('out');
-                break;
-            case 'zoom-reset':
-                zoom('reset');
-                break;
-            case 'quick-open':
-                void showQuickOpen();
-                break;
-            case 'add-folder':
-                void addFolderFromDialog();
-                break;
-            case 'close-tab':
-                if (activeId !== '') {
-                    void closeTab(activeId);
-                }
-                break;
-            case 'command-palette':
-                showCommandPalette();
-                break;
-            case 'settings':
-                showSettingsOverlay();
-                break;
-            case 'about':
-                void ShowAbout();
-                break;
-            case 'open-settings-json':
-                void openSettings();
-                break;
-            case 'open-default-settings':
-                void openDefaultSettings();
-                break;
-            case 'open-themes-folder':
-                void openThemesFolder();
-                break;
-            case 'open-keybindings':
-                void openKeybindings();
-                break;
-            case 'appearance-system':
-            case 'appearance-light':
-            case 'appearance-dark':
-                void changeThemeSettings({
-                    ...themeSettings,
-                    mode: id.slice('appearance-'.length) as ThemeSettings['mode'],
-                });
-                break;
-            case 'install-command-line-tool':
-                void installCommandLineTool();
-                break;
-            case 'open-recent':
-                showRecentFiles();
-                break;
-            case 'clear-recent':
-                void clearRecent();
-                break;
-            case 'open-workspace':
-                void openWorkspaceFromDialog();
-                break;
-            case 'save-workspace-as':
-                void saveWorkspaceAsDialog();
-                break;
-            case 'close-workspace':
-                void closeWorkspace();
-                break;
-            case 'minimize-window':
-                runWindowCommand(() => MinimiseWindow(windowName));
-                break;
-            case 'zoom-window':
-                runWindowCommand(() => ZoomWindow(windowName));
-                break;
-            case 'toggle-full-screen':
-                runWindowCommand(() => ToggleFullScreen(windowName));
-                break;
-            case 'new-window':
-                runWindowCommand(() => NewWindow());
-                break;
-            case 'open-folder-new-window':
-                runWindowCommand(() => OpenFolderInNewWindow());
-                break;
-            case 'close-window':
-                runWindowCommand(() => CloseWindow(windowName));
-                break;
-            case 'move-tab-new-window':
-                void moveTabToNewWindow();
-                break;
-            case 'bring-all-to-front':
-                runWindowCommand(() => BringAllToFront());
-                break;
-            case 'close-all-folders':
-                void closeAllFolders();
-                break;
-            case 'close-all-tabs':
-                void closeAllTabs();
-                break;
-            case 'reopen-closed-tab':
-                void reopenClosedTab();
-                break;
-            case 'next-tab':
-                stepTab(1);
-                break;
-            case 'previous-tab':
-                stepTab(-1);
-                break;
-            case 'find-in-files':
-                showFindInFiles();
-                break;
-            case 'refresh':
-                void refreshWorkspace();
-                break;
-            case 'toggle-sidebar':
-                toggleSidebar();
-                break;
-            case 'reveal-file':
-                void revealActiveFile();
-                break;
-            case 'copy-file-path':
-                void copyActivePath('file');
-                break;
-            case 'copy-relative-path':
-                void copyActivePath('relative');
-                break;
-            case 'copy-file-name':
-                void copyActivePath('name');
-                break;
-        }
+        dispatchCommand(id, commandHandlers);
     }
+
+    // commandHandlers is the window's side of every palette, menu and
+    // keybinding command. It is built once because the functions it names are
+    // stable for the life of the window.
+    const commandHandlers: CommandHandlers = {
+        newFile: () => void newFileFromMenu(),
+        newFolder: () => void newFolderFromMenu(),
+        newBuffer: newFile,
+        openFile: () => void openFromDialog(),
+        save: () => saveActive(),
+        saveAs: () => saveActive(true),
+        saveAll: () => void saveAll(),
+        print: () => void printActive(),
+        trimWhitespace,
+        transformSelection,
+        transformLines,
+        runSelectionCommand,
+        runIndentAction,
+        runEditorAction,
+        toggleViewOption,
+        showLanguagePalette,
+        showQuickOpen: () => void showQuickOpen(),
+        showCommandPalette,
+        showRecentFiles,
+        clearRecent: () => void clearRecent(),
+        showFindInFiles,
+        showSettings: showSettingsOverlay,
+        showAbout: () => void ShowAbout(),
+        stepFindResult: (direction) => void stepFindResult(direction),
+        togglePreview,
+        switchSidebarView,
+        zoom,
+        addFolder: () => void addFolderFromDialog(),
+        closeActiveTab: () => {
+            if (activeId !== '') {
+                void closeTab(activeId);
+            }
+        },
+        goToTab,
+        stepTab,
+        reopenClosedTab: () => void reopenClosedTab(),
+        closeAllTabs: () => void closeAllTabs(),
+        closeAllFolders: () => void closeAllFolders(),
+        moveTabToNewWindow: () => void moveTabToNewWindow(),
+        openSettingsJson: () => void openSettings(),
+        openDefaultSettings: () => void openDefaultSettings(),
+        openThemesFolder: () => void openThemesFolder(),
+        openKeybindings: () => void openKeybindings(),
+        installCommandLineTool: () => void installCommandLineTool(),
+        setAppearanceMode: (mode) => void changeThemeSettings({ ...themeSettings, mode }),
+        openWorkspace: () => void openWorkspaceFromDialog(),
+        saveWorkspaceAs: () => void saveWorkspaceAsDialog(),
+        closeWorkspace: () => void closeWorkspace(),
+        refreshWorkspace: () => void refreshWorkspace(),
+        toggleSidebar,
+        revealActiveFile: () => void revealActiveFile(),
+        copyActivePath: (kind) => void copyActivePath(kind),
+        minimiseWindow: () => runWindowCommand(() => MinimiseWindow(windowName)),
+        zoomWindow: () => runWindowCommand(() => ZoomWindow(windowName)),
+        toggleFullScreen: () => runWindowCommand(() => ToggleFullScreen(windowName)),
+        newWindow: () => runWindowCommand(() => NewWindow()),
+        openFolderInNewWindow: () => runWindowCommand(() => OpenFolderInNewWindow()),
+        closeWindow: () => runWindowCommand(() => CloseWindow(windowName)),
+        bringAllToFront: () => runWindowCommand(() => BringAllToFront()),
+    };
 
     async function addFolderFromDialog(): Promise<void> {
         if (busy) {
@@ -2587,63 +2432,10 @@
         treeRefreshToken++;
     }
 
-    // contextMenuItems builds the row menu. A tree row that is a file creates in
-    // the folder it lives in, which is why it offers the same items; a tab row
-    // offers the tab commands. A separator is an item with an empty id, which
-    // the menu draws as a line.
+    // contextMenuItems builds the row menu for the right-click the menu was
+    // opened on. The builders are pure functions in app/menus.ts.
     function contextMenuItems(): ContextMenuItem[] {
-        const target = contextMenu;
-        if (target === null) {
-            return [];
-        }
-        if (target.tabId !== undefined) {
-            return tabContextMenuItems(target.tabId);
-        }
-        return treeMenuItems(clipboardPath);
-    }
-
-    // tabContextMenuItems is the menu for the tab under the pointer. Commands
-    // are relative to that tab, not to whichever tab happens to be active.
-    function tabContextMenuItems(tabId: string): ContextMenuItem[] {
-        const tab = findTab(tabId);
-        if (tab === undefined) {
-            return [];
-        }
-        const reveal = tab.path || tab.sourcePath || '';
-        const index = tabs.findIndex((entry) => entry.id === tabId);
-        const items: ContextMenuItem[] = [
-            { id: 'close-tab', label: 'Close Tab' },
-            { id: 'move-tab-new-window', label: 'Move to New Window' },
-            { id: '', label: '' },
-            {
-                id: 'close-other-tabs',
-                label: 'Close Other Tabs',
-                disabled: tabs.length === 1 && !searchOpen,
-            },
-            {
-                id: 'close-right-tabs',
-                label: 'Close Tabs to Right',
-                disabled: index === -1 || (index === tabs.length - 1 && !searchOpen),
-            },
-            {
-                id: 'close-deleted-tabs',
-                label: 'Close Tabs with Deleted Files',
-                disabled: !tabs.some((entry) => entry.deleted),
-            },
-            { id: '', label: '' },
-            {
-                id: 'close-all-tabs',
-                label: 'Close All',
-                disabled: tabs.length === 0 && !searchOpen,
-            },
-        ];
-        if (reveal !== '') {
-            items.push(
-                { id: '', label: '' },
-                { id: 'reveal', label: 'Reveal in Finder' },
-            );
-        }
-        return items;
+        return buildContextMenuItems(contextMenu, tabs, clipboardPath, searchOpen);
     }
 
     // runContextMenu runs the item the row menu picked against the entry it was
@@ -2823,13 +2615,6 @@
         } catch (error) {
             console.error('Failed to remember the recent file.', error);
         }
-    }
-
-    function toRecentItems(paths: readonly string[]): PaletteItem[] {
-        return paths.map((path) => {
-            const file = toQuickOpenFile(path, folders);
-            return { id: path, name: file.name, detail: file.detail };
-        });
     }
 
     function showRecentFiles(): void {
