@@ -1,13 +1,11 @@
 <script lang="ts">
-    import * as monaco from 'monaco-editor';
-    import { onMount, tick } from 'svelte';
+    import { onMount } from 'svelte';
     import {
         BringAllToFront,
         CloseWindow,
         CopyText,
         DefaultSettingsFile,
         FileExists,
-        GetKeybindings,
         GetProductName,
         InstallCommandLineTool,
         KeybindingsFile,
@@ -18,15 +16,12 @@
         OpenFolderInNewWindow,
         OpenThemesFolder,
         PrintDocument,
-        ReplaceInProject,
         ResolveClose,
         RevealFile,
         SaveDocument,
         SaveFileDialog,
-        SearchProject,
         SetAppearanceMode,
         SetUnsavedChanges,
-        SetViewOption,
         SettingsFile,
         ShouldRestoreSession,
         ShowAbout,
@@ -34,10 +29,15 @@
         WatchConfig,
         ZoomWindow,
     } from '../bindings/kaze/app';
-    import type { SaveResult, SearchMatch, WorkspaceInfo } from '../bindings/kaze/models';
+    import type { SaveResult, WorkspaceInfo } from '../bindings/kaze/models';
+    import { Appearance } from './app/appearance.svelte';
+    import { WindowContext } from './app/context.svelte';
     import { dispatchCommand, type CommandHandlers } from './app/dispatch';
     import { subscribeAll } from './app/events';
+    import { GitController } from './app/git.svelte';
     import { contextMenuItems as buildContextMenuItems } from './app/menus';
+    import { Prompts } from './app/prompts.svelte';
+    import { SearchController } from './app/search.svelte';
     import { type CaseTransform } from './case';
     import ChangesView from './ChangesView.svelte';
     import ContextMenu from './ContextMenu.svelte';
@@ -54,12 +54,10 @@
     import TabBar from './TabBar.svelte';
     import TitleBar from './TitleBar.svelte';
     import Welcome from './Welcome.svelte';
-    import { COMMANDS, INDENT_PALETTE_COMMANDS, rankCommands } from './commands';
+    import { INDENT_PALETTE_COMMANDS, rankCommands } from './commands';
     import type { ContextMenuItem } from './contextmenu';
     import {
-        createDiffDocument,
         createUntitledDocument,
-        diffTabId,
         normalizeEol,
         readDocument,
         shownPath,
@@ -79,9 +77,7 @@
     } from './editor';
     import {
         INDENT_COMMANDS,
-        VIEW_OPTIONS,
         type SelectionCommand,
-        type ViewOption,
         type ZoomCommand,
     } from './editorcommands';
     import type { CloseReason } from './filecommands';
@@ -98,14 +94,6 @@
         trashPath,
     } from './filetree';
     import {
-        branchLabel,
-        loadGitStatus,
-        readGitBaseline,
-        readGitDiff,
-        repoForPath,
-        type GitChange,
-        type GitRepo,
-        type GitStatusKind,
         type SidebarView,
     } from './git';
     import type { PaletteItem } from './palette';
@@ -120,49 +108,11 @@
         type QuickOpenFile,
     } from './quickOpen';
     import {
-        expectedModified,
-        groupSearchMatches,
-        replaceConfirmMessage,
-        replaceNotice,
-        replaceText,
-        searchExpression,
-        searchSummary,
-        stepSearchResult,
-    } from './search';
-    import {
-        defaultEditorSettings,
-        defaultThemeSettings,
-        defaultUISettings,
         loadEditorSettings,
         loadPreferences,
-        readSettings,
-        saveEditorSettings,
-        saveFilesSettings,
-        saveSearchExclude,
-        saveThemeSettings,
-        saveUISettings,
-        type EditorSettings,
-        type ThemeSettings,
-        type UISettings,
     } from './settings';
     import {
-        installKeybindings,
-        isUsableBinding,
-        withDefaultKeybindings,
-        type KeyContext,
-    } from './keybindings';
-    import {
-        applyThemeCSS,
         applyUISettings,
-        cacheStartupTheme,
-        listThemes,
-        loadTheme,
-        monacoThemeName,
-        resolveThemeName,
-        systemPrefersDark,
-        themeData,
-        type ThemeInfo,
-        type ThemePalette,
     } from './theme';
     import {
         addSidebarFolder,
@@ -213,28 +163,6 @@
     import type { CopyPathKind } from './workspacecommands';
     import { resolveWindowName, setWindowName } from './windowstate';
 
-    // UnsavedPrompt is the dialog asking what to do with modified buffers
-    // before they are closed. answer resolves the promise the caller is
-    // awaiting, so a save or close sequence reads top to bottom.
-    interface UnsavedPrompt {
-        title: string;
-        message: string;
-        details: string[];
-        confirmLabel: string;
-        answer: (answer: 'save' | 'discard' | 'cancel') => void;
-    }
-
-    // ConfirmPrompt asks whether a save may go ahead when it would lose
-    // something: another program's newer file, or bytes that were never valid
-    // UTF-8 and are now replacement characters. A conflict offers Reload as a
-    // third answer, so the prompt carries its actions instead of a boolean.
-    interface ConfirmPrompt {
-        title: string;
-        message: string;
-        actions: { id: string; label: string; primary?: boolean }[];
-        answer: (id: string) => void;
-    }
-
     // ClosedTab is one entry in the Reopen Closed Tab stack. The buffer text is
     // kept because an untitled tab has no file to read again.
     interface ClosedTab {
@@ -254,42 +182,15 @@
     // appName comes from the build config; it is empty only until mount.
     let appName = $state('');
 
-    let tabs = $state<OpenDocument[]>([]);
-    let activeId = $state('');
-    let folders = $state<string[]>([]);
     // activeWorkspace is the file the roots came from. It is session state: the
     // roots themselves are what settings.json restores.
     let activeWorkspace = $state<WorkspaceInfo | null>(null);
-    let notice = $state('');
-    let busy = $state(false);
-    // windowName is this window's Wails identity. Every per-window backend call
-    // and event listener uses it, so a menu command or close prompt lands in
-    // the window it belongs to.
-    let windowName = $state('');
 
     // Git is read-only. The sidebar shows the status marks from gitChanges,
     // while the status bar shows the active file's branch.
     let sidebarView = $state<SidebarView>('explorer');
-    let gitRepos = $state<GitRepo[]>([]);
-    let gitChanges = $state<GitChange[]>([]);
 
-    let editorSettings = $state<EditorSettings>({ ...defaultEditorSettings });
-    // Editor saves are chained so the last change wins; the version identifies
-    // the newest request, whose normalized result is the one applied.
-    let editorSaveQueue: Promise<void> = Promise.resolve();
-    let editorSaveVersion = 0;
-    let themeSettings = $state<ThemeSettings>({ ...defaultThemeSettings });
-    let uiSettings = $state<UISettings>({ ...defaultUISettings });
-    // Excludes are the two glob lists settings.json keeps. The tree and Find in
-    // Files both read them in Go; the settings overlay edits them.
-    let filesExclude = $state<string[]>([]);
-    let filesTrimTrailingWhitespace = $state(false);
-    let searchExclude = $state<string[]>([]);
-    let themes = $state<ThemeInfo[]>([]);
-    let themeErrors = $state<string[]>([]);
     let settingsOverlay = $state(false);
-    let keybindingError = $state('');
-    let disposeKeybindings: (() => void) | undefined;
     let preview = $state<PreviewState | null>(null);
 
     let quickOpen = $state(false);
@@ -325,37 +226,6 @@
 
     let imageSize = $state<{ id: string; width: number; height: number } | null>(null);
 
-    // Find in Files state. The results tab is open while results exist, even
-    // when another tab is active.
-    let searchOpen = $state(false);
-    let searchActive = $state(false);
-    let searchQuery = $state('');
-    let searchInclude = $state('');
-    let searchExcludeGlobs = $state('');
-    let searchReplacement = $state('');
-    let searchRegex = $state(false);
-    let searchCaseSensitive = $state(false);
-    let searchMatches = $state<SearchMatch[]>([]);
-    let searchTruncated = $state(false);
-    // searchResultIndex is the position F4 last opened in searchMatches, or -1
-    // before the first step. A new search resets it.
-    let searchResultIndex = $state(-1);
-    // searchedParams records the query that produced searchMatches. Replace
-    // All uses these rather than the live fields, so changing the query without
-    // searching again cannot replace text the results do not describe.
-    let searchedParams = $state({
-        query: '',
-        regex: false,
-        caseSensitive: false,
-        include: '',
-        exclude: '',
-    });
-    let searchBusy = $state(false);
-    let searchError = $state('');
-    let searchFocusToken = $state(0);
-
-    let unsavedPrompt = $state<UnsavedPrompt | null>(null);
-    let confirmPrompt = $state<ConfirmPrompt | null>(null);
     // contextMenu is the right-click menu in the tab bar or the tree, anchored
     // where the pointer was. tabId marks a tab; otherwise path is the tree entry
     // under the pointer. isDir decides which items the tree offers.
@@ -366,23 +236,6 @@
         isDir: boolean;
         tabId?: string;
     } | null>(null);
-
-    // NamePromptState is the one-line dialog that asks for a name: a new file, a
-    // new folder, a rename or a duplicate. answer resolves what the operation
-    // awaiting it needs, so each command reads top to bottom.
-    interface NamePromptState {
-        title: string;
-        label?: string;
-        value: string;
-        selectStem: boolean;
-        selectFolder: boolean;
-        submitLabel: string;
-        error: string;
-        answer: (value: string) => void;
-        cancel: () => void;
-    }
-
-    let namePrompt = $state<NamePromptState | null>(null);
 
     // clipboardPath is the tree entry Cut or Copy put aside. The operating
     // system clipboard is not used: moving a file is not the same thing as
@@ -411,83 +264,74 @@
 
     let editorPane = $state<EditorPane>();
 
-    let active = $derived(tabs.find((tab) => tab.id === activeId));
-    let imageActive = $derived(active?.kind === 'image');
-    let previewActive = $derived(preview !== null && preview.id === activeId);
+    // The window's controllers. They are built here, during component init,
+    // and each one is handed the context and the controllers it uses. Host
+    // callbacks are the functions that still live in this component.
+    const ctx = new WindowContext(() => editorPane);
+    const prompts = new Prompts();
+    const git = new GitController(ctx, { showDocument });
+    const search = new SearchController(ctx, prompts, git, { openFile, refreshTree });
+    const appearance = new Appearance(ctx, {
+        refreshTree,
+        sidebarVisible: () => sidebarVisible,
+        selectCommand,
+    });
+
+    let imageActive = $derived(ctx.active?.kind === 'image');
+    let previewActive = $derived(preview !== null && preview.id === ctx.activeId);
     // Either surface replaces the editor, which stays laid out behind it so a
     // text tab keeps its viewport. The welcome screen is the same layer when no
     // tab is open.
     let viewerActive = $derived(imageActive || previewActive);
-    let welcomeActive = $derived(active === undefined && !searchActive);
-    let paneReplaced = $derived(viewerActive || searchActive || welcomeActive);
+    let welcomeActive = $derived(ctx.active === undefined && !ctx.searchActive);
+    let paneReplaced = $derived(viewerActive || ctx.searchActive || welcomeActive);
     let language = $derived(
         imageActive
             ? 'Image'
-            : active?.kind === 'diff'
+            : ctx.active?.kind === 'diff'
               ? 'Diff'
-              : languageLabel(active?.path ?? '', active?.content ?? '', active?.language ?? ''),
+              : languageLabel(ctx.active?.path ?? '', ctx.active?.content ?? '', ctx.active?.language ?? ''),
     );
     // Monaco keeps its buffers while an image tab is showing, so switching back
     // to a text tab preserves edits. The idle buffer keeps the hidden editor
     // from creating a model for an image path.
-    let editorKey = $derived(imageActive ? WELCOME_KEY : (active?.id ?? WELCOME_KEY));
-    let editorContent = $derived(imageActive ? '' : (active?.content ?? ''));
+    let editorKey = $derived(imageActive ? WELCOME_KEY : (ctx.active?.id ?? WELCOME_KEY));
+    let editorContent = $derived(imageActive ? '' : (ctx.active?.content ?? ''));
     // The active file's line ending decides the Monaco model's EOL, so edits
     // and the saved text use the same sequence the file started with.
-    let editorEol = $derived(imageActive ? 'lf' : (active?.eol ?? 'lf'));
+    let editorEol = $derived(imageActive ? 'lf' : (ctx.active?.eol ?? 'lf'));
     // The status bar prints the active buffer's indentation; a tab with no
     // text buffer has none to configure.
     let indentationText = $derived(
-        active?.kind === 'text'
+        ctx.active?.kind === 'text'
             ? indentationLabel(indentation.insertSpaces, indentation.indentSize, indentation.tabSize)
             : '',
     );
     // savedContent is what a clean buffer would hold. A moved dirty tab carries
     // a different text than the file on disk, so its tab records the baseline.
     let editorSavedContent = $derived(
-        imageActive ? '' : (active?.savedContent ?? active?.content ?? ''),
+        imageActive ? '' : (ctx.active?.savedContent ?? ctx.active?.content ?? ''),
     );
-    let openIds = $derived(tabs.map((tab) => tab.id));
-    let unsaved = $derived(tabs.some((tab) => tab.dirty));
+    let openIds = $derived(ctx.tabs.map((tab) => tab.id));
     let folderLabel = $derived(
         activeWorkspace !== null && activeWorkspace.name !== ''
             ? activeWorkspace.name
-            : sidebarLabel(folders),
-    );
-    // The tree looks statuses up by path; the changes list keeps the ordered
-    // records. Both come from the same snapshot.
-    let gitStatuses = $derived.by(() => {
-        const statuses: Record<string, GitStatusKind> = {};
-        for (const change of gitChanges) {
-            statuses[change.path] = change.status;
-        }
-        return statuses;
-    });
-    let activeRepo = $derived(
-        repoForPath(gitRepos, active?.path || active?.sourcePath || ''),
-    );
-    let branch = $derived(branchLabel(activeRepo));
-    let settingsWarning = $derived(
-        keybindingError !== '' ? keybindingError : (themeErrors[0] ?? ''),
+            : sidebarLabel(ctx.folders),
     );
     let imageSizeLabel = $derived(
-        imageSize !== null && imageSize.id === activeId
+        imageSize !== null && imageSize.id === ctx.activeId
             ? `${imageSize.width} × ${imageSize.height}`
             : '',
     );
-    let searchGroups = $derived(groupSearchMatches(searchMatches));
-    let searchLabel = $derived(
-        searchSummary(searchGroups.length, searchMatches.length, searchTruncated),
-    );
-    let recentItems = $derived(toRecentPaletteItems(recentFiles, folders));
+    let recentItems = $derived(toRecentPaletteItems(recentFiles, ctx.folders));
     // The session records file-backed tabs only: an untitled buffer has no
     // text on disk, and a diff is a view of a file that is already recorded.
     let sessionFiles = $derived(
-        tabs.filter((tab) => tab.kind === 'text' && tab.path !== '').map((tab) => tab.path),
+        ctx.tabs.filter((tab) => tab.kind === 'text' && tab.path !== '').map((tab) => tab.path),
     );
     // A diff tab records the file it shows, so a relaunch restores the file
     // itself as the active tab.
-    let sessionActive = $derived(active?.path || active?.sourcePath || '');
+    let sessionActive = $derived(ctx.active?.path || ctx.active?.sourcePath || '');
     let watchedPaths = $derived(Array.from(new Set([...sessionFiles, ...expandedPaths])));
     let quickOpenEmpty = $derived(
         quickOpenLoading
@@ -497,23 +341,19 @@
               : 'No matching files.',
     );
 
-    function findTab(id: string): OpenDocument | undefined {
-        return tabs.find((tab) => tab.id === id);
-    }
-
     // showDocument adds a tab for the document unless its file is already open,
     // then makes it active. Restoring a session passes record=false, so a
     // relaunch does not reshuffle the Open Recent list.
     function showDocument(document: OpenDocument, record = true): void {
-        const opened = openDocumentTab(tabs, document);
-        tabs = opened.tabs;
-        activeId = opened.activeId;
-        searchActive = false;
+        const opened = openDocumentTab(ctx.tabs, document);
+        ctx.tabs = opened.tabs;
+        ctx.activeId = opened.activeId;
+        ctx.searchActive = false;
         if (record && document.path !== '') {
             void recordRecent(document.path);
         }
         if (document.kind === 'text' && document.path !== '') {
-            void loadBaseline(document.id, document.path);
+            void git.loadBaseline(document.id, document.path);
         }
     }
 
@@ -522,18 +362,18 @@
     // The first failure is returned so the caller can show it in the status bar.
     async function addFolders(paths: string[]): Promise<string> {
         let failure = '';
-        let latest = folders;
+        let latest = ctx.folders;
         for (const path of paths) {
             try {
-                latest = await addSidebarFolder(windowName, path);
+                latest = await addSidebarFolder(ctx.windowName, path);
             } catch (error) {
                 if (failure === '') {
                     failure = errorMessage(error);
                 }
             }
         }
-        folders = latest;
-        void refreshGitStatus();
+        ctx.folders = latest;
+        void git.refreshGitStatus();
         return failure;
     }
 
@@ -543,8 +383,8 @@
             // Open Folder in New Window: the new window starts with exactly the
             // chosen folder, and the roots are saved for the next launch.
             try {
-                folders = await setSidebarFolders(windowName, request.folders);
-                void refreshGitStatus();
+                ctx.folders = await setSidebarFolders(ctx.windowName, request.folders);
+                void git.refreshGitStatus();
             } catch (error) {
                 failure = errorMessage(error);
             }
@@ -561,16 +401,16 @@
                 continue;
             }
             if (buffer.kind === 'diff' && buffer.source_path !== '') {
-                await openDiff(buffer.source_path);
+                await git.openDiff(buffer.source_path);
                 continue;
             }
             showDocument(toBufferDocument(buffer), false);
         }
 
         for (const path of request.files) {
-            const existing = findDocumentByPath(tabs, path);
+            const existing = findDocumentByPath(ctx.tabs, path);
             if (existing !== undefined) {
-                activeId = existing.id;
+                ctx.activeId = existing.id;
                 continue;
             }
             const opened = await readDocument(path);
@@ -583,7 +423,7 @@
             showDocument(opened);
         }
 
-        notice = failure !== '' ? failure : noticeFor(request);
+        ctx.notice = failure !== '' ? failure : noticeFor(request);
     }
 
     // openFile opens one file and returns the tab that now holds it, or an
@@ -593,108 +433,20 @@
     async function openFile(path: string): Promise<string> {
         // Clicking a file that is already open focuses its tab instead of
         // rereading the file, which would discard edits made in the buffer.
-        const existing = findDocumentByPath(tabs, path);
+        const existing = findDocumentByPath(ctx.tabs, path);
         if (existing !== undefined) {
-            activeId = existing.id;
-            notice = '';
+            ctx.activeId = existing.id;
+            ctx.notice = '';
             return existing.id;
         }
         const opened = await readDocument(path);
         if (opened === undefined) {
-            notice = `Cannot open ${path}`;
+            ctx.notice = `Cannot open ${path}`;
             return '';
         }
         showDocument(opened);
-        notice = '';
-        return activeId;
-    }
-
-    // refreshGitStatus rereads the repositories behind the sidebar roots. It
-    // runs when the workspace changes and after the app writes a file; a folder
-    // outside git simply contributes nothing. A newer request wins, so adding
-    // a root while an older read is still running cannot roll the result back.
-    let gitRequest = 0;
-    async function refreshGitStatus(): Promise<void> {
-        const request = ++gitRequest;
-        try {
-            const state = await loadGitStatus(folders);
-            if (request !== gitRequest) {
-                return;
-            }
-            gitRepos = state.repos;
-            gitChanges = state.changes;
-        } catch (error) {
-            console.error('Failed to read git status.', error);
-        }
-    }
-
-    // loadBaseline gives one buffer its HEAD text so the gutter can mark the
-    // lines that differ while the user types. An untracked file's baseline is
-    // empty, which makes every line read as added.
-    async function loadBaseline(id: string, path: string): Promise<void> {
-        if (path === '') {
-            return;
-        }
-        try {
-            const baseline = await readGitBaseline(path);
-            if (!baseline.inRepo) {
-                editorPane?.clearBaseline(id);
-                return;
-            }
-            editorPane?.setBaseline(id, baseline.content);
-        } catch (error) {
-            console.error('Failed to read the file baseline.', error);
-            editorPane?.clearBaseline(id);
-        }
-    }
-
-    // openDiff shows one file's changes against HEAD in a read-only tab. A
-    // diff that is already open is focused instead of rebuilt.
-    async function openDiff(path: string): Promise<void> {
-        const id = diffTabId(path);
-        if (tabs.some((tab) => tab.id === id)) {
-            activeId = id;
-            searchActive = false;
-            return;
-        }
-        try {
-            const diff = await readGitDiff(path);
-            showDocument(createDiffDocument(path, diff), false);
-            notice = '';
-        } catch (error) {
-            notice = errorMessage(error);
-        }
-    }
-
-    // reloadDiffTab replaces a diff's snapshot with a fresh one. The model is
-    // read-only, so this is the only way its text changes.
-    async function reloadDiffTab(id: string, path: string): Promise<void> {
-        try {
-            const document = createDiffDocument(path, await readGitDiff(path));
-            tabs = updateDocument(tabs, id, { content: document.content });
-            editorPane?.reload(id, document.content, document.eol);
-        } catch (error) {
-            console.error('Failed to refresh the diff.', error);
-        }
-    }
-
-    async function refreshDiffTabs(): Promise<void> {
-        for (const tab of tabs) {
-            if (tab.kind === 'diff' && tab.sourcePath !== undefined) {
-                await reloadDiffTab(tab.id, tab.sourcePath);
-            }
-        }
-    }
-
-    // refreshGitAfterSave updates the marks and any diff of the file that was
-    // just written, so the sidebar does not describe the previous content.
-    async function refreshGitAfterSave(path: string): Promise<void> {
-        await refreshGitStatus();
-        for (const tab of tabs) {
-            if (tab.kind === 'diff' && tab.sourcePath === path) {
-                await reloadDiffTab(tab.id, path);
-            }
-        }
+        ctx.notice = '';
+        return ctx.activeId;
     }
 
     // switchSidebarView moves between the explorer and the changes list. The
@@ -715,22 +467,22 @@
     // model edit makes the tab dirty, so the next save writes the chosen
     // sequence instead of the one the file had.
     function toggleLineEnding(): void {
-        const tab = active;
+        const tab = ctx.active;
         if (tab === undefined || tab.kind !== 'text') {
             return;
         }
         const eol: DocumentEOL = tab.eol === 'crlf' ? 'lf' : 'crlf';
         editorPane?.setEol(tab.id, eol);
-        tabs = updateDocument(tabs, tab.id, { eol });
+        ctx.tabs = updateDocument(ctx.tabs, tab.id, { eol });
     }
 
     // newFile opens an empty buffer with no path yet. Save turns it into a
     // Save As, which is how most editors treat an untitled document.
     function newFile(): void {
-        const document = createUntitledDocument(tabs);
-        tabs = [...tabs, document];
-        activeId = document.id;
-        notice = '';
+        const document = createUntitledDocument(ctx.tabs);
+        ctx.tabs = [...ctx.tabs, document];
+        ctx.activeId = document.id;
+        ctx.notice = '';
     }
 
     // newFileFromMenu is File → New File: the file is created inside a sidebar
@@ -740,7 +492,7 @@
     async function newFileFromMenu(): Promise<void> {
         const folder = selectedFolder();
         if (folder === '') {
-            notice = 'Add a folder to the sidebar to create a file.';
+            ctx.notice = 'Add a folder to the sidebar to create a file.';
             newFile();
             return;
         }
@@ -751,7 +503,7 @@
     async function newFolderFromMenu(): Promise<void> {
         const folder = selectedFolder();
         if (folder === '') {
-            notice = 'Add a folder to the sidebar to create a folder.';
+            ctx.notice = 'Add a folder to the sidebar to create a folder.';
             return;
         }
         await newFolderInFolder(folder);
@@ -764,9 +516,9 @@
     function selectedFolder(): string {
         const selected = revealedPath;
         if (selected === '') {
-            return folders[0] ?? '';
+            return ctx.folders[0] ?? '';
         }
-        const tab = findDocumentByPath(tabs, selected);
+        const tab = findDocumentByPath(ctx.tabs, selected);
         if (tab !== undefined && tab.path !== '') {
             return parentPath(selected);
         }
@@ -774,10 +526,10 @@
     }
 
     async function openFromDialog(): Promise<void> {
-        if (busy) {
+        if (ctx.busy) {
             return;
         }
-        busy = true;
+        ctx.busy = true;
         try {
             const path = await OpenFileDialog();
             // Cancelling the dialog is a decision, not a failure.
@@ -786,16 +538,16 @@
             }
             await openFile(path);
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         } finally {
-            busy = false;
+            ctx.busy = false;
         }
     }
 
     function removeTab(id: string): void {
-        const result = closeDocumentTab(tabs, id, activeId);
-        tabs = result.tabs;
-        activeId = result.activeId;
+        const result = closeDocumentTab(ctx.tabs, id, ctx.activeId);
+        ctx.tabs = result.tabs;
+        ctx.activeId = result.activeId;
     }
 
     // bufferText is what the editor holds right now. A tab that has never been
@@ -804,83 +556,21 @@
         return editorPane?.value(tab.id) ?? tab.content;
     }
 
-    // askUnsaved shows the prompt and resolves with the action the user picked.
-    function askUnsaved(options: Omit<UnsavedPrompt, 'answer'>): Promise<'save' | 'discard' | 'cancel'> {
-        return new Promise((resolve) => {
-            unsavedPrompt = { ...options, answer: resolve };
-        });
-    }
-
-    function answerUnsaved(answer: string): void {
-        if (answer !== 'save' && answer !== 'discard' && answer !== 'cancel') {
-            return;
-        }
-        const prompt = unsavedPrompt;
-        unsavedPrompt = null;
-        prompt?.answer(answer);
-    }
-
-    function askConfirm(
-        title: string,
-        message: string,
-        confirmLabel: string,
-    ): Promise<boolean> {
-        return new Promise((resolve) => {
-            confirmPrompt = {
-                title,
-                message,
-                actions: [
-                    { id: 'confirm', label: confirmLabel, primary: true },
-                    { id: 'cancel', label: 'Cancel' },
-                ],
-                answer: (id) => resolve(id === 'confirm'),
-            };
-        });
-    }
-
-    // askConflict is the save prompt for a file another program changed. Reload
-    // is a separate answer because the disk copy may be the newer one, and
-    // discarding the buffer is then the right move.
-    function askConflict(
-        title: string,
-        message: string,
-    ): Promise<'overwrite' | 'reload' | 'cancel'> {
-        return new Promise((resolve) => {
-            confirmPrompt = {
-                title,
-                message,
-                actions: [
-                    { id: 'overwrite', label: 'Overwrite', primary: true },
-                    { id: 'reload', label: 'Reload from Disk' },
-                    { id: 'cancel', label: 'Cancel' },
-                ],
-                answer: (id) =>
-                    resolve(id === 'overwrite' || id === 'reload' ? id : 'cancel'),
-            };
-        });
-    }
-
-    function answerConfirm(id: string): void {
-        const prompt = confirmPrompt;
-        confirmPrompt = null;
-        prompt?.answer(id);
-    }
-
     async function chooseSavePath(tab: OpenDocument): Promise<string> {
         try {
             return await SaveFileDialog(tab.path !== '' ? tab.path : tab.name);
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
             return '';
         }
     }
 
     function applySaved(id: string, result: SaveResult, content: string): void {
-        const previousPath = findTab(id)?.path ?? '';
+        const previousPath = ctx.findTab(id)?.path ?? '';
         // The editor decides whether the buffer is clean: typing during the
         // write leaves newer text in the model than the file now holds.
         const clean = editorPane?.markSaved(id, content) ?? true;
-        tabs = updateDocument(tabs, id, {
+        ctx.tabs = updateDocument(ctx.tabs, id, {
             path: result.path,
             realPath: result.real_path || result.path,
             name: result.name,
@@ -896,7 +586,7 @@
         // Save As can give an untitled buffer a real path, and with it a
         // language the model should start highlighting. An explicit override
         // still wins over the new extension.
-        const saved = findTab(id);
+        const saved = ctx.findTab(id);
         editorPane?.setLanguage(
             id,
             languageForDocument(
@@ -906,12 +596,12 @@
             ),
         );
         if (previousPath !== result.path) {
-            void loadBaseline(id, result.path);
+            void git.loadBaseline(id, result.path);
         }
-        void refreshGitAfterSave(result.path).catch((error) =>
+        void git.refreshGitAfterSave(result.path).catch((error) =>
             console.error('Failed to refresh the git status.', error),
         );
-        notice = '';
+        ctx.notice = '';
     }
 
     // saveDocument writes one buffer, asking for a path when it has none. A file
@@ -919,7 +609,7 @@
     // never overwritten without the user saying so. False means nothing was
     // written: a cancelled dialog, a conflict the user declined, or an error.
     async function saveDocument(id: string, saveAs = false): Promise<boolean> {
-        const tab = findTab(id);
+        const tab = ctx.findTab(id);
         // Pictures are read-only here, and a diff is a generated view, so
         // there is nothing to write back for either.
         if (tab === undefined || tab.kind !== 'text') {
@@ -928,21 +618,21 @@
 
         // These save-time rewrites edit the buffer before its text is read, so
         // the write and the model still agree and the tab does not stay dirty.
-        if (filesTrimTrailingWhitespace) {
+        if (appearance.filesTrimTrailingWhitespace) {
             editorPane?.trimTrailingWhitespaceInBuffer(tab.id);
         }
-        if (editorSettings.ensureFinalNewline) {
+        if (appearance.editorSettings.ensureFinalNewline) {
             editorPane?.ensureFinalNewline(tab.id);
         }
         let content = bufferText(tab);
-        if (editorSettings.ensureFinalNewline) {
+        if (appearance.editorSettings.ensureFinalNewline) {
             content = appendFinalNewline(content);
         }
         // The model's text is already normalized to the document's EOL, but a
         // buffer that was never shown comes straight from the tab. Normalizing
         // here keeps the baseline markSaved compares with the model.
         content = normalizeEol(content, tab.eol);
-        if (filesTrimTrailingWhitespace) {
+        if (appearance.filesTrimTrailingWhitespace) {
             content = trimTrailingWhitespaceText(content);
         }
         let path = tab.path;
@@ -957,12 +647,12 @@
             // Save As refuses a path that is already open. The dialog returns a
             // resolved path, so an alias of an open file counts too.
             if (
-                tabs.some(
+                ctx.tabs.some(
                     (other) =>
                         other.id !== id && (other.path === path || other.realPath === path),
                 )
             ) {
-                notice = `${path} is already open.`;
+                ctx.notice = `${path} is already open.`;
                 return false;
             }
         }
@@ -982,7 +672,7 @@
                     allow_invalid_utf8: allowInvalidUTF8,
                 });
                 if (result.invalid_utf8) {
-                    const proceed = await askConfirm(
+                    const proceed = await prompts.askConfirm(
                         'Invalid UTF-8',
                         `${result.name} is not valid UTF-8. Saving replaces the bytes that could not be decoded with U+FFFD. Continue?`,
                         'Save Anyway',
@@ -994,7 +684,7 @@
                     continue;
                 }
                 if (result.conflict) {
-                    const choice = await askConflict(
+                    const choice = await prompts.askConflict(
                         'File Changed on Disk',
                         `${result.name} changed on disk since it was opened. Overwrite it with your version, or reload it from disk?`,
                     );
@@ -1007,13 +697,13 @@
                         // save during close can go on to close it.
                         const opened = await readDocument(tab.path);
                         if (opened === undefined) {
-                            notice = `Could not reload ${tab.name} from disk.`;
+                            ctx.notice = `Could not reload ${tab.name} from disk.`;
                             return false;
                         }
                         applyReload(id, opened);
-                        void loadBaseline(id, tab.path);
-                        void refreshDiffTabs();
-                        void refreshGitStatus();
+                        void git.loadBaseline(id, tab.path);
+                        void git.refreshDiffTabs();
+                        void git.refreshGitStatus();
                         return true;
                     }
                     overwrite = true;
@@ -1023,7 +713,7 @@
                 return true;
             }
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
             return false;
         }
     }
@@ -1031,7 +721,7 @@
     // saveAll writes every modified buffer in tab order. A cancelled Save As or
     // a failed write stops the run, so the rest are left exactly as they were.
     async function saveAll(): Promise<boolean> {
-        for (const tab of tabs.filter((entry) => entry.dirty)) {
+        for (const tab of ctx.tabs.filter((entry) => entry.dirty)) {
             if (!(await saveDocument(tab.id))) {
                 return false;
             }
@@ -1043,12 +733,12 @@
     // is also what discards its undo stack. The result is false when the user
     // cancelled or the save failed, so a group command can stop there.
     async function closeTab(id: string): Promise<boolean> {
-        const tab = findTab(id);
+        const tab = ctx.findTab(id);
         if (tab === undefined) {
             return false;
         }
         if (tab.dirty) {
-            const answer = await askUnsaved({
+            const answer = await prompts.askUnsaved({
                 title: 'Close Tab',
                 message: `Save changes to ${tab.name} before closing?`,
                 details: [],
@@ -1080,9 +770,9 @@
 
     async function resolveClose(quit: boolean): Promise<void> {
         try {
-            await ResolveClose(windowName, quit);
+            await ResolveClose(ctx.windowName, quit);
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         }
     }
 
@@ -1095,18 +785,18 @@
         // second Cmd+Q must not stack a dialog on top of it. Answering the
         // request with "cancel" clears Go's pending flag, so the next Cmd+Q
         // asks again instead of being swallowed.
-        if (unsavedPrompt !== null || confirmPrompt !== null) {
+        if (prompts.unsaved !== null || prompts.confirm !== null) {
             await resolveClose(false);
             return;
         }
 
-        const dirty = tabs.filter((tab) => tab.dirty);
+        const dirty = ctx.tabs.filter((tab) => tab.dirty);
         if (dirty.length === 0) {
             await resolveClose(true);
             return;
         }
 
-        const answer = await askUnsaved({
+        const answer = await prompts.askUnsaved({
             title: reason === 'close' ? 'Close Window' : `Quit ${appName}`,
             message:
                 reason === 'close'
@@ -1136,181 +826,16 @@
         try {
             await openFile(await SettingsFile());
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         }
     }
 
     async function installCommandLineTool(): Promise<void> {
         try {
             await InstallCommandLineTool();
-            notice = '';
+            ctx.notice = '';
         } catch (error) {
-            notice = errorMessage(error);
-        }
-    }
-
-    // Theme application: CSS variables cover the app chrome; Monaco gets its
-    // own theme definition. A stable name per palette lets a live reload
-    // replace the data and re-select the same theme.
-    function applyThemePalette(palette: ThemePalette): void {
-        applyThemeCSS(palette);
-        cacheStartupTheme(palette);
-        monaco.editor.defineTheme(monacoThemeName(palette.name), themeData(palette));
-        monaco.editor.setTheme(monacoThemeName(palette.name));
-    }
-
-    async function applyCurrentTheme(): Promise<void> {
-        const prefersDark = systemPrefersDark();
-        const name = resolveThemeName(themeSettings, prefersDark);
-        try {
-            applyThemePalette(await loadTheme(name));
-            return;
-        } catch (error) {
-            console.error('Failed to apply the selected theme.', error);
-        }
-        const fallback = prefersDark ? defaultThemeSettings.dark : defaultThemeSettings.light;
-        try {
-            applyThemePalette(await loadTheme(fallback));
-            notice = `Theme "${name}" is unavailable.`;
-        } catch (error) {
-            notice = errorMessage(error);
-        }
-    }
-
-    // refreshThemes lists installed themes and repairs a name that no longer
-    // exists. The first theme for an appearance is the fallback, so deleting a
-    // theme file does not leave the editor stuck on the old palette.
-    async function refreshThemes(): Promise<void> {
-        try {
-            const catalog = await listThemes();
-            themes = catalog.themes;
-            themeErrors = catalog.errors;
-            const lightFallback = catalog.themes.find(
-                (entry) => entry.appearance === 'light',
-            )?.name;
-            const darkFallback = catalog.themes.find(
-                (entry) => entry.appearance === 'dark',
-            )?.name;
-            const names = new Set(catalog.themes.map((entry) => entry.name));
-            let next = themeSettings;
-            if (!names.has(next.light) && lightFallback !== undefined) {
-                next = { ...next, light: lightFallback };
-            }
-            if (!names.has(next.dark) && darkFallback !== undefined) {
-                next = { ...next, dark: darkFallback };
-            }
-            if (next.light !== themeSettings.light || next.dark !== themeSettings.dark) {
-                themeSettings = next;
-                themeSettings = await saveThemeSettings(next);
-            }
-            if (themeErrors.length > 0) {
-                notice = themeErrors[0];
-            }
-        } catch (error) {
-            notice = errorMessage(error);
-        }
-    }
-
-    async function changeThemeSettings(next: ThemeSettings): Promise<void> {
-        themeSettings = next;
-        void SetAppearanceMode(next.mode).catch((error) =>
-            console.error('Failed to update the Appearance menu.', error),
-        );
-        await applyCurrentTheme();
-        try {
-            themeSettings = await saveThemeSettings(next);
-        } catch (error) {
-            notice = errorMessage(error);
-        }
-    }
-
-    async function changeUISettings(next: UISettings): Promise<void> {
-        uiSettings = next;
-        applyUISettings(next);
-        try {
-            uiSettings = await saveUISettings(next);
-            applyUISettings(uiSettings);
-        } catch (error) {
-            notice = errorMessage(error);
-        }
-    }
-
-    // changeFilesExclude saves the explorer's glob list and rereads the tree:
-    // the level already on screen was opened with the old matcher. The update
-    // endpoint replaces the whole files section, so the whitespace rule travels
-    // with it.
-    async function changeFilesExclude(next: string[]): Promise<void> {
-        filesExclude = next;
-        try {
-            const saved = await saveFilesSettings({
-                exclude: next,
-                trimTrailingWhitespace: filesTrimTrailingWhitespace,
-            });
-            filesExclude = saved.exclude;
-            filesTrimTrailingWhitespace = saved.trimTrailingWhitespace;
-            treeRefreshToken++;
-        } catch (error) {
-            notice = errorMessage(error);
-        }
-    }
-
-    // changeFilesTrimTrailingWhitespace saves the trimming rule without
-    // touching the explorer's glob list.
-    async function changeFilesTrimTrailingWhitespace(next: boolean): Promise<void> {
-        filesTrimTrailingWhitespace = next;
-        try {
-            const saved = await saveFilesSettings({
-                exclude: filesExclude,
-                trimTrailingWhitespace: next,
-            });
-            filesExclude = saved.exclude;
-            filesTrimTrailingWhitespace = saved.trimTrailingWhitespace;
-        } catch (error) {
-            notice = errorMessage(error);
-        }
-    }
-
-    async function changeSearchExclude(next: string[]): Promise<void> {
-        searchExclude = next;
-        try {
-            searchExclude = await saveSearchExclude(next);
-        } catch (error) {
-            notice = errorMessage(error);
-        }
-    }
-
-    // reloadSettings applies settings.json after it changed on disk. A broken
-    // file keeps the current values and reports why, so a typo mid-edit does
-    // not reset everything to defaults. Only sections that differ are applied,
-    // so the overlay's own writes coming back through the watcher are no-ops.
-    async function reloadSettings(): Promise<void> {
-        let next: Awaited<ReturnType<typeof readSettings>>;
-        try {
-            next = await readSettings();
-        } catch (error) {
-            notice = errorMessage(error);
-            return;
-        }
-        const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
-        if (!same(next.editor, editorSettings)) {
-            editorSettings = next.editor;
-        }
-        if (!same(next.ui, uiSettings)) {
-            uiSettings = next.ui;
-            applyUISettings(uiSettings);
-        }
-        // The tree on screen was listed with the old matcher.
-        if (!same(next.files.exclude, filesExclude)) {
-            filesExclude = next.files.exclude;
-            treeRefreshToken++;
-        }
-        filesTrimTrailingWhitespace = next.files.trimTrailingWhitespace;
-        if (!same(next.searchExclude, searchExclude)) {
-            searchExclude = next.searchExclude;
-        }
-        if (!same(next.theme, themeSettings)) {
-            themeSettings = next.theme;
-            await applyCurrentTheme();
+            ctx.notice = errorMessage(error);
         }
     }
 
@@ -1328,16 +853,16 @@
         try {
             await openFile(await DefaultSettingsFile());
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         }
     }
 
     async function openThemesFolder(): Promise<void> {
         try {
             await OpenThemesFolder();
-            notice = '';
+            ctx.notice = '';
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         }
     }
 
@@ -1345,78 +870,16 @@
         try {
             await openFile(await KeybindingsFile());
         } catch (error) {
-            notice = errorMessage(error);
-        }
-    }
-
-    // keybindingContext is what a `when` expression can test. Focus inside
-    // Monaco's textarea still counts as editor focus.
-    function keybindingContext(): KeyContext {
-        const focused = document.activeElement;
-        return {
-            editorFocus: focused instanceof Element && focused.closest('.monaco-editor') !== null,
-            sidebarVisible,
-            hasActiveTab: activeId !== '',
-            hasDirtyTab: unsaved,
-        };
-    }
-
-    function knownCommand(id: string): boolean {
-        return COMMANDS.some((command) => command.id === id);
-    }
-
-    function runKeybindingCommand(id: string): void {
-        if (!knownCommand(id)) {
-            notice = `Unknown keybinding command: ${id}`;
-            return;
-        }
-        selectCommand(id);
-    }
-
-    async function refreshKeybindings(): Promise<void> {
-        let state;
-        try {
-            state = await GetKeybindings();
-        } catch (error) {
-            keybindingError = errorMessage(error);
-            return;
-        }
-        keybindingError = state.error;
-        // A broken file did not decode; keep the previous listener (or start
-        // with the defaults) and native menu rather than silently dropping
-        // every shortcut. A file that
-        // decoded has an authoritative list even when entries were rejected.
-        if (!state.parsed) {
-            disposeKeybindings ??= installKeybindings(withDefaultKeybindings([]), {
-                run: runKeybindingCommand,
-                context: keybindingContext,
-            });
-            return;
-        }
-        const bindings = state.bindings ?? [];
-        const actionable = bindings.filter((binding) => !binding.command.startsWith('-'));
-        const usable = actionable.filter(isUsableBinding);
-        if (usable.length < actionable.length) {
-            const dropped = actionable.length - usable.length;
-            keybindingError = `${keybindingError === '' ? '' : `${keybindingError}; `}${dropped} binding(s) need a modifier or a non-printing key`;
-        }
-        disposeKeybindings?.();
-        // installKeybindings skips "-command" removals and unusable entries.
-        disposeKeybindings = installKeybindings(withDefaultKeybindings(bindings), {
-            run: runKeybindingCommand,
-            context: keybindingContext,
-        });
-        if (keybindingError !== '') {
-            notice = keybindingError;
+            ctx.notice = errorMessage(error);
         }
     }
 
     // printActive prints the active buffer: text comes from the editor so an
     // unsaved edit prints as it looks, pictures come from their file.
     async function printActive(): Promise<void> {
-        const tab = active;
+        const tab = ctx.active;
         if (tab === undefined) {
-            notice = 'Open a document to print.';
+            ctx.notice = 'Open a document to print.';
             return;
         }
         try {
@@ -1425,9 +888,9 @@
                 content: tab.kind === 'image' ? '' : bufferText(tab),
                 image: tab.kind === 'image',
             });
-            notice = '';
+            ctx.notice = '';
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         }
     }
 
@@ -1439,14 +902,14 @@
             preview = null;
             return;
         }
-        const tab = active;
+        const tab = ctx.active;
         const kind = previewKindFor(tab?.path ?? '');
         if (tab === undefined || kind === '') {
-            notice = 'Preview is available for Markdown and SVG files.';
+            ctx.notice = 'Preview is available for Markdown and SVG files.';
             return;
         }
         preview = { id: tab.id, kind, content: bufferText(tab) };
-        notice = '';
+        ctx.notice = '';
     }
 
     function transformSelection(transform: CaseTransform): void {
@@ -1470,56 +933,16 @@
     // widgets belong to the editor, so the Find in Files results panel gives
     // way first rather than hiding them.
     function runEditorAction(action: string): void {
-        if (active === undefined) {
-            notice = 'Open a document first.';
+        if (ctx.active === undefined) {
+            ctx.notice = 'Open a document first.';
             return;
         }
-        searchActive = false;
+        ctx.searchActive = false;
         editorPane?.runEditorAction(action);
     }
 
     function zoom(command: ZoomCommand): void {
         editorPane?.zoom(command);
-    }
-
-    // changeEditorSettings applies the whole editor section, saves it, and moves
-    // the View menu checkmarks. Saves are chained and only the newest result is
-    // applied, so two quick changes cannot write the older values last.
-    function changeEditorSettings(next: EditorSettings): void {
-        editorSettings = next;
-        const version = ++editorSaveVersion;
-        editorSaveQueue = editorSaveQueue
-            .catch(() => {})
-            .then(async () => {
-                const saved = await saveEditorSettings(next);
-                if (version !== editorSaveVersion) {
-                    return;
-                }
-                editorSettings = saved;
-                for (const option of VIEW_OPTIONS) {
-                    void SetViewOption(option.id, saved[option.id]).catch((error) =>
-                        console.error('Failed to update the View menu.', error),
-                    );
-                }
-            })
-            .catch((error) => {
-                if (version === editorSaveVersion) {
-                    notice = errorMessage(error);
-                }
-            });
-    }
-
-    // setViewOption applies a view toggle, saves it, and moves the View menu's
-    // checkmark when the toggle came from the command palette instead.
-    function setViewOption(option: ViewOption, checked: boolean): void {
-        if (editorSettings[option] === checked) {
-            return;
-        }
-        changeEditorSettings({ ...editorSettings, [option]: checked });
-    }
-
-    function toggleViewOption(option: ViewOption): void {
-        setViewOption(option, !editorSettings[option]);
     }
 
     // showQuickOpen opens the palette first and fills it as soon as Go has
@@ -1534,12 +957,12 @@
         quickOpenLoading = true;
         quickOpenTruncated = false;
         try {
-            const list = await listFiles(windowName);
-            quickOpenFiles = toQuickOpenFiles(list.files, folders);
+            const list = await listFiles(ctx.windowName);
+            quickOpenFiles = toQuickOpenFiles(list.files, ctx.folders);
             quickOpenTruncated = list.truncated;
         } catch (error) {
             quickOpenFiles = [];
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         } finally {
             quickOpenLoading = false;
         }
@@ -1575,7 +998,7 @@
     }
 
     function showLanguagePalette(): void {
-        if (active === undefined || active.kind !== 'text') {
+        if (ctx.active === undefined || ctx.active.kind !== 'text') {
             return;
         }
         quickOpen = false;
@@ -1587,12 +1010,12 @@
 
     function chooseLanguage(id: string): void {
         languagePalette = false;
-        const tab = active;
+        const tab = ctx.active;
         if (tab === undefined || tab.kind !== 'text') {
             return;
         }
         const override = id === AUTO_LANGUAGE_ID ? undefined : id;
-        tabs = updateDocument(tabs, tab.id, { language: override });
+        ctx.tabs = updateDocument(ctx.tabs, tab.id, { language: override });
         const content = editorPane?.value(tab.id) ?? tab.content;
         editorPane?.setLanguage(tab.id, languageForDocument(tab.path, content, override ?? ''));
     }
@@ -1604,7 +1027,7 @@
     }
 
     function showIndentationPalette(): void {
-        if (active === undefined || active.kind !== 'text') {
+        if (ctx.active === undefined || ctx.active.kind !== 'text') {
             return;
         }
         quickOpen = false;
@@ -1619,10 +1042,10 @@
     // and options change.
     function runIndentAction(id: string): void {
         const spec = INDENT_COMMANDS.find((entry) => entry.id === id);
-        if (spec === undefined || active === undefined || active.kind !== 'text') {
+        if (spec === undefined || ctx.active === undefined || ctx.active.kind !== 'text') {
             return;
         }
-        searchActive = false;
+        ctx.searchActive = false;
         editorPane?.runEditorAction(spec.action);
     }
 
@@ -1644,15 +1067,15 @@
     }
 
     function saveActive(saveAs = false): void {
-        if (activeId !== '') {
-            void saveDocument(activeId, saveAs);
+        if (ctx.activeId !== '') {
+            void saveDocument(ctx.activeId, saveAs);
         }
     }
 
     // runWindowCommand reports a failed native window action in the status bar.
     function runWindowCommand(command: () => Promise<void>): void {
         void command().catch((error) => {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         });
     }
 
@@ -1660,10 +1083,10 @@
     // one. The buffer text travels with the request, so unsaved edits are not
     // lost; the tab is removed only after the call succeeds. Without an id the
     // active tab is moved, which is what the menu command does.
-    async function moveTabToNewWindow(id: string = activeId): Promise<void> {
-        const tab = findTab(id);
+    async function moveTabToNewWindow(id: string = ctx.activeId): Promise<void> {
+        const tab = ctx.findTab(id);
         if (tab === undefined) {
-            notice = 'Open a tab to move to a new window.';
+            ctx.notice = 'Open a tab to move to a new window.';
             return;
         }
         const buffer: LaunchBuffer = {
@@ -1683,9 +1106,9 @@
         try {
             await MoveTabToNewWindow(buffer);
             removeTab(tab.id);
-            notice = '';
+            ctx.notice = '';
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         }
     }
 
@@ -1716,7 +1139,7 @@
         runSelectionCommand,
         runIndentAction,
         runEditorAction,
-        toggleViewOption,
+        toggleViewOption: appearance.toggleViewOption,
         showLanguagePalette,
         showQuickOpen: () => void showQuickOpen(),
         showCommandPalette,
@@ -1725,14 +1148,14 @@
         showFindInFiles,
         showSettings: showSettingsOverlay,
         showAbout: () => void ShowAbout(),
-        stepFindResult: (direction) => void stepFindResult(direction),
+        stepFindResult: (direction) => void search.stepFindResult(direction),
         togglePreview,
         switchSidebarView,
         zoom,
         addFolder: () => void addFolderFromDialog(),
         closeActiveTab: () => {
-            if (activeId !== '') {
-                void closeTab(activeId);
+            if (ctx.activeId !== '') {
+                void closeTab(ctx.activeId);
             }
         },
         goToTab,
@@ -1746,7 +1169,7 @@
         openThemesFolder: () => void openThemesFolder(),
         openKeybindings: () => void openKeybindings(),
         installCommandLineTool: () => void installCommandLineTool(),
-        setAppearanceMode: (mode) => void changeThemeSettings({ ...themeSettings, mode }),
+        setAppearanceMode: (mode) => void appearance.changeThemeSettings({ ...appearance.themeSettings, mode }),
         openWorkspace: () => void openWorkspaceFromDialog(),
         saveWorkspaceAs: () => void saveWorkspaceAsDialog(),
         closeWorkspace: () => void closeWorkspace(),
@@ -1754,33 +1177,33 @@
         toggleSidebar,
         revealActiveFile: () => void revealActiveFile(),
         copyActivePath: (kind) => void copyActivePath(kind),
-        minimiseWindow: () => runWindowCommand(() => MinimiseWindow(windowName)),
-        zoomWindow: () => runWindowCommand(() => ZoomWindow(windowName)),
-        toggleFullScreen: () => runWindowCommand(() => ToggleFullScreen(windowName)),
+        minimiseWindow: () => runWindowCommand(() => MinimiseWindow(ctx.windowName)),
+        zoomWindow: () => runWindowCommand(() => ZoomWindow(ctx.windowName)),
+        toggleFullScreen: () => runWindowCommand(() => ToggleFullScreen(ctx.windowName)),
         newWindow: () => runWindowCommand(() => NewWindow()),
         openFolderInNewWindow: () => runWindowCommand(() => OpenFolderInNewWindow()),
-        closeWindow: () => runWindowCommand(() => CloseWindow(windowName)),
+        closeWindow: () => runWindowCommand(() => CloseWindow(ctx.windowName)),
         bringAllToFront: () => runWindowCommand(() => BringAllToFront()),
     };
 
     async function addFolderFromDialog(): Promise<void> {
-        if (busy) {
+        if (ctx.busy) {
             return;
         }
-        busy = true;
+        ctx.busy = true;
         try {
             const path = await openFolderDialog();
             // Cancelling the dialog is a decision, not a failure.
             if (path === '') {
                 return;
             }
-            folders = await addSidebarFolder(windowName, path);
-            void refreshGitStatus();
-            notice = '';
+            ctx.folders = await addSidebarFolder(ctx.windowName, path);
+            void git.refreshGitStatus();
+            ctx.notice = '';
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         } finally {
-            busy = false;
+            ctx.busy = false;
         }
     }
 
@@ -1788,7 +1211,7 @@
     // Missing files are skipped, so one deleted file does not stop the rest.
     async function restoreWorkspaceTabs(session: SavedWorkspaceSession): Promise<void> {
         for (const path of session.openFiles) {
-            if (findDocumentByPath(tabs, path) !== undefined) {
+            if (findDocumentByPath(ctx.tabs, path) !== undefined) {
                 continue;
             }
             const opened = await readDocument(path);
@@ -1797,9 +1220,9 @@
             }
             showDocument(opened, false);
         }
-        const restoredActive = findDocumentByPath(tabs, session.active);
+        const restoredActive = findDocumentByPath(ctx.tabs, session.active);
         if (restoredActive !== undefined) {
-            activeId = restoredActive.id;
+            ctx.activeId = restoredActive.id;
         }
     }
 
@@ -1808,11 +1231,11 @@
     // Closed Tab stack is cleared so it cannot pull tabs from another
     // workspace back into this one.
     function clearWorkspaceTabs(): void {
-        tabs = [];
-        activeId = '';
+        ctx.tabs = [];
+        ctx.activeId = '';
         closedTabs = [];
-        if (searchOpen) {
-            closeSearchTab();
+        if (search.open) {
+            search.closeSearchTab();
         }
     }
 
@@ -1820,11 +1243,11 @@
     // tab set. Saving all is the default because the parked tab set is a
     // convenience, not a place to discard edits.
     async function prepareWorkspaceSwitch(title: string, message: string): Promise<boolean> {
-        const dirty = tabs.filter((tab) => tab.dirty);
+        const dirty = ctx.tabs.filter((tab) => tab.dirty);
         if (dirty.length === 0) {
             return true;
         }
-        const answer = await askUnsaved({
+        const answer = await prompts.askUnsaved({
             title,
             message,
             details: dirty.map((tab) => tab.path || tab.name),
@@ -1854,21 +1277,21 @@
         sessionSuspended = true;
         let switched = false;
         try {
-            folders = await setSidebarFolders(windowName, target.folders ?? []);
+            ctx.folders = await setSidebarFolders(ctx.windowName, target.folders ?? []);
             activeWorkspace = target;
             const parked = toWorkspaceSession(target.session);
             expandedPaths = parked.expanded;
             clearWorkspaceTabs();
             await restoreWorkspaceTabs(parked);
             switched = true;
-            notice = '';
+            ctx.notice = '';
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         } finally {
             sessionSuspended = false;
         }
         if (switched) {
-            void refreshGitStatus();
+            void git.refreshGitStatus();
             await persistSession();
         }
         return switched;
@@ -1877,10 +1300,10 @@
     // openWorkspaceFromDialog replaces the window's workspace with the picked
     // file. The previous tab set stays parked under its own workspace.
     async function openWorkspaceFromDialog(): Promise<void> {
-        if (busy || unsavedPrompt !== null || confirmPrompt !== null) {
+        if (ctx.busy || prompts.unsaved !== null || prompts.confirm !== null) {
             return;
         }
-        busy = true;
+        ctx.busy = true;
         try {
             const workspace = await openWorkspaceDialog();
             if (workspace.path === '') {
@@ -1888,31 +1311,31 @@
             }
             await switchWorkspace(workspace);
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         } finally {
-            busy = false;
+            ctx.busy = false;
         }
     }
 
     // saveWorkspaceAsDialog writes the current roots to a workspace file, binds
     // the window to it and parks the current tabs under the new name.
     async function saveWorkspaceAsDialog(): Promise<void> {
-        if (busy || unsavedPrompt !== null || confirmPrompt !== null) {
+        if (ctx.busy || prompts.unsaved !== null || prompts.confirm !== null) {
             return;
         }
-        busy = true;
+        ctx.busy = true;
         try {
-            const workspace = await saveWorkspaceAs(folders);
+            const workspace = await saveWorkspaceAs(ctx.folders);
             if (workspace.path === '') {
                 return;
             }
             activeWorkspace = workspace;
             await persistSession();
-            notice = `Saved workspace ${workspace.name}`;
+            ctx.notice = `Saved workspace ${workspace.name}`;
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         } finally {
-            busy = false;
+            ctx.busy = false;
         }
     }
 
@@ -1920,13 +1343,13 @@
     // prompt. The parked tab set stays in session.json, so reopening the
     // workspace later restores it.
     async function closeWorkspace(): Promise<void> {
-        if (busy || unsavedPrompt !== null || confirmPrompt !== null) {
+        if (ctx.busy || prompts.unsaved !== null || prompts.confirm !== null) {
             return;
         }
-        if (activeWorkspace === null && folders.length === 0) {
+        if (activeWorkspace === null && ctx.folders.length === 0) {
             return;
         }
-        busy = true;
+        ctx.busy = true;
         try {
             await persistSession();
             if (!(await prepareWorkspaceSwitch(
@@ -1938,20 +1361,20 @@
 
             sessionSuspended = true;
             try {
-                folders = await closeAllSidebarFolders(windowName);
+                ctx.folders = await closeAllSidebarFolders(ctx.windowName);
                 activeWorkspace = null;
                 expandedPaths = [];
                 clearWorkspaceTabs();
-                notice = '';
+                ctx.notice = '';
             } finally {
                 sessionSuspended = false;
             }
-            void refreshGitStatus();
+            void git.refreshGitStatus();
             await persistSession();
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         } finally {
-            busy = false;
+            ctx.busy = false;
         }
     }
 
@@ -1959,14 +1382,14 @@
     // they hold their own buffers and are closed from the tab bar.
     async function removeFolder(path: string): Promise<void> {
         try {
-            folders = await removeSidebarFolder(windowName, path);
-            if (folders.length === 0) {
+            ctx.folders = await removeSidebarFolder(ctx.windowName, path);
+            if (ctx.folders.length === 0) {
                 activeWorkspace = null;
             }
-            void refreshGitStatus();
-            notice = '';
+            void git.refreshGitStatus();
+            ctx.notice = '';
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         }
     }
 
@@ -1982,7 +1405,7 @@
     async function reopenClosedTab(): Promise<void> {
         const closed = closedTabs.pop();
         if (closed === undefined) {
-            notice = 'No closed tab to reopen.';
+            ctx.notice = 'No closed tab to reopen.';
             return;
         }
 
@@ -1993,7 +1416,7 @@
             const opened = await readDocument(saved.path);
             if (opened !== undefined) {
                 showDocument(opened);
-                notice = '';
+                ctx.notice = '';
                 return;
             }
         }
@@ -2001,10 +1424,10 @@
         // An untitled buffer lives only in memory, so its text comes from the
         // stack. A file that disappeared falls back to the same snapshot.
         let restored = saved;
-        if (saved.kind === 'text' && saved.path === '' && tabs.some((tab) => tab.id === saved.id)) {
+        if (saved.kind === 'text' && saved.path === '' && ctx.tabs.some((tab) => tab.id === saved.id)) {
             // A New File made since the close may already own this name; give
             // the restored buffer a fresh id so the two do not share a model.
-            const replacement = createUntitledDocument(tabs);
+            const replacement = createUntitledDocument(ctx.tabs);
             restored = { ...saved, id: replacement.id, name: replacement.name };
         }
         showDocument({
@@ -2019,30 +1442,30 @@
                 restored.kind === 'text' &&
                 (restored.dirty || (restored.path === '' && closed.content !== '')),
         });
-        notice = '';
+        ctx.notice = '';
     }
 
     function stepTab(direction: 1 | -1): void {
-        if (tabs.length === 0) {
+        if (ctx.tabs.length === 0) {
             return;
         }
-        searchActive = false;
-        activeId = stepTabId(tabs, activeId, direction);
+        ctx.searchActive = false;
+        ctx.activeId = stepTabId(ctx.tabs, ctx.activeId, direction);
     }
 
     function goToTab(position: number): void {
-        const id = tabIdAt(tabs, position);
+        const id = tabIdAt(ctx.tabs, position);
         if (id === '') {
             return;
         }
-        searchActive = false;
-        activeId = id;
+        ctx.searchActive = false;
+        ctx.activeId = id;
     }
 
     // reorderTab keeps the dragged tab on the same side of the target the
     // insertion line showed. The tab list order is the saved session order.
     function reorderTab(id: string, targetId: string, placeAfter: boolean): void {
-        tabs = moveDocumentTab(tabs, id, targetId, placeAfter);
+        ctx.tabs = moveDocumentTab(ctx.tabs, id, targetId, placeAfter);
     }
 
     // ---- File tree operations -------------------------------------------------
@@ -2052,75 +1475,6 @@
     // is a Go binding, because the file system is the backend's business; the
     // frontend only decides which entry, asks for a name and retargets the tabs
     // that follow a path.
-
-    // askName opens the one-line dialog and resolves with the name the user
-    // submitted, or an empty string when they cancelled. The dialog stays open
-    // while a refusal is shown in it, so a taken name is corrected in place.
-    function askName(options: {
-        title: string;
-        label?: string;
-        value?: string;
-        selectStem?: boolean;
-        selectFolder?: boolean;
-        submitLabel?: string;
-        run: (value: string) => Promise<string>;
-    }): Promise<boolean> {
-        return new Promise((resolve) => {
-            const answer = (value: string): void => {
-                // The dialog was already closed by the caller's submit path, so
-                // the state is only read to know what to do next.
-                void (async () => {
-                    const refusal = await options.run(value);
-                    if (refusal === '') {
-                        resolve(true);
-                        return;
-                    }
-                    namePrompt = {
-                        title: options.title,
-                        label: options.label ?? '',
-                        value,
-                        selectStem: options.selectStem ?? false,
-                        selectFolder: options.selectFolder ?? false,
-                        submitLabel: options.submitLabel ?? options.title,
-                        error: refusal,
-                        answer,
-                        cancel: () => {
-                            namePrompt = null;
-                            resolve(false);
-                        },
-                    };
-                })();
-            };
-            namePrompt = {
-                title: options.title,
-                label: options.label ?? '',
-                value: options.value ?? '',
-                selectStem: options.selectStem ?? false,
-                selectFolder: options.selectFolder ?? false,
-                submitLabel: options.submitLabel ?? options.title,
-                error: '',
-                answer,
-                cancel: () => {
-                    namePrompt = null;
-                    resolve(false);
-                },
-            };
-        });
-    }
-
-    // submitName closes the dialog and hands the value to the pending command,
-    // which reopens it with the refusal if the backend says no.
-    function submitName(value: string): void {
-        const prompt = namePrompt;
-        namePrompt = null;
-        prompt?.answer(value);
-    }
-
-    function cancelName(): void {
-        const prompt = namePrompt;
-        namePrompt = null;
-        prompt?.cancel();
-    }
 
     // refreshTree rereads the tree after a command changed what is on disk.
     function refreshTree(): void {
@@ -2135,12 +1489,12 @@
         if (from === '' || to === '' || from === to) {
             return;
         }
-        const previous = tabs;
-        const next = retargetDocumentPaths(tabs, [{ from, to }]);
+        const previous = ctx.tabs;
+        const next = retargetDocumentPaths(ctx.tabs, [{ from, to }]);
         if (next === previous) {
             return;
         }
-        tabs = next;
+        ctx.tabs = next;
         for (const tab of next) {
             const before = previous.find((entry) => entry.id === tab.id);
             if (before === undefined || before.path === tab.path) {
@@ -2149,27 +1503,27 @@
             // HEAD still knows the old name, so the gutter bars are recomputed
             // against the path the file now has.
             if (tab.kind === 'text') {
-                void loadBaseline(tab.id, tab.path);
+                void git.loadBaseline(tab.id, tab.path);
             }
         }
         // A diff tab followed its file, so the snapshot it shows is stale.
         if (next.some((tab) => tab.kind === 'diff')) {
-            void refreshDiffTabs();
+            void git.refreshDiffTabs();
         }
-        void refreshGitStatus();
+        void git.refreshGitStatus();
     }
 
     // treeError reports a failed tree command in the status bar, where every
     // other notice appears, and keeps the tree as it was.
     function treeError(error: unknown): void {
-        notice = errorMessage(error);
+        ctx.notice = errorMessage(error);
     }
 
     // newFileInFolder is New File from the tree: the file is created on disk
     // first, so an empty file exists even if the user never types into it, then
     // opened as a tab.
     async function newFileInFolder(folder: string): Promise<void> {
-        await askName({
+        await prompts.askName({
             title: 'New File',
             label: `Name for the new file in ${entryName(folder)}`,
             submitLabel: 'Create File',
@@ -2178,10 +1532,10 @@
                     const entry = await createFile(folder, name);
                     refreshTree();
                     await openFile(entry.path);
-                    notice = '';
+                    ctx.notice = '';
                     return '';
                 } catch (error) {
-                    notice = '';
+                    ctx.notice = '';
                     return errorMessage(error);
                 }
             },
@@ -2191,7 +1545,7 @@
     // newFolderInFolder is New Folder. The new folder is expanded so the user
     // sees where it went, which matters when it lands between many siblings.
     async function newFolderInFolder(folder: string): Promise<void> {
-        await askName({
+        await prompts.askName({
             title: 'New Folder',
             label: `Name for the new folder in ${entryName(folder)}`,
             submitLabel: 'Create Folder',
@@ -2200,10 +1554,10 @@
                     const entry = await createFolder(folder, name);
                     refreshTree();
                     revealInTree(entry.path);
-                    notice = '';
+                    ctx.notice = '';
                     return '';
                 } catch (error) {
-                    notice = '';
+                    ctx.notice = '';
                     return errorMessage(error);
                 }
             },
@@ -2216,7 +1570,7 @@
     // that holds the file follows the new path, so the buffer stays open and
     // keeps its edits and undo history.
     async function renameEntry(path: string): Promise<void> {
-        await askName({
+        await prompts.askName({
             title: 'Rename',
             value: path,
             selectStem: true,
@@ -2232,10 +1586,10 @@
                     if (clipboardPath === path) {
                         clipboardPath = entry.path;
                     }
-                    notice = '';
+                    ctx.notice = '';
                     return '';
                 } catch (error) {
-                    notice = '';
+                    ctx.notice = '';
                     return errorMessage(error);
                 }
             },
@@ -2255,7 +1609,7 @@
             treeError(error);
             return;
         }
-        await askName({
+        await prompts.askName({
             title: 'Duplicate',
             value: suggestion,
             selectStem: true,
@@ -2265,11 +1619,11 @@
                     const entry = await duplicatePath(path, target);
                     refreshTree();
                     revealInTree(entry.path);
-                    await refreshGitStatus();
-                    notice = `Created ${entry.name}`;
+                    await git.refreshGitStatus();
+                    ctx.notice = `Created ${entry.name}`;
                     return '';
                 } catch (error) {
-                    notice = '';
+                    ctx.notice = '';
                     return errorMessage(error);
                 }
             },
@@ -2281,13 +1635,13 @@
     function cutEntry(path: string): void {
         clipboardPath = path;
         clipboardCut = true;
-        notice = `Ready to move ${entryName(path)}`;
+        ctx.notice = `Ready to move ${entryName(path)}`;
     }
 
     function copyEntry(path: string): void {
         clipboardPath = path;
         clipboardCut = false;
-        notice = `Ready to copy ${entryName(path)}`;
+        ctx.notice = `Ready to copy ${entryName(path)}`;
     }
 
     // pasteInto copies or moves the entry the clipboard holds into a folder. A
@@ -2306,14 +1660,14 @@
                 clipboardPath = '';
                 clipboardCut = false;
                 revealInTree(entry.path);
-                notice = `Moved ${entry.name}`;
+                ctx.notice = `Moved ${entry.name}`;
             } else {
                 const entry = await copyPath(source, folder);
                 revealInTree(entry.path);
-                notice = `Copied ${entry.name}`;
+                ctx.notice = `Copied ${entry.name}`;
             }
             refreshTree();
-            await refreshGitStatus();
+            await git.refreshGitStatus();
         } catch (error) {
             treeError(error);
         } finally {
@@ -2344,8 +1698,8 @@
         applyTreeMove(source, target);
         refreshTree();
         revealInTree(target);
-        void refreshGitStatus();
-        notice = `Moved ${name}`;
+        void git.refreshGitStatus();
+        ctx.notice = `Moved ${name}`;
     }
 
     // moveTreeEntry is Move…: the field holds the entry's full path with the
@@ -2354,7 +1708,7 @@
     // initial selection differs. A refusal reopens the prompt on the same text
     // so a typo is corrected in place.
     async function moveTreeEntry(path: string): Promise<void> {
-        await askName({
+        await prompts.askName({
             title: 'Move',
             value: path,
             selectFolder: true,
@@ -2366,7 +1720,7 @@
                     finishTreeMove(path, entry.path, entry.name);
                     return '';
                 } catch (error) {
-                    notice = '';
+                    ctx.notice = '';
                     return errorMessage(error);
                 } finally {
                     busyPath = '';
@@ -2380,13 +1734,13 @@
     // cannot be saved is worse than no tab. A modified buffer asks about its
     // edits before the file goes, so nothing is lost by accident.
     async function trashEntry(path: string): Promise<void> {
-        const affected = tabs.filter(
+        const affected = ctx.tabs.filter(
             (tab) =>
                 (tab.path !== '' && pathWithin(tab.path, path)) ||
                 (tab.kind === 'diff' && pathWithin(tab.sourcePath ?? '', path)),
         );
         const dirty = affected.filter((tab) => tab.dirty);
-        const confirmed = await askConfirm(
+        const confirmed = await prompts.askConfirm(
             'Delete',
             dirty.length > 0
                 ? `Delete ${entryName(path)}? It moves to the Trash, and ${dirty.length === 1 ? 'one open buffer has' : `${dirty.length} open buffers have`} unsaved changes that will be lost.`
@@ -2407,8 +1761,8 @@
                 clipboardCut = false;
             }
             refreshTree();
-            await refreshGitStatus();
-            notice = `Moved ${entryName(path)} to the Trash`;
+            await git.refreshGitStatus();
+            ctx.notice = `Moved ${entryName(path)} to the Trash`;
         } catch (error) {
             treeError(error);
         } finally {
@@ -2426,7 +1780,7 @@
     // contextMenuItems builds the row menu for the right-click the menu was
     // opened on. The builders are pure functions in app/menus.ts.
     function contextMenuItems(): ContextMenuItem[] {
-        return buildContextMenuItems(contextMenu, tabs, clipboardPath, searchOpen);
+        return buildContextMenuItems(contextMenu, ctx.tabs, clipboardPath, search.open);
     }
 
     // runContextMenu runs the item the row menu picked against the entry it was
@@ -2446,7 +1800,7 @@
 
     // runTabContextCommand runs a tab menu item against the right-clicked tab.
     async function runTabContextCommand(id: string, tabId: string): Promise<void> {
-        const tab = findTab(tabId);
+        const tab = ctx.findTab(tabId);
         if (tab === undefined) {
             return;
         }
@@ -2478,26 +1832,26 @@
     // closeOtherTabs leaves only the right-clicked tab, which becomes active.
     // The Find in Files tab counts as another tab, so it closes too.
     async function closeOtherTabs(id: string): Promise<void> {
-        if (!(await closeTabsInOrder(tabsToClose(tabs, id, 'others')))) {
+        if (!(await closeTabsInOrder(tabsToClose(ctx.tabs, id, 'others')))) {
             return;
         }
-        if (searchOpen) {
-            closeSearchTab();
+        if (search.open) {
+            search.closeSearchTab();
         }
-        activeId = id;
+        ctx.activeId = id;
     }
 
     // closeTabsToRight closes every tab after the right-clicked one, including
     // the Find in Files tab, which is always rendered after the documents.
     async function closeTabsToRight(id: string): Promise<void> {
-        if (findTab(id) === undefined) {
+        if (ctx.findTab(id) === undefined) {
             return;
         }
-        if (!(await closeTabsInOrder(tabsToClose(tabs, id, 'right')))) {
+        if (!(await closeTabsInOrder(tabsToClose(ctx.tabs, id, 'right')))) {
             return;
         }
-        if (searchOpen) {
-            closeSearchTab();
+        if (search.open) {
+            search.closeSearchTab();
         }
     }
 
@@ -2505,18 +1859,18 @@
     // buffers are asked about one at a time, and a cancelled prompt stops the
     // run with the remaining tabs still open.
     async function closeAllTabs(): Promise<void> {
-        if (!(await closeTabsInOrder(tabsToClose(tabs, '', 'all')))) {
+        if (!(await closeTabsInOrder(tabsToClose(ctx.tabs, '', 'all')))) {
             return;
         }
-        if (searchOpen) {
-            closeSearchTab();
+        if (search.open) {
+            search.closeSearchTab();
         }
     }
 
     // closeDeletedTabs closes the buffers whose files are gone. A dirty one
     // still asks, because closing it discards text that could recreate the file.
     async function closeDeletedTabs(): Promise<void> {
-        await closeTabsInOrder(tabsToClose(tabs, '', 'deleted'));
+        await closeTabsInOrder(tabsToClose(ctx.tabs, '', 'deleted'));
     }
 
     async function runTreeCommand(id: string, path: string, isDir: boolean): Promise<void> {
@@ -2589,13 +1943,13 @@
             kind === 'file'
                 ? path
                 : kind === 'relative'
-                  ? relativePath(path, folders)
+                  ? relativePath(path, ctx.folders)
                   : entryName(path);
         try {
             await CopyText(text);
-            notice = `Copied ${text}`;
+            ctx.notice = `Copied ${text}`;
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         }
     }
 
@@ -2610,14 +1964,14 @@
 
     function showRecentFiles(): void {
         if (recentFiles.length === 0) {
-            notice = 'No recent files.';
+            ctx.notice = 'No recent files.';
             return;
         }
         quickOpen = false;
         commandPalette = false;
         languagePalette = false;
         indentationPalette = false;
-        searchActive = false;
+        ctx.searchActive = false;
         recentOpen = true;
     }
 
@@ -2632,9 +1986,9 @@
     async function clearRecent(): Promise<void> {
         try {
             recentFiles = await clearRecentFiles();
-            notice = 'Recent files cleared.';
+            ctx.notice = 'Recent files cleared.';
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         }
     }
 
@@ -2644,7 +1998,7 @@
         if (!sidebarAutoReveal) {
             return;
         }
-        revealedPath = active?.path || active?.sourcePath || '';
+        revealedPath = ctx.active?.path || ctx.active?.sourcePath || '';
     });
 
     // setSidebarAutoReveal records the choice so the next launch keeps it.
@@ -2688,13 +2042,13 @@
 
     async function closeAllFolders(): Promise<void> {
         try {
-            folders = await closeAllSidebarFolders(windowName);
+            ctx.folders = await closeAllSidebarFolders(ctx.windowName);
             activeWorkspace = null;
             expandedPaths = [];
-            void refreshGitStatus();
-            notice = '';
+            void git.refreshGitStatus();
+            ctx.notice = '';
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         }
     }
 
@@ -2704,7 +2058,7 @@
         if (opened.kind === 'text') {
             editorPane?.reload(id, opened.content, opened.eol);
         }
-        tabs = updateDocument(tabs, id, {
+        ctx.tabs = updateDocument(ctx.tabs, id, {
             kind: opened.kind,
             content: opened.content,
             savedContent: undefined,
@@ -2735,7 +2089,7 @@
             return false;
         }
         if (!exists) {
-            tabs = updateDocument(tabs, tab.id, { deleted: true });
+            ctx.tabs = updateDocument(ctx.tabs, tab.id, { deleted: true });
             return true;
         }
         return false;
@@ -2744,7 +2098,7 @@
     // reloadIfClean applies a read that was started while the tab was clean.
     // The user may have typed while it was in flight, and those edits win.
     function reloadIfClean(id: string, opened: OpenDocument): void {
-        const current = findTab(id);
+        const current = ctx.findTab(id);
         if (current === undefined || current.dirty) {
             return;
         }
@@ -2752,10 +2106,10 @@
     }
 
     async function refreshOpenDocuments(): Promise<void> {
-        for (const snapshot of tabs) {
+        for (const snapshot of ctx.tabs) {
             // Earlier reads await, so the tab may have changed or closed since
             // the loop started.
-            const tab = findTab(snapshot.id);
+            const tab = ctx.findTab(snapshot.id);
             if (tab === undefined || tab.kind !== 'text' || tab.path === '') {
                 continue;
             }
@@ -2777,16 +2131,16 @@
     async function refreshWorkspace(): Promise<void> {
         treeRefreshToken++;
         await refreshOpenDocuments();
-        await refreshDiffTabs();
-        await refreshGitStatus();
+        await git.refreshDiffTabs();
+        await git.refreshGitStatus();
         // HEAD may have moved since the buffers were opened, so the gutter
         // baselines are reread too.
-        for (const tab of tabs) {
+        for (const tab of ctx.tabs) {
             if (tab.kind === 'text' && tab.path !== '') {
-                void loadBaseline(tab.id, tab.path);
+                void git.loadBaseline(tab.id, tab.path);
             }
         }
-        notice = '';
+        ctx.notice = '';
     }
 
     // handleWatchedChanges reloads clean buffers and refreshes the tree for
@@ -2795,14 +2149,14 @@
     async function handleWatchedChanges(paths: string[]): Promise<void> {
         let refreshTree = false;
         for (const path of paths) {
-            const tab = findDocumentByPath(tabs, path);
+            const tab = findDocumentByPath(ctx.tabs, path);
             if (tab === undefined || tab.kind !== 'text') {
                 refreshTree = true;
                 continue;
             }
             if (tab.dirty) {
                 if (!(await markDeletedIfGone(tab))) {
-                    notice = `${tab.name} changed on disk; your edits were kept.`;
+                    ctx.notice = `${tab.name} changed on disk; your edits were kept.`;
                 }
                 continue;
             }
@@ -2818,8 +2172,8 @@
         }
         // A file that changed on disk is exactly what the marks and an open
         // diff describe, so both follow the same reread.
-        void refreshGitStatus();
-        void refreshDiffTabs();
+        void git.refreshGitStatus();
+        void git.refreshDiffTabs();
     }
 
     function showFindInFiles(): void {
@@ -2828,211 +2182,27 @@
         recentOpen = false;
         languagePalette = false;
         indentationPalette = false;
-        searchOpen = true;
-        searchActive = true;
-        searchFocusToken++;
-    }
-
-    function closeSearchTab(): void {
-        searchOpen = false;
-        searchActive = false;
-        searchMatches = [];
-        searchResultIndex = -1;
-        searchError = '';
-    }
-
-    async function runSearch(): Promise<void> {
-        const query = searchQuery.trim();
-        if (query === '') {
-            searchMatches = [];
-            searchResultIndex = -1;
-            searchError = '';
-            searchedParams = {
-                query: '',
-                regex: false,
-                caseSensitive: false,
-                include: '',
-                exclude: '',
-            };
-            return;
-        }
-        searchBusy = true;
-        searchError = '';
-        try {
-            const result = await SearchProject(windowName, {
-                query,
-                regex: searchRegex,
-                case_sensitive: searchCaseSensitive,
-                include: searchInclude,
-                exclude: searchExcludeGlobs,
-                replacement: '',
-                expected_modified: null,
-                open_paths: null,
-            });
-            searchMatches = result.matches ?? [];
-            searchResultIndex = -1;
-            searchTruncated = result.truncated;
-            searchedParams = {
-                query,
-                regex: searchRegex,
-                caseSensitive: searchCaseSensitive,
-                include: searchInclude,
-                exclude: searchExcludeGlobs,
-            };
-        } catch (error) {
-            searchMatches = [];
-            searchResultIndex = -1;
-            searchError = errorMessage(error);
-        } finally {
-            searchBusy = false;
-        }
-    }
-
-    // replaceInFiles is the safe Replace All. It confirms the scope first, then
-    // lets Go write the files whose mtime still matches the search; files that
-    // changed since are skipped and named in the result. Open buffers get the
-    // same edit through Monaco so it stays unsaved and undoable, and the app
-    // never reloads a buffer out from under the user's undo stack.
-    async function replaceInFiles(): Promise<void> {
-        const query = searchedParams.query;
-        if (query === '' || searchMatches.length === 0) {
-            return;
-        }
-        const files = searchGroups.length;
-        const matches = searchMatches.length;
-        const confirmed = await askConfirm(
-            'Replace All in Files',
-            replaceConfirmMessage(matches, files, searchTruncated),
-            'Replace All',
-        );
-        if (!confirmed) {
-            return;
-        }
-
-        searchBusy = true;
-        searchError = '';
-        try {
-            const expected = expectedModified(searchMatches);
-            const expression = searchExpression(
-                query,
-                searchedParams.regex,
-                searchedParams.caseSensitive,
-            );
-            // Files open in this window are edited in their Monaco buffers,
-            // so tell Go to leave them on disk. They stay unsaved and undoable.
-            // openPaths uses the search's spelling so it matches the path Go
-            // walks, even when the tab was opened through a symlink.
-            const openPaths: string[] = [];
-            const openTabs: OpenDocument[] = [];
-            const seenTabs = new Set<string>();
-            for (const group of searchGroups) {
-                const tab = findDocumentByPath(tabs, group.path);
-                if (tab !== undefined && tab.kind === 'text' && tab.path !== '') {
-                    openPaths.push(group.path);
-                    // Two roots can name the same file, and both would map to
-                    // one tab; edit its buffer once.
-                    if (!seenTabs.has(tab.id)) {
-                        seenTabs.add(tab.id);
-                        openTabs.push(tab);
-                    }
-                }
-            }
-            const result = await ReplaceInProject(windowName, {
-                query,
-                regex: searchedParams.regex,
-                case_sensitive: searchedParams.caseSensitive,
-                include: searchedParams.include,
-                exclude: searchedParams.exclude,
-                replacement: searchReplacement,
-                expected_modified: expected,
-                open_paths: openPaths,
-            });
-
-            // Apply the same edit to each open buffer. A dirty buffer's model
-            // may hold unsaved text the search never saw, so replace in the
-            // buffer's current text; Monaco keeps the undo history and marks
-            // the tab dirty through onDirtyChange.
-            for (const tab of openTabs) {
-                const current = editorPane?.value(tab.id) ?? tab.content;
-                const replaced = replaceText(
-                    current,
-                    expression,
-                    searchReplacement,
-                    searchedParams.regex,
-                );
-                if (replaced === current) {
-                    continue;
-                }
-                const updated = editorPane?.replaceInBuffer(tab.id, replaced);
-                if (updated === undefined) {
-                    // A tab restored from the session may never have been
-                    // displayed, so it has no Monaco model yet. Store the new
-                    // text on the tab so the model is created already dirty.
-                    tabs = updateDocument(tabs, tab.id, {
-                        content: replaced,
-                        savedContent: tab.savedContent ?? tab.content,
-                        dirty: true,
-                    });
-                }
-            }
-
-            treeRefreshToken++;
-            await refreshGitStatus();
-            await refreshDiffTabs();
-            notice = replaceNotice(result.matches, result.files, result.skipped ?? [], result.failed ?? []);
-            await runSearch();
-        } catch (error) {
-            searchError = errorMessage(error);
-        } finally {
-            searchBusy = false;
-        }
-    }
-
-    // openSearchMatch switches to the file, then puts the caret on the hit.
-    // The model is created by the tab effect, so the reveal waits a tick.
-    async function openSearchMatch(path: string, line: number, column: number): Promise<void> {
-        const id = await openFile(path);
-        if (id === '') {
-            return;
-        }
-        searchActive = false;
-        await tick();
-        editorPane?.revealLine(id, line, column);
-    }
-
-    // stepFindResult opens the next or previous Find in Files hit. The index
-    // advances before the file is opened, so holding F4 cannot open the same
-    // hit twice while the first read is still in flight.
-    async function stepFindResult(direction: 1 | -1): Promise<void> {
-        if (searchMatches.length === 0) {
-            notice = 'No search results to step through.';
-            return;
-        }
-        const index = stepSearchResult(searchResultIndex, searchMatches.length, direction);
-        searchResultIndex = index;
-        const match = searchMatches[index];
-        if (match === undefined) {
-            return;
-        }
-        await openSearchMatch(match.path, match.line, match.column);
+        search.open = true;
+        ctx.searchActive = true;
+        search.focusToken++;
     }
 
     // revealPath shows one file in the platform's file manager.
     async function revealPath(path: string): Promise<void> {
         try {
             await RevealFile(path);
-            notice = '';
+            ctx.notice = '';
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         }
     }
 
     async function revealActiveFile(): Promise<void> {
         // A diff tab has no path of its own, but it names the file it was made
         // from, which is the file worth revealing.
-        const path = active?.path || active?.sourcePath || '';
+        const path = ctx.active?.path || ctx.active?.sourcePath || '';
         if (path === '') {
-            notice = 'Open a saved file to reveal it in Finder.';
+            ctx.notice = 'Open a saved file to reveal it in Finder.';
             return;
         }
         await revealPath(path);
@@ -3086,27 +2256,27 @@
     }
 
     async function copyActivePath(kind: CopyPathKind): Promise<void> {
-        const tab = active;
+        const tab = ctx.active;
         // A diff tab has no path of its own, but it names the file it was made
         // from, which is the path worth copying.
         const path = tab?.path || tab?.sourcePath || '';
         if (tab === undefined || path === '') {
-            notice = 'Open a saved file to copy its path.';
+            ctx.notice = 'Open a saved file to copy its path.';
             return;
         }
         const text =
             kind === 'file'
                 ? path
                 : kind === 'relative'
-                  ? relativePath(path, folders)
+                  ? relativePath(path, ctx.folders)
                   : tab.path === ''
                     ? entryName(path)
                     : tab.name;
         try {
             await CopyText(text);
-            notice = `Copied ${text}`;
+            ctx.notice = `Copied ${text}`;
         } catch (error) {
-            notice = errorMessage(error);
+            ctx.notice = errorMessage(error);
         }
     }
 
@@ -3114,7 +2284,7 @@
     // files are skipped, so one deleted file does not stop the rest.
     async function restoreSession(session: SavedWindowSession): Promise<void> {
         for (const path of session.openFiles) {
-            if (findDocumentByPath(tabs, path) !== undefined) {
+            if (findDocumentByPath(ctx.tabs, path) !== undefined) {
                 continue;
             }
             const opened = await readDocument(path);
@@ -3123,9 +2293,9 @@
             }
             showDocument(opened, false);
         }
-        const restoredActive = findDocumentByPath(tabs, session.active);
+        const restoredActive = findDocumentByPath(ctx.tabs, session.active);
         if (restoredActive !== undefined) {
-            activeId = restoredActive.id;
+            ctx.activeId = restoredActive.id;
         }
     }
 
@@ -3133,13 +2303,13 @@
     // effect below covers ordinary tab changes; workspace switching and closing
     // call this so the old set is on disk before the tab list is replaced.
     async function persistSession(): Promise<void> {
-        if (windowName === '') {
+        if (ctx.windowName === '') {
             return;
         }
         try {
-            await saveSession(windowName, {
+            await saveSession(ctx.windowName, {
                 workspace: activeWorkspace?.path ?? '',
-                folders: [...folders],
+                folders: [...ctx.folders],
                 openFiles: [...sessionFiles],
                 active: sessionActive,
                 expanded: [...expandedPaths],
@@ -3152,7 +2322,7 @@
     // A preview belongs to the tab it was opened on; selecting another tab puts
     // the editor back rather than showing a stale snapshot.
     $effect(() => {
-        if (preview !== null && preview.id !== activeId) {
+        if (preview !== null && preview.id !== ctx.activeId) {
             preview = null;
         }
     });
@@ -3161,11 +2331,11 @@
     // It is registered per window, so a change reaches the window that asked
     // for it and closing the window stops its events.
     $effect(() => {
-        if (windowName === '') {
+        if (ctx.windowName === '') {
             return;
         }
         const paths = watchedPaths;
-        void watchPaths(windowName, paths).catch((error) =>
+        void watchPaths(ctx.windowName, paths).catch((error) =>
             console.error('Failed to watch the workspace.', error),
         );
     });
@@ -3176,18 +2346,18 @@
     // begins with. A non-owner window parks its workspace set but never
     // replaces the launch window's tabs.
     $effect(() => {
-        if (!sessionReady || sessionSuspended || windowName === '') {
+        if (!sessionReady || sessionSuspended || ctx.windowName === '') {
             return;
         }
         const files = sessionFiles;
         const activePath = sessionActive;
         const workspacePath = activeWorkspace?.path ?? '';
-        const currentFolders = folders;
+        const currentFolders = ctx.folders;
         const expanded = expandedPaths;
         if (!sessionOwner && workspacePath === '') {
             return;
         }
-        void saveSession(windowName, {
+        void saveSession(ctx.windowName, {
             workspace: workspacePath,
             folders: currentFolders,
             openFiles: files,
@@ -3202,10 +2372,10 @@
     // answer changes. Each window reports its own buffers; a failed report only
     // costs a redundant prompt.
     $effect(() => {
-        if (windowName === '') {
+        if (ctx.windowName === '') {
             return;
         }
-        void SetUnsavedChanges(windowName, unsaved).catch((error) =>
+        void SetUnsavedChanges(ctx.windowName, ctx.unsaved).catch((error) =>
             console.error('Failed to report unsaved changes.', error),
         );
     });
@@ -3217,8 +2387,8 @@
 
         // System mode follows the OS appearance without a restart.
         const onSystemTheme = (): void => {
-            if (themeSettings.mode === 'system') {
-                void applyCurrentTheme();
+            if (appearance.themeSettings.mode === 'system') {
+                void appearance.applyCurrentTheme();
             }
         };
 
@@ -3229,7 +2399,7 @@
             if (disposed) {
                 return;
             }
-            windowName = name;
+            ctx.windowName = name;
             setWindowName(name);
             appName = await GetProductName();
 
@@ -3238,21 +2408,21 @@
             // restores and writes the shared session. Only the session flag is
             // read now; the request itself is collected once its listener is
             // installed, so nothing queued meanwhile can be lost.
-            sessionOwner = await ShouldRestoreSession(windowName);
+            sessionOwner = await ShouldRestoreSession(ctx.windowName);
 
             const workspace = await loadWorkspaceState();
             sidebarVisible = workspace.sidebarVisible;
             sidebarAutoReveal = workspace.autoReveal;
             recentFiles = workspace.recentFiles;
-            folders = await loadSidebarFolders(windowName);
+            ctx.folders = await loadSidebarFolders(ctx.windowName);
             // Git status may walk a large repository; the session restore does
             // not wait for it, and the branch appears when the read lands.
-            void refreshGitStatus();
+            void git.refreshGitStatus();
             if (sessionOwner) {
-                const saved = await loadWindowSession(windowName);
+                const saved = await loadWindowSession(ctx.windowName);
                 if (saved.folders.length > 0) {
                     try {
-                        folders = await setSidebarFolders(windowName, saved.folders);
+                        ctx.folders = await setSidebarFolders(ctx.windowName, saved.folders);
                     } catch (error) {
                         console.error('Failed to restore the sidebar folders.', error);
                     }
@@ -3261,8 +2431,8 @@
                     try {
                         const info = await loadWorkspace(saved.workspace);
                         activeWorkspace = info;
-                        folders = await setSidebarFolders(windowName, info.folders ?? []);
-                        void refreshGitStatus();
+                        ctx.folders = await setSidebarFolders(ctx.windowName, info.folders ?? []);
+                        void git.refreshGitStatus();
                     } catch (error) {
                         // The workspace file may have moved or been deleted;
                         // the saved tabs are still worth reopening.
@@ -3280,30 +2450,30 @@
             if (disposed) {
                 return;
             }
-            editorSettings = loaded;
+            appearance.editorSettings = loaded;
 
             const preferences = await loadPreferences();
             if (disposed) {
                 return;
             }
-            themeSettings = preferences.theme;
-            uiSettings = preferences.ui;
-            filesExclude = preferences.files.exclude;
-            filesTrimTrailingWhitespace = preferences.files.trimTrailingWhitespace;
-            searchExclude = preferences.searchExclude;
-            applyUISettings(uiSettings);
-            await refreshThemes();
-            await applyCurrentTheme();
-            void SetAppearanceMode(themeSettings.mode).catch((error) =>
+            appearance.themeSettings = preferences.theme;
+            appearance.uiSettings = preferences.ui;
+            appearance.filesExclude = preferences.files.exclude;
+            appearance.filesTrimTrailingWhitespace = preferences.files.trimTrailingWhitespace;
+            appearance.searchExclude = preferences.searchExclude;
+            applyUISettings(appearance.uiSettings);
+            await appearance.refreshThemes();
+            await appearance.applyCurrentTheme();
+            void SetAppearanceMode(appearance.themeSettings.mode).catch((error) =>
                 console.error('Failed to update the Appearance menu.', error),
             );
 
-            const off = await subscribeAll(windowName, {
+            const off = await subscribeAll(ctx.windowName, {
                 launch: (request) => void applyLaunch(request),
                 addFolder: () => void addFolderFromDialog(),
                 closeTab: () => {
-                    if (activeId !== '') {
-                        void closeTab(activeId);
+                    if (ctx.activeId !== '') {
+                        void closeTab(ctx.activeId);
                     }
                 },
                 quickOpen: () => void showQuickOpen(),
@@ -3326,12 +2496,12 @@
                     selectionCommand: runSelectionCommand,
                     zoom,
                     togglePreview,
-                    setViewOption,
+                    setViewOption: appearance.setViewOption,
                     find: () => runEditorAction('actions.find'),
                     replace: () => runEditorAction('editor.action.startFindReplaceAction'),
                     goToLine: () => runEditorAction('editor.action.gotoLine'),
-                    nextFindResult: () => void stepFindResult(1),
-                    previousFindResult: () => void stepFindResult(-1),
+                    nextFindResult: () => void search.stepFindResult(1),
+                    previousFindResult: () => void search.stepFindResult(-1),
                 },
                 watchedChanges: (paths) => void handleWatchedChanges(paths),
                 workspaceCommands: {
@@ -3356,18 +2526,18 @@
                 configChange: (change) => {
                     if (change.themes) {
                         void (async () => {
-                            await refreshThemes();
-                            await applyCurrentTheme();
+                            await appearance.refreshThemes();
+                            await appearance.applyCurrentTheme();
                         })();
                     }
                     if (change.keybindings) {
-                        void refreshKeybindings();
+                        void appearance.refreshKeybindings();
                     }
                     if (change.settings) {
-                        void reloadSettings();
+                        void appearance.reloadSettings();
                     }
                 },
-                appearance: (mode) => void changeThemeSettings({ ...themeSettings, mode }),
+                appearance: (mode) => void appearance.changeThemeSettings({ ...appearance.themeSettings, mode }),
                 settingsOverlay: showSettingsOverlay,
             });
             if (disposed) {
@@ -3375,8 +2545,8 @@
                 return;
             }
             unsubscribe = off;
-            installEditorKeybindings(runKeybindingCommand);
-            await refreshKeybindings();
+            installEditorKeybindings(appearance.runKeybindingCommand);
+            await appearance.refreshKeybindings();
             void WatchConfig();
 
             systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
@@ -3387,31 +2557,31 @@
             disposed = true;
             unsubscribe?.();
             systemTheme?.removeEventListener('change', onSystemTheme);
-            disposeKeybindings?.();
+            appearance.disposeKeybindings?.();
         };
     });
 </script>
 
 <div class="app" data-file-drop-target>
-    <TitleBar {appName} filePath={shownPath(active)} folderLabel={folderLabel} />
-    <div class="app__body" class:app__body--sidebar-right={uiSettings.sidebarPosition === 'right'}>
+    <TitleBar {appName} filePath={shownPath(ctx.active)} folderLabel={folderLabel} />
+    <div class="app__body" class:app__body--sidebar-right={appearance.uiSettings.sidebarPosition === 'right'}>
         <div class="app__sidebar" class:app__sidebar--hidden={!sidebarVisible}>
             {#if sidebarView === 'changes'}
                 <ChangesView
-                    changes={gitChanges}
-                    {busy}
-                    onOpenDiff={(path) => void openDiff(path)}
+                    changes={git.changes}
+                    busy={ctx.busy}
+                    onOpenDiff={(path) => void git.openDiff(path)}
                     onRefresh={() => void refreshWorkspace()}
                 />
             {:else}
                 <Sidebar
-                    {folders}
+                    folders={ctx.folders}
                     selectedPath={revealedPath}
-                    {busy}
+                    busy={ctx.busy}
                     refreshToken={treeRefreshToken}
                     {busyPath}
-                    statuses={gitStatuses}
-                    iconStyle={uiSettings.iconStyle}
+                    statuses={git.statuses}
+                    iconStyle={appearance.uiSettings.iconStyle}
                     onAddFolder={() => void addFolderFromDialog()}
                     onRemoveFolder={(path) => void removeFolder(path)}
                     onOpenFile={(path) => void openFile(path)}
@@ -3424,25 +2594,25 @@
         </div>
         <div class="app__editor">
             <TabBar
-                {tabs}
-                activeId={activeId}
-                showIcons={uiSettings.tabIcons}
-                iconStyle={uiSettings.iconStyle}
-                searchOpen={searchOpen}
-                searchActive={searchActive}
+                tabs={ctx.tabs}
+                activeId={ctx.activeId}
+                showIcons={appearance.uiSettings.tabIcons}
+                iconStyle={appearance.uiSettings.iconStyle}
+                searchOpen={search.open}
+                searchActive={ctx.searchActive}
                 onSelect={(id) => {
-                    activeId = id;
-                    searchActive = false;
+                    ctx.activeId = id;
+                    ctx.searchActive = false;
                 }}
                 onClose={(id) => void closeTab(id)}
                 onContextMenu={(event, tab) => showTabContextMenu(event, tab)}
                 onReorder={reorderTab}
                 onSelectSearch={() => {
-                    searchOpen = true;
-                    searchActive = true;
-                    searchFocusToken++;
+                    search.open = true;
+                    ctx.searchActive = true;
+                    search.focusToken++;
                 }}
-                onCloseSearch={closeSearchTab}
+                onCloseSearch={search.closeSearchTab}
             />
             <div class="app__pane">
                 <div
@@ -3457,12 +2627,12 @@
                         savedContent={editorSavedContent}
                         eol={editorEol}
                         {openIds}
-                        settings={editorSettings}
-                        readOnly={active?.kind === 'diff'}
+                        settings={appearance.editorSettings}
+                        readOnly={ctx.active?.kind === 'diff'}
                         onRevealFile={() => void revealActiveFile()}
                         onCopyPath={(kind) => void copyActivePath(kind)}
                         onDirtyChange={(id, dirty) => {
-                            tabs = setDocumentDirty(tabs, id, dirty);
+                            ctx.tabs = setDocumentDirty(ctx.tabs, id, dirty);
                         }}
                         onIndentationChange={(insertSpaces, tabSize, indentSize) => {
                             indentation = { insertSpaces, tabSize, indentSize };
@@ -3476,32 +2646,32 @@
                         }}
                     />
                 </div>
-                {#if searchActive}
+                {#if ctx.searchActive}
                     <SearchPanel
-                        bind:query={searchQuery}
-                        bind:include={searchInclude}
-                        bind:exclude={searchExcludeGlobs}
-                        bind:replacement={searchReplacement}
-                        bind:regex={searchRegex}
-                        bind:caseSensitive={searchCaseSensitive}
-                        groups={searchGroups}
-                        summary={searchLabel}
-                        error={searchError}
-                        busy={searchBusy}
-                        focusToken={searchFocusToken}
-                        roots={folders}
-                        onSearch={() => void runSearch()}
-                        onReplaceAll={() => void replaceInFiles()}
+                        bind:query={search.query}
+                        bind:include={search.include}
+                        bind:exclude={search.excludeGlobs}
+                        bind:replacement={search.replacement}
+                        bind:regex={search.regex}
+                        bind:caseSensitive={search.caseSensitive}
+                        groups={search.groups}
+                        summary={search.label}
+                        error={search.error}
+                        busy={search.busy}
+                        focusToken={search.focusToken}
+                        roots={ctx.folders}
+                        onSearch={() => void search.runSearch()}
+                        onReplaceAll={() => void search.replaceInFiles()}
                         onOpenMatch={(path, line, column) =>
-                            void openSearchMatch(path, line, column)}
+                            void search.openSearchMatch(path, line, column)}
                     />
-                {:else if active?.kind === 'image'}
-                    {#key active.src}
+                {:else if ctx.active?.kind === 'image'}
+                    {#key ctx.active.src}
                         <ImageViewer
-                            src={active.src}
-                            name={active.name}
+                            src={ctx.active.src}
+                            name={ctx.active.name}
                             onSize={(width, height) => {
-                                imageSize = { id: activeId, width, height };
+                                imageSize = { id: ctx.activeId, width, height };
                             }}
                         />
                     {/key}
@@ -3509,7 +2679,7 @@
                     <Preview
                         kind={preview.kind}
                         content={preview.content}
-                        name={active?.name ?? ''}
+                        name={ctx.active?.name ?? ''}
                     />
                 {:else if welcomeActive}
                     <Welcome onCommand={selectCommand} />
@@ -3522,19 +2692,19 @@
         {column}
         {selectionLength}
         {language}
-        eol={active?.kind === 'text' ? active.eol : ''}
+        eol={ctx.active?.kind === 'text' ? ctx.active.eol : ''}
         indentation={indentationText}
-        invalidUTF8={active?.kind === 'text' && active.invalidUTF8}
-        {notice}
+        invalidUTF8={ctx.active?.kind === 'text' && ctx.active.invalidUTF8}
+        notice={ctx.notice}
         {folderLabel}
         imageSize={imageSizeLabel}
-        branch={branch}
+        branch={git.branch}
         sidebarView={sidebarView}
-        changesCount={gitChanges.length}
+        changesCount={git.changes.length}
         onSwitchView={switchSidebarView}
         onToggleEol={toggleLineEnding}
-        onPickIndentation={active?.kind === 'text' ? showIndentationPalette : undefined}
-        onChangeLanguage={active?.kind === 'text' ? showLanguagePalette : undefined}
+        onPickIndentation={ctx.active?.kind === 'text' ? showIndentationPalette : undefined}
+        onChangeLanguage={ctx.active?.kind === 'text' ? showLanguagePalette : undefined}
     />
     {#if quickOpen}
         <Palette
@@ -3590,27 +2760,27 @@
             onClose={() => (indentationPalette = false)}
         />
     {/if}
-    {#if unsavedPrompt !== null}
+    {#if prompts.unsaved !== null}
         <Prompt
-            title={unsavedPrompt.title}
-            message={unsavedPrompt.message}
-            details={unsavedPrompt.details}
+            title={prompts.unsaved.title}
+            message={prompts.unsaved.message}
+            details={prompts.unsaved.details}
             actions={[
-                { id: 'save', label: unsavedPrompt.confirmLabel, primary: true },
+                { id: 'save', label: prompts.unsaved.confirmLabel, primary: true },
                 { id: 'discard', label: "Don't Save" },
                 { id: 'cancel', label: 'Cancel' },
             ]}
-            onSelect={answerUnsaved}
-            onCancel={() => answerUnsaved('cancel')}
+            onSelect={prompts.answerUnsaved}
+            onCancel={() => prompts.answerUnsaved('cancel')}
         />
     {/if}
-    {#if confirmPrompt !== null}
+    {#if prompts.confirm !== null}
         <Prompt
-            title={confirmPrompt.title}
-            message={confirmPrompt.message}
-            actions={confirmPrompt.actions}
-            onSelect={answerConfirm}
-            onCancel={() => answerConfirm('cancel')}
+            title={prompts.confirm.title}
+            message={prompts.confirm.message}
+            actions={prompts.confirm.actions}
+            onSelect={prompts.answerConfirm}
+            onCancel={() => prompts.answerConfirm('cancel')}
         />
     {/if}
     {#if contextMenu !== null}
@@ -3622,36 +2792,36 @@
             onClose={closeContextMenu}
         />
     {/if}
-    {#if namePrompt !== null}
+    {#if prompts.name !== null}
         <NamePrompt
-            title={namePrompt.title}
-            label={namePrompt.label}
-            bind:value={namePrompt.value}
-            selectStem={namePrompt.selectStem}
-            selectFolder={namePrompt.selectFolder}
-            error={namePrompt.error}
-            onSubmit={submitName}
-            onCancel={cancelName}
+            title={prompts.name.title}
+            label={prompts.name.label}
+            bind:value={prompts.name.value}
+            selectStem={prompts.name.selectStem}
+            selectFolder={prompts.name.selectFolder}
+            error={prompts.name.error}
+            onSubmit={prompts.submitName}
+            onCancel={prompts.cancelName}
         />
     {/if}
     {#if settingsOverlay}
         <SettingsOverlay
-            editor={editorSettings}
-            theme={themeSettings}
-            ui={uiSettings}
-            {themes}
-            filesExclude={filesExclude}
-            trimTrailingWhitespace={filesTrimTrailingWhitespace}
-            searchExclude={searchExclude}
+            editor={appearance.editorSettings}
+            theme={appearance.themeSettings}
+            ui={appearance.uiSettings}
+            themes={appearance.themes}
+            filesExclude={appearance.filesExclude}
+            trimTrailingWhitespace={appearance.filesTrimTrailingWhitespace}
+            searchExclude={appearance.searchExclude}
             {sidebarVisible}
             autoReveal={sidebarAutoReveal}
-            warning={settingsWarning}
-            onEditor={changeEditorSettings}
-            onTheme={(next) => void changeThemeSettings(next)}
-            onUI={(next) => void changeUISettings(next)}
-            onFilesExclude={(next) => void changeFilesExclude(next)}
-            onTrimTrailingWhitespace={(next) => void changeFilesTrimTrailingWhitespace(next)}
-            onSearchExclude={(next) => void changeSearchExclude(next)}
+            warning={appearance.settingsWarning}
+            onEditor={appearance.changeEditorSettings}
+            onTheme={(next) => void appearance.changeThemeSettings(next)}
+            onUI={(next) => void appearance.changeUISettings(next)}
+            onFilesExclude={(next) => void appearance.changeFilesExclude(next)}
+            onTrimTrailingWhitespace={(next) => void appearance.changeFilesTrimTrailingWhitespace(next)}
+            onSearchExclude={(next) => void appearance.changeSearchExclude(next)}
             onSidebarVisible={setSidebarVisible}
             onAutoReveal={setSidebarAutoReveal}
             onClose={closeSettingsOverlay}
