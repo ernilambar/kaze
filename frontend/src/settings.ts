@@ -1,4 +1,4 @@
-import type * as models from '../bindings/kaze/models';
+import type * as models from '../bindings/kaze/internal/config/models';
 import {
     GetSettings,
     UpdateEditorSettings,

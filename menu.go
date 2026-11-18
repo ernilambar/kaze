@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+
+	"kaze/internal/config"
 )
 
 // menuBuilder adds command items and applies keybindings.json. An item whose
@@ -355,7 +357,7 @@ type viewOption struct {
 // viewOptions lists the View menu checkboxes in display order. Auto-close and
 // smart indent change typing, not the view, so they stay in Settings and the
 // palette.
-func viewOptions(editor EditorSettings) []viewOption {
+func viewOptions(editor config.EditorSettings) []viewOption {
 	return []viewOption{
 		// Word Wrap is Cmd+Alt+Z, not Alt+Z: Option+letter types a character.
 		{"wordWrap", "Word Wrap", editor.WordWrap, "CmdOrCtrl+Alt+z"},
@@ -370,7 +372,7 @@ func viewOptions(editor EditorSettings) []viewOption {
 // checkbox owns its state natively, so each click forwards the new value;
 // SetViewOption keeps the checkmark honest when the same toggle runs from the
 // command palette.
-func viewMenu(m *application.Menu, app *App, b *menuBuilder, editor EditorSettings, theme ThemeSettings) {
+func viewMenu(m *application.Menu, app *App, b *menuBuilder, editor config.EditorSettings, theme config.ThemeSettings) {
 	b.item(m, "command-palette", "Command Palette…", "CmdOrCtrl+Shift+p", func(*application.Context) {
 		app.emitCommandPalette()
 	})
@@ -462,8 +464,8 @@ func helpMenu(m *application.Menu, app *App, b *menuBuilder) {
 func buildMenu(
 	wailsApp *application.App,
 	app *App,
-	editor EditorSettings,
-	theme ThemeSettings,
+	editor config.EditorSettings,
+	theme config.ThemeSettings,
 	bindings []Keybinding,
 ) *application.Menu {
 	builder := newMenuBuilder(app, bindings)
@@ -496,14 +498,14 @@ func (a *App) rebuildMenu() {
 
 // currentSettings returns settings.json content, or the defaults when it
 // cannot be read.
-func (a *App) currentSettings() Settings {
+func (a *App) currentSettings() config.Settings {
 	path, err := settingsFilePath()
 	if err != nil {
-		return defaultSettings()
+		return config.Default()
 	}
-	settings, err := loadSettings(path)
+	settings, err := config.Load(path)
 	if err != nil {
-		return defaultSettings()
+		return config.Default()
 	}
 	return settings
 }

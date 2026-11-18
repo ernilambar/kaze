@@ -11,7 +11,9 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
+	"kaze/internal/config"
 	"kaze/internal/jsonc"
+	"kaze/internal/pathutil"
 )
 
 // WorkspaceInfo is what the frontend receives after opening or saving a
@@ -83,7 +85,7 @@ func (a *App) SaveWorkspaceAs(folders []string) (WorkspaceInfo, error) {
 	if a.wails == nil {
 		return WorkspaceInfo{}, errors.New("workspace dialog is not available before startup")
 	}
-	if len(normalizeFolderList(folders)) == 0 {
+	if len(config.NormalizeFolderList(folders)) == 0 {
 		return WorkspaceInfo{}, errors.New("add a folder before saving a workspace")
 	}
 
@@ -143,7 +145,7 @@ func loadWorkspaceFile(path string) (WorkspaceInfo, error) {
 		}
 		folders = append(folders, folder)
 	}
-	folders = uniquePaths(folders)
+	folders = pathutil.UniquePaths(folders)
 	if len(folders) == 0 {
 		return WorkspaceInfo{}, errors.New("workspace has no folders")
 	}
@@ -191,7 +193,7 @@ func writeWorkspaceFile(path string, folders []string) (WorkspaceInfo, error) {
 	}
 
 	absolute := make([]string, 0, len(folders))
-	for _, folder := range normalizeFolderList(folders) {
+	for _, folder := range config.NormalizeFolderList(folders) {
 		folder, err := filepath.Abs(folder)
 		if err != nil {
 			return WorkspaceInfo{}, err
@@ -205,7 +207,7 @@ func writeWorkspaceFile(path string, folders []string) (WorkspaceInfo, error) {
 		}
 		absolute = append(absolute, folder)
 	}
-	absolute = uniquePaths(absolute)
+	absolute = pathutil.UniquePaths(absolute)
 	if len(absolute) == 0 {
 		return WorkspaceInfo{}, errors.New("add a folder before saving a workspace")
 	}
@@ -270,7 +272,7 @@ func writeWorkspaceData(path string, data []byte) error {
 // workspaceSuggestedName is the default file name in the Save As panel: the
 // first folder's name, or "workspace" when there is none to borrow.
 func workspaceSuggestedName(folders []string) string {
-	for _, folder := range normalizeFolderList(folders) {
+	for _, folder := range config.NormalizeFolderList(folders) {
 		base := filepath.Base(folder)
 		if base != "" && base != "." && base != string(filepath.Separator) {
 			return base + workspaceExtension

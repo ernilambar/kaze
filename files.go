@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"kaze/internal/config"
 	"kaze/internal/ignore"
 )
 
@@ -31,7 +32,7 @@ func (a *App) ListFiles(window string) (FileList, error) {
 	if err != nil {
 		return FileList{}, err
 	}
-	settings, err := loadSettings(path)
+	settings, err := config.Load(path)
 	if err != nil {
 		return FileList{}, err
 	}

@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"kaze/internal/pathutil"
 )
 
 // launchEvent is the Wails event the frontend listens on to pick up paths
@@ -96,22 +98,8 @@ func (r LaunchRequest) normalized() LaunchRequest {
 	if r.Buffers == nil {
 		r.Buffers = []LaunchBuffer{}
 	}
-	r.Folders = uniquePaths(r.Folders)
+	r.Folders = pathutil.UniquePaths(r.Folders)
 	return r
-}
-
-// uniquePaths keeps the first occurrence of each path, preserving order.
-func uniquePaths(paths []string) []string {
-	unique := make([]string, 0, len(paths))
-	seen := make(map[string]bool, len(paths))
-	for _, path := range paths {
-		if seen[path] {
-			continue
-		}
-		seen[path] = true
-		unique = append(unique, path)
-	}
-	return unique
 }
 
 // cliAction is what a command line asked for before a window exists. Help and

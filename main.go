@@ -7,6 +7,8 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+
+	"kaze/internal/config"
 )
 
 //go:embed all:frontend/dist
@@ -15,14 +17,14 @@ var assets embed.FS
 // startupSettings loads settings.json before the menu is built, so the View
 // menu starts with the same checkmarks the editor will use. A missing or broken
 // file falls back to the defaults the frontend also falls back to.
-func startupSettings() Settings {
+func startupSettings() config.Settings {
 	path, err := settingsFilePath()
 	if err != nil {
-		return defaultSettings()
+		return config.Default()
 	}
-	settings, err := loadSettings(path)
+	settings, err := config.Load(path)
 	if err != nil {
-		return defaultSettings()
+		return config.Default()
 	}
 	return settings
 }

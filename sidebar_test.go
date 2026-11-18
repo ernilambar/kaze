@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+
+	"kaze/internal/config"
 )
 
 // useTempSettingsDir points the settings file at a fresh directory, so the
@@ -99,9 +101,9 @@ func TestSetSidebarAutoRevealSavesChoice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("settingsFilePath() error = %v", err)
 	}
-	settings, err := loadSettings(path)
+	settings, err := config.Load(path)
 	if err != nil {
-		t.Fatalf("loadSettings() error = %v", err)
+		t.Fatalf("config.Load() error = %v", err)
 	}
 	if settings.Sidebar.AutoReveal {
 		t.Fatal("Sidebar.AutoReveal = true, want the saved false")

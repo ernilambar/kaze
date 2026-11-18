@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+
+	"kaze/internal/config"
 )
 
 // App is the application struct. Exported methods become callable from the
@@ -109,21 +111,26 @@ func (a *App) attach(wails *application.App) {
 	a.wails = wails
 }
 
+// settingsFilePath returns this app's settings.json location.
+func settingsFilePath() (string, error) {
+	return config.FilePath(appMeta.ProductName)
+}
+
 // GetSettings loads the user's settings.json, creating it with defaults on
 // first run. The frontend calls this once at startup and applies the values to
 // the editor.
-func (a *App) GetSettings() (Settings, error) {
+func (a *App) GetSettings() (config.Settings, error) {
 	path, err := settingsFilePath()
 	if err != nil {
-		return defaultSettings(), err
+		return config.Default(), err
 	}
-	return loadSettings(path)
+	return config.Load(path)
 }
 
 // UpdateEditorSettings replaces the editor section of settings.json and returns
 // the normalized result. The frontend calls it whenever a view toggle changes,
 // so the next launch starts with the same editor.
-func (a *App) UpdateEditorSettings(editor EditorSettings) (EditorSettings, error) {
+func (a *App) UpdateEditorSettings(editor config.EditorSettings) (config.EditorSettings, error) {
 	path, err := settingsFilePath()
 	if err != nil {
 		return editor, err
@@ -132,14 +139,14 @@ func (a *App) UpdateEditorSettings(editor EditorSettings) (EditorSettings, error
 	a.settingsMu.Lock()
 	defer a.settingsMu.Unlock()
 
-	settings, err := loadSettings(path)
+	settings, err := config.Load(path)
 	if err != nil {
 		return editor, err
 	}
 	before := settings.Editor
 	settings.Editor = editor
-	settings.normalize()
-	if err := writeSettingsSections(path, settings, settingsSection{"editor", before, settings.Editor}); err != nil {
+	settings.Normalize()
+	if err := config.WriteSections(path, settings, config.Section{Name: "editor", Before: before, After: settings.Editor}); err != nil {
 		return settings.Editor, err
 	}
 	return settings.Editor, nil
@@ -148,7 +155,7 @@ func (a *App) UpdateEditorSettings(editor EditorSettings) (EditorSettings, error
 // UpdateThemeSettings replaces the theme section of settings.json and returns
 // the normalized result. The frontend calls it when the appearance mode or one
 // of the selected palettes changes.
-func (a *App) UpdateThemeSettings(theme ThemeSettings) (ThemeSettings, error) {
+func (a *App) UpdateThemeSettings(theme config.ThemeSettings) (config.ThemeSettings, error) {
 	path, err := settingsFilePath()
 	if err != nil {
 		return theme, err
@@ -157,14 +164,14 @@ func (a *App) UpdateThemeSettings(theme ThemeSettings) (ThemeSettings, error) {
 	a.settingsMu.Lock()
 	defer a.settingsMu.Unlock()
 
-	settings, err := loadSettings(path)
+	settings, err := config.Load(path)
 	if err != nil {
 		return theme, err
 	}
 	before := settings.Theme
 	settings.Theme = theme
-	settings.normalize()
-	if err := writeSettingsSections(path, settings, settingsSection{"theme", before, settings.Theme}); err != nil {
+	settings.Normalize()
+	if err := config.WriteSections(path, settings, config.Section{Name: "theme", Before: before, After: settings.Theme}); err != nil {
 		return settings.Theme, err
 	}
 	return settings.Theme, nil
@@ -173,7 +180,7 @@ func (a *App) UpdateThemeSettings(theme ThemeSettings) (ThemeSettings, error) {
 // UpdateUISettings replaces the interface section of settings.json and returns
 // the normalized result. Typography, icon style and sidebar side all travel
 // through this one write path.
-func (a *App) UpdateUISettings(ui UISettings) (UISettings, error) {
+func (a *App) UpdateUISettings(ui config.UISettings) (config.UISettings, error) {
 	path, err := settingsFilePath()
 	if err != nil {
 		return ui, err
@@ -182,14 +189,14 @@ func (a *App) UpdateUISettings(ui UISettings) (UISettings, error) {
 	a.settingsMu.Lock()
 	defer a.settingsMu.Unlock()
 
-	settings, err := loadSettings(path)
+	settings, err := config.Load(path)
 	if err != nil {
 		return ui, err
 	}
 	before := settings.UI
 	settings.UI = ui
-	settings.normalize()
-	if err := writeSettingsSections(path, settings, settingsSection{"ui", before, settings.UI}); err != nil {
+	settings.Normalize()
+	if err := config.WriteSections(path, settings, config.Section{Name: "ui", Before: before, After: settings.UI}); err != nil {
 		return settings.UI, err
 	}
 	return settings.UI, nil
@@ -198,7 +205,7 @@ func (a *App) UpdateUISettings(ui UISettings) (UISettings, error) {
 // UpdateFilesSettings replaces the files section of settings.json and returns
 // the normalized result. The frontend calls it when the explorer's exclude
 // patterns change, so the tree hides the same entries the next read does.
-func (a *App) UpdateFilesSettings(files FilesSettings) (FilesSettings, error) {
+func (a *App) UpdateFilesSettings(files config.FilesSettings) (config.FilesSettings, error) {
 	path, err := settingsFilePath()
 	if err != nil {
 		return files, err
@@ -207,14 +214,14 @@ func (a *App) UpdateFilesSettings(files FilesSettings) (FilesSettings, error) {
 	a.settingsMu.Lock()
 	defer a.settingsMu.Unlock()
 
-	settings, err := loadSettings(path)
+	settings, err := config.Load(path)
 	if err != nil {
 		return files, err
 	}
 	before := settings.Files
 	settings.Files = files
-	settings.normalize()
-	if err := writeSettingsSections(path, settings, settingsSection{"files", before, settings.Files}); err != nil {
+	settings.Normalize()
+	if err := config.WriteSections(path, settings, config.Section{Name: "files", Before: before, After: settings.Files}); err != nil {
 		return settings.Files, err
 	}
 	return settings.Files, nil
@@ -223,7 +230,7 @@ func (a *App) UpdateFilesSettings(files FilesSettings) (FilesSettings, error) {
 // UpdateSearchSettings replaces the search section of settings.json and
 // returns the normalized result. Find in Files applies both lists, so this
 // only writes the patterns the search window owns.
-func (a *App) UpdateSearchSettings(search SearchSettings) (SearchSettings, error) {
+func (a *App) UpdateSearchSettings(search config.SearchSettings) (config.SearchSettings, error) {
 	path, err := settingsFilePath()
 	if err != nil {
 		return search, err
@@ -232,14 +239,14 @@ func (a *App) UpdateSearchSettings(search SearchSettings) (SearchSettings, error
 	a.settingsMu.Lock()
 	defer a.settingsMu.Unlock()
 
-	settings, err := loadSettings(path)
+	settings, err := config.Load(path)
 	if err != nil {
 		return search, err
 	}
 	before := settings.Search
 	settings.Search = search
-	settings.normalize()
-	if err := writeSettingsSections(path, settings, settingsSection{"search", before, settings.Search}); err != nil {
+	settings.Normalize()
+	if err := config.WriteSections(path, settings, config.Section{Name: "search", Before: before, After: settings.Search}); err != nil {
 		return settings.Search, err
 	}
 	return settings.Search, nil
@@ -249,7 +256,7 @@ func (a *App) UpdateSearchSettings(search SearchSettings) (SearchSettings, error
 // mode changed somewhere other than the native menu, such as the settings
 // overlay or a custom keybinding.
 func (a *App) SetAppearanceMode(mode string) {
-	mode = normalizeThemeMode(mode)
+	mode = config.NormalizeThemeMode(mode)
 	a.menuItemsMu.Lock()
 	items := a.appearanceItems
 	a.menuItemsMu.Unlock()
@@ -296,7 +303,7 @@ func (a *App) AddSidebarFolder(window string, folder string) ([]string, error) {
 // SetSidebarFolders replaces one window's sidebar roots in one write. Opening
 // a workspace uses it so a half-applied list never survives a failed folder.
 func (a *App) SetSidebarFolders(window string, folders []string) ([]string, error) {
-	normalized := normalizeFolderList(folders)
+	normalized := config.NormalizeFolderList(folders)
 	for _, folder := range normalized {
 		info, err := os.Stat(folder)
 		if err != nil {
@@ -361,7 +368,7 @@ func (a *App) sidebarFoldersLocked(key string, owner bool) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		roots = normalizeFolderList(state.Sidebar[key].Roots)
+		roots = config.NormalizeFolderList(state.Sidebar[key].Roots)
 	}
 	a.sidebarRoots[key] = roots
 	return roots, nil
@@ -382,7 +389,7 @@ func (a *App) updateSidebarFolders(window string, change func([]string) []string
 	if err != nil {
 		return current, err
 	}
-	updated := normalizeFolderList(change(append([]string(nil), current...)))
+	updated := config.NormalizeFolderList(change(append([]string(nil), current...)))
 	a.sidebarRoots[key] = updated
 	if !owner {
 		return updated, nil
@@ -411,7 +418,7 @@ func (a *App) SettingsFile() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := ensureSettingsFile(path); err != nil {
+	if err := config.EnsureFile(path); err != nil {
 		return "", err
 	}
 	return path, nil
@@ -426,7 +433,7 @@ func (a *App) DefaultSettingsFile() (string, error) {
 		return "", err
 	}
 	defaultPath := filepath.Join(filepath.Dir(path), "default-settings.json")
-	if err := writeSettings(defaultPath, defaultSettings()); err != nil {
+	if err := config.Write(defaultPath, config.Default()); err != nil {
 		return "", err
 	}
 	return defaultPath, nil

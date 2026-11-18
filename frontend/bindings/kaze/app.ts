@@ -13,6 +13,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as config$0 from "./internal/config/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
 /**
@@ -200,7 +204,7 @@ export function GetRecentFiles(): $CancellablePromise<string[] | null> {
  * first run. The frontend calls this once at startup and applies the values to
  * the editor.
  */
-export function GetSettings(): $CancellablePromise<$models.Settings> {
+export function GetSettings(): $CancellablePromise<config$0.Settings> {
     return $Call.ByID(2554697378);
 }
 
@@ -585,7 +589,7 @@ export function TrashPath(path: string): $CancellablePromise<void> {
  * the normalized result. The frontend calls it whenever a view toggle changes,
  * so the next launch starts with the same editor.
  */
-export function UpdateEditorSettings(editor: $models.EditorSettings): $CancellablePromise<$models.EditorSettings> {
+export function UpdateEditorSettings(editor: config$0.EditorSettings): $CancellablePromise<config$0.EditorSettings> {
     return $Call.ByID(3125471320, editor);
 }
 
@@ -594,7 +598,7 @@ export function UpdateEditorSettings(editor: $models.EditorSettings): $Cancellab
  * the normalized result. The frontend calls it when the explorer's exclude
  * patterns change, so the tree hides the same entries the next read does.
  */
-export function UpdateFilesSettings(files: $models.FilesSettings): $CancellablePromise<$models.FilesSettings> {
+export function UpdateFilesSettings(files: config$0.FilesSettings): $CancellablePromise<config$0.FilesSettings> {
     return $Call.ByID(1764760390, files);
 }
 
@@ -603,7 +607,7 @@ export function UpdateFilesSettings(files: $models.FilesSettings): $CancellableP
  * returns the normalized result. Find in Files applies both lists, so this
  * only writes the patterns the search window owns.
  */
-export function UpdateSearchSettings(search: $models.SearchSettings): $CancellablePromise<$models.SearchSettings> {
+export function UpdateSearchSettings(search: config$0.SearchSettings): $CancellablePromise<config$0.SearchSettings> {
     return $Call.ByID(3451417453, search);
 }
 
@@ -612,7 +616,7 @@ export function UpdateSearchSettings(search: $models.SearchSettings): $Cancellab
  * the normalized result. The frontend calls it when the appearance mode or one
  * of the selected palettes changes.
  */
-export function UpdateThemeSettings(theme: $models.ThemeSettings): $CancellablePromise<$models.ThemeSettings> {
+export function UpdateThemeSettings(theme: config$0.ThemeSettings): $CancellablePromise<config$0.ThemeSettings> {
     return $Call.ByID(1834452164, theme);
 }
 
@@ -621,7 +625,7 @@ export function UpdateThemeSettings(theme: $models.ThemeSettings): $CancellableP
  * the normalized result. Typography, icon style and sidebar side all travel
  * through this one write path.
  */
-export function UpdateUISettings(ui: $models.UISettings): $CancellablePromise<$models.UISettings> {
+export function UpdateUISettings(ui: config$0.UISettings): $CancellablePromise<config$0.UISettings> {
     return $Call.ByID(379592115, ui);
 }
 

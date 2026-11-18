@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"bytes"
@@ -10,53 +10,53 @@ import (
 	"strconv"
 )
 
-// settingsSection is one top-level object of settings.json that a write path
+// Section is one top-level object of settings.json that a write path
 // replaced: before is the section as the file last loaded it, after is the
 // normalized value to store.
-type settingsSection struct {
-	name   string
-	before any
-	after  any
+type Section struct {
+	Name   string
+	Before any
+	After  any
 }
 
-// writeSettingsSections stores the sections a command changed and leaves the
+// WriteSections stores the sections a command changed and leaves the
 // rest of settings.json alone. Only the section keys whose values actually
 // differ are rewritten, so unknown keys and the user's formatting survive a
 // view toggle. The whole file is rewritten only when it cannot be read as a
 // JSON object, the one case where there is no existing text to preserve.
-func writeSettingsSections(path string, settings Settings, sections ...settingsSection) error {
+func WriteSections(path string, settings Settings, sections ...Section) error {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) || (err == nil && len(bytes.TrimSpace(data)) == 0) {
-		return writeSettings(path, settings)
+		return Write(path, settings)
 	}
 	if err != nil {
 		return fmt.Errorf("read settings file: %w", err)
 	}
 
 	for _, section := range sections {
-		members, err := changedMembers(section.before, section.after)
+		members, err := changedMembers(section.Before, section.After)
 		if err != nil {
-			return fmt.Errorf("encode %s settings: %w", section.name, err)
+			return fmt.Errorf("encode %s settings: %w", section.Name, err)
 		}
 		if len(members) == 0 {
 			continue
 		}
-		whole, err := json.Marshal(section.after)
+		whole, err := json.Marshal(section.After)
 		if err != nil {
-			return fmt.Errorf("encode %s settings: %w", section.name, err)
+			return fmt.Errorf("encode %s settings: %w", section.Name, err)
 		}
-		data, err = patchSettingsDocument(data, section.name, members, whole)
+		data, err = patchSettingsDocument(data, section.Name, members, whole)
 		if err != nil {
-			return writeSettings(path, settings)
+			return Write(path, settings)
 		}
 	}
 	return writeSettingsFile(path, data)
 }
 
-// dropSettingsSection removes one top-level section and leaves the rest of the
+// DropSection removes one top-level section and leaves the rest of the
 // file's text untouched. It is used once per upgrade, to move the Open Recent
 // list out of settings.json; a missing key or unreadable file is a no-op.
-func dropSettingsSection(path, name string) error {
+func DropSection(path, name string) error {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) || (err == nil && len(bytes.TrimSpace(data)) == 0) {
 		return nil

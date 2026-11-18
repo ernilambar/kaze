@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"kaze/internal/config"
 )
 
 // configChangedEvent tells the frontend that the themes folder,
@@ -47,7 +49,7 @@ func (a *App) configWatchLoop() {
 	// does not look like a user edit.
 	_ = ensureThemesDir(dir)
 	_ = ensureKeybindingsFile(keyPath)
-	_ = ensureSettingsFile(settingsPath)
+	_ = config.EnsureFile(settingsPath)
 
 	themes := themeSnapshot(dir)
 	keys := statWatch(keyPath)
@@ -81,7 +83,7 @@ func (a *App) configWatchLoop() {
 			// The View and Appearance checkmarks come from settings.json. A
 			// broken file keeps the previous menu, as the frontend keeps the
 			// previous settings.
-			if _, err := loadSettings(settingsPath); err == nil {
+			if _, err := config.Load(settingsPath); err == nil {
 				a.rebuildMenu()
 			}
 		}

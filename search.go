@@ -12,6 +12,7 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
+	"kaze/internal/config"
 	"kaze/internal/ignore"
 	"kaze/internal/pathutil"
 )
@@ -194,12 +195,12 @@ func (a *App) ReplaceInProject(window string, request SearchRequest) (ReplaceRes
 
 // searchSettings loads settings.json for a search. A missing or broken file
 // means no roots, which produces an empty result rather than an error.
-func (a *App) searchSettings() (Settings, error) {
+func (a *App) searchSettings() (config.Settings, error) {
 	path, err := settingsFilePath()
 	if err != nil {
-		return defaultSettings(), err
+		return config.Default(), err
 	}
-	return loadSettings(path)
+	return config.Load(path)
 }
 
 // searchExpression compiles the request. A literal query is quoted, so a
@@ -223,7 +224,7 @@ func searchExpression(request SearchRequest) (*regexp.Regexp, error) {
 // collectSearchFiles walks every root and returns the files a search should
 // read. The filters are applied while walking, so an excluded tree is never
 // descended into.
-func collectSearchFiles(settings Settings, roots []string, request SearchRequest) []string {
+func collectSearchFiles(settings config.Settings, roots []string, request SearchRequest) []string {
 	excludes := ignore.NewMatcher(ignore.MergePatterns(
 		settings.Files.Exclude,
 		settings.Search.Exclude,

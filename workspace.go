@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"strings"
+
+	"kaze/internal/config"
 )
 
 // AddRecentFile puts path at the top of the Open Recent list, drops an older
@@ -62,13 +64,13 @@ func (a *App) SetSidebarVisible(visible bool) error {
 	a.settingsMu.Lock()
 	defer a.settingsMu.Unlock()
 
-	settings, err := loadSettings(path)
+	settings, err := config.Load(path)
 	if err != nil {
 		return err
 	}
 	before := settings.Sidebar
 	settings.Sidebar.Visible = visible
-	return writeSettingsSections(path, settings, settingsSection{"sidebar", before, settings.Sidebar})
+	return config.WriteSections(path, settings, config.Section{Name: "sidebar", Before: before, After: settings.Sidebar})
 }
 
 // SetSidebarAutoReveal records whether switching tabs should expand the tree
@@ -82,13 +84,13 @@ func (a *App) SetSidebarAutoReveal(autoReveal bool) error {
 	a.settingsMu.Lock()
 	defer a.settingsMu.Unlock()
 
-	settings, err := loadSettings(path)
+	settings, err := config.Load(path)
 	if err != nil {
 		return err
 	}
 	before := settings.Sidebar
 	settings.Sidebar.AutoReveal = autoReveal
-	return writeSettingsSections(path, settings, settingsSection{"sidebar", before, settings.Sidebar})
+	return config.WriteSections(path, settings, config.Section{Name: "sidebar", Before: before, After: settings.Sidebar})
 }
 
 // RemoveAllSidebarFolders drops every root from one window's sidebar and

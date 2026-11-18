@@ -147,3 +147,17 @@ func writeFileInPlace(path string, data []byte) error {
 	}
 	return file.Close()
 }
+
+// UniquePaths keeps the first occurrence of each path, preserving order.
+func UniquePaths(paths []string) []string {
+	unique := make([]string, 0, len(paths))
+	seen := make(map[string]bool, len(paths))
+	for _, path := range paths {
+		if seen[path] {
+			continue
+		}
+		seen[path] = true
+		unique = append(unique, path)
+	}
+	return unique
+}

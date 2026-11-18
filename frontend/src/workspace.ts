@@ -1,4 +1,5 @@
 import type * as models from '../bindings/kaze/models';
+import type * as config from '../bindings/kaze/internal/config/models';
 import {
     AddRecentFile,
     ClearRecentFiles,
@@ -62,7 +63,7 @@ export function toWorkspaceSession(session: models.WorkspaceSession): SavedWorks
 }
 
 export async function loadWorkspaceState(): Promise<WorkspaceState> {
-    let settings: models.Settings | null = null;
+    let settings: config.Settings | null = null;
     let recentFiles: string[] = [];
     try {
         settings = await GetSettings();

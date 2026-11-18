@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"kaze/internal/config"
 	"kaze/internal/pathutil"
 )
 
@@ -200,7 +201,7 @@ func (a *App) adoptLegacyRecentLocked() {
 
 	a.settingsMu.Lock()
 	defer a.settingsMu.Unlock()
-	_ = dropSettingsSection(settingsPath, "recent")
+	_ = config.DropSection(settingsPath, "recent")
 }
 
 // normalizeSession repairs a file written by hand or by a future version that
@@ -214,7 +215,7 @@ func normalizeSession(state sessionFile) sessionFile {
 		if name == "" {
 			continue
 		}
-		roots[name] = sidebarRoots{Roots: normalizeFolderList(entry.Roots)}
+		roots[name] = sidebarRoots{Roots: config.NormalizeFolderList(entry.Roots)}
 	}
 	state.Sidebar = roots
 	state.Frame = normalizeWindowFrame(state.Frame)
@@ -231,7 +232,7 @@ func normalizeSession(state sessionFile) sessionFile {
 // normalizeRecentFiles trims entries, drops repeats past the cap and always
 // returns a non-nil list.
 func normalizeRecentFiles(files []string) []string {
-	normalized := normalizeFileList(files)
+	normalized := config.NormalizeFileList(files)
 	if len(normalized) > maxRecentFiles {
 		normalized = normalized[:maxRecentFiles]
 	}
@@ -276,7 +277,7 @@ func normalizeWorkspaceSession(session WorkspaceSession) WorkspaceSession {
 
 // normalizeSessionFiles trims paths, drops repeats and applies the cap.
 func normalizeSessionFiles(files []string) []string {
-	normalized := normalizeFileList(files)
+	normalized := config.NormalizeFileList(files)
 	if len(normalized) > maxSessionFiles {
 		normalized = normalized[:maxSessionFiles]
 	}

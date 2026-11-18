@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"kaze/internal/config"
 )
 
 func TestBuiltinThemeFamilyParses(t *testing.T) {
@@ -19,11 +21,11 @@ func TestBuiltinThemeFamilyParses(t *testing.T) {
 	for _, variant := range family.Themes {
 		names[variant.Name] = variant.Appearance
 	}
-	if names[defaultThemeDark] != "dark" {
-		t.Errorf("%s appearance = %q, want dark", defaultThemeDark, names[defaultThemeDark])
+	if names[config.DefaultThemeDark] != "dark" {
+		t.Errorf("%s appearance = %q, want dark", config.DefaultThemeDark, names[config.DefaultThemeDark])
 	}
-	if names[defaultThemeLight] != "light" {
-		t.Errorf("%s appearance = %q, want light", defaultThemeLight, names[defaultThemeLight])
+	if names[config.DefaultThemeLight] != "light" {
+		t.Errorf("%s appearance = %q, want light", config.DefaultThemeLight, names[config.DefaultThemeLight])
 	}
 }
 
@@ -100,7 +102,7 @@ func TestUserThemeOverridesBuiltinName(t *testing.T) {
 		"name": "Mine",
 		"author": "me",
 		"themes": [{
-			"name": "` + defaultThemeDark + `",
+			"name": "` + config.DefaultThemeDark + `",
 			"appearance": "dark",
 			"style": {"background": "#000001"}
 		}]
@@ -110,9 +112,9 @@ func TestUserThemeOverridesBuiltinName(t *testing.T) {
 	}
 
 	entries, _ := loadThemeEntries(dir)
-	entry, ok := findVariant(entries, defaultThemeDark)
+	entry, ok := findVariant(entries, config.DefaultThemeDark)
 	if !ok {
-		t.Fatalf("%s was not loaded", defaultThemeDark)
+		t.Fatalf("%s was not loaded", config.DefaultThemeDark)
 	}
 	if entry.Variant.Style.Background != "#000001" {
 		t.Fatalf("background = %q, want the user override", entry.Variant.Style.Background)
@@ -133,7 +135,7 @@ func TestBrokenThemeFileIsReportedNotFatal(t *testing.T) {
 	if len(problems) != 1 || !strings.Contains(problems[0], "broken.json") {
 		t.Fatalf("problems = %q, want a broken.json error", problems)
 	}
-	if _, ok := findVariant(entries, defaultThemeDark); !ok {
+	if _, ok := findVariant(entries, config.DefaultThemeDark); !ok {
 		t.Fatal("built-in themes disappeared after one broken file")
 	}
 }
@@ -156,7 +158,7 @@ func TestCatalogPreviewMatchesPalette(t *testing.T) {
 	t.Setenv("HOME", root)
 
 	catalog := (&App{}).ListThemes()
-	for _, themeName := range []string{defaultThemeDark, defaultThemeLight} {
+	for _, themeName := range []string{config.DefaultThemeDark, config.DefaultThemeLight} {
 		var summary *ThemeSummary
 		for index := range catalog.Themes {
 			if catalog.Themes[index].Name == themeName {
@@ -204,12 +206,12 @@ func TestLoadThemeAgreesWithCatalog(t *testing.T) {
 	if len(catalog.Themes) < 2 {
 		t.Fatalf("ListThemes() returned %d themes, want at least the built-in pair", len(catalog.Themes))
 	}
-	palette, err := (&App{}).LoadTheme(defaultThemeDark)
+	palette, err := (&App{}).LoadTheme(config.DefaultThemeDark)
 	if err != nil {
 		t.Fatalf("LoadTheme() error = %v", err)
 	}
 	if palette.Appearance != "dark" || palette.UI["bg"] != "#1e1e1e" {
-		t.Fatalf("LoadTheme() = %+v, want %s", palette, defaultThemeDark)
+		t.Fatalf("LoadTheme() = %+v, want %s", palette, config.DefaultThemeDark)
 	}
 	if _, err := (&App{}).LoadTheme("Missing Theme"); err == nil {
 		t.Fatal("LoadTheme() accepted a missing theme")

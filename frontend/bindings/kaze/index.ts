@@ -8,10 +8,8 @@ export {
 
 export type {
     Document,
-    EditorSettings,
     FileList,
     FileTreeResult,
-    FilesSettings,
     FolderEntry,
     GitBaseline,
     GitChange,
@@ -28,15 +26,10 @@ export type {
     SearchMatch,
     SearchRequest,
     SearchResult,
-    SearchSettings,
-    Settings,
-    SidebarSettings,
     ThemeCatalog,
     ThemePalette,
     ThemePreview,
-    ThemeSettings,
     ThemeSummary,
-    UISettings,
     WindowSession,
     WorkspaceInfo,
     WorkspaceSession

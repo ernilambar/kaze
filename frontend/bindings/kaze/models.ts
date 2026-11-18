@@ -50,51 +50,6 @@ export interface Document {
 }
 
 /**
- * EditorSettings tunes the Monaco editor instance. Booleans that default to
- * true rely on defaultSettings prepopulating the struct before the file is
- * decoded; a missing key keeps its default while an explicit false stays false.
- */
-export interface EditorSettings {
-    "font_family": string;
-    "font_size": number;
-    "font_weight": number;
-    "tab_size": number;
-    "hard_tabs": boolean;
-    "ligatures": boolean;
-    "cursor_width": number;
-    "cursor_blink": boolean;
-
-    /**
-     * CursorSurroundingLines keeps this many lines visible above and below the
-     * cursor while scrolling.
-     */
-    "cursor_surrounding_lines": number;
-    "scroll_beyond_last_line": boolean;
-    "ensure_final_newline": boolean;
-
-    /**
-     * These view options are edited in the settings overlay and applied to a
-     * live editor. Rulers is the list of vertical guide columns; an empty list
-     * draws none.
-     */
-    "minimap": boolean;
-    "bracket_pair_colors": boolean;
-    "rulers": number[] | null;
-
-    /**
-     * The view toggles are editor options too. Keeping them here means a
-     * View menu choice survives a relaunch, and the menu starts checked.
-     */
-    "word_wrap": boolean;
-    "invisible_characters": boolean;
-    "line_numbers": boolean;
-    "indent_guides": boolean;
-    "code_folding": boolean;
-    "auto_close_brackets": boolean;
-    "smart_indent": boolean;
-}
-
-/**
  * FileList is what Quick Open reads: every regular file under one window's
  * sidebar roots, sorted by path, and whether the walk hit the cap.
  */
@@ -114,25 +69,6 @@ export interface FileTreeResult {
     "real_path": string;
     "name": string;
     "is_dir": boolean;
-}
-
-/**
- * FilesSettings configures the explorer's hidden entries and what a save does
- * to the text it writes.
- */
-export interface FilesSettings {
-    /**
-     * Exclude holds glob patterns matched against the path relative to a
-     * sidebar root. A pattern with no slash matches a file or folder name at
-     * any depth, so the default list hides every node_modules folder.
-     */
-    "exclude": string[] | null;
-
-    /**
-     * TrimTrailingWhitespace removes spaces and tabs at line ends on save. It
-     * edits the buffer too, so the saved text and the tab still agree.
-     */
-    "trim_trailing_whitespace": boolean;
 }
 
 /**
@@ -413,44 +349,6 @@ export interface SearchResult {
 }
 
 /**
- * SearchSettings configures what Find in Files skips. The files list applies
- * too, so a folder hidden from the explorer is never searched.
- */
-export interface SearchSettings {
-    "exclude": string[] | null;
-}
-
-/**
- * Settings is the contents of the user's settings.json file.
- */
-export interface Settings {
-    "editor": EditorSettings;
-    "sidebar": SidebarSettings;
-    "files": FilesSettings;
-    "search": SearchSettings;
-    "theme": ThemeSettings;
-    "ui": UISettings;
-}
-
-/**
- * SidebarSettings is the sidebar's saved appearance. The roots themselves are
- * session state, because a folder list is what the user last had open, not a
- * preference to edit by hand.
- */
-export interface SidebarSettings {
-    /**
-     * Visible is whether the sidebar is shown. It survives a relaunch, so
-     * Cmd+B keeps the layout the user left behind.
-     */
-    "visible": boolean;
-
-    /**
-     * AutoReveal makes a tab change expand the tree to the active file.
-     */
-    "auto_reveal": boolean;
-}
-
-/**
  * ThemeCatalog is the set of readable themes plus the files that failed to
  * parse. One broken theme file must not hide the working ones.
  */
@@ -487,17 +385,6 @@ export interface ThemePreview {
 }
 
 /**
- * ThemeSettings selects the palette. Mode is system, light or dark; the other
- * two name the variant to use for each appearance. Names are variant names,
- * matching the `name` field inside a Zed theme file.
- */
-export interface ThemeSettings {
-    "mode": string;
-    "light": string;
-    "dark": string;
-}
-
-/**
  * ThemeSummary is one variant in the theme picker. Name is what settings.json
  * stores; Family is what the file calls the group it belongs to.
  */
@@ -506,18 +393,6 @@ export interface ThemeSummary {
     "name": string;
     "appearance": string;
     "preview": ThemePreview;
-}
-
-/**
- * UISettings controls the chrome around the editor: typography, the explorer's
- * file icons and which side the sidebar opens on.
- */
-export interface UISettings {
-    "font_family": string;
-    "font_size": number;
-    "tab_icons": boolean;
-    "icon_style": string;
-    "sidebar_position": string;
 }
 
 /**

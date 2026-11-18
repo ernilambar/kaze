@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"kaze/internal/config"
 	"kaze/internal/ignore"
 	"kaze/internal/pathutil"
 )
@@ -40,7 +41,7 @@ func (a *App) filesExcludeMatcher() ignore.Matcher {
 	if err != nil {
 		return ignore.Matcher{}
 	}
-	settings, err := loadSettings(path)
+	settings, err := config.Load(path)
 	if err != nil {
 		return ignore.Matcher{}
 	}
