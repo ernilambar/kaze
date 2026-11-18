@@ -1,4 +1,4 @@
-import { CopyText, RevealFile } from '../../bindings/kaze/app';
+import { CopyText, RevealFile } from '../../bindings/kaze/internal/app/app';
 import { ROOT_LOCKED_COMMANDS } from '../contextmenu';
 import {
     copyPath,

@@ -21,7 +21,7 @@
         ToggleFullScreen,
         WatchConfig,
         ZoomWindow,
-    } from '../bindings/kaze/app';
+    } from '../bindings/kaze/internal/app/app';
     import { Appearance } from './app/appearance.svelte';
     import { WindowContext } from './app/context.svelte';
     import { dispatchCommand, type CommandHandlers } from './app/dispatch';

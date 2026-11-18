@@ -36,13 +36,16 @@ No frontend linter/formatter is configured; don't add one unprompted.
 
 - **Bindings are generated.** Never hand-edit `frontend/bindings/`; add exported
   `App` methods and regenerate. Go owns file I/O, dialogs and OS integration;
-  the frontend never imports Node APIs. `main.go` calls `app.attach(...)` before
-  `Run`; tests never attach, so every use is nil-checked.
-- **Go layout.** `package main` holds `App`, windows, menus, native glue and the
-  thin exported `App` methods; App-free logic lives in `internal/<pkg>`, which
-  never imports `main`. Models of internal types generate under
-  `frontend/bindings/kaze/internal/<pkg>/models.ts`. Keep Go type names when
-  moving one, so its TS model name stays stable.
+  the frontend never imports Node APIs. `app.Run` (`internal/app/run.go`) calls
+  `app.attach(...)` before Wails `Run`; tests never attach, so every use is
+  nil-checked.
+- **Go layout.** Root `main.go` only embeds `frontend/dist` and
+  `build/config.yml` and calls `app.Run`. `internal/app` holds `App`, windows,
+  menus, native glue and the thin exported `App` methods; bare file names below
+  (`menu.go`, `session.go`, …) live there. App-free logic lives in
+  `internal/<pkg>`, which never imports `internal/app`. Bindings generate under
+  `frontend/bindings/kaze/internal/<pkg>/`. Keep Go type names when moving one,
+  so its TS model name stays stable.
 - **Launch.** `internal/cli` parses argv into a `LaunchRequest` that survives
   the frontend not being ready. `+`, **Add Folder to Sidebar…**, `kaze <folder>`
   and Finder drops (`drop.go`) all funnel through

@@ -1,0 +1,567 @@
+package app
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"testing"
+
+	"kaze/internal/fileops"
+)
+
+func TestCreateFileCreatesAnEmptyFile(t *testing.T) {
+	dir := t.TempDir()
+
+	result, err := NewApp().CreateFile(dir, "notes.txt")
+	if err != nil {
+		t.Fatalf("CreateFile() error = %v", err)
+	}
+
+	path := filepath.Join(dir, "notes.txt")
+	if result.Path != path {
+		t.Fatalf("CreateFile() path = %q, want %q", result.Path, path)
+	}
+	if result.Name != "notes.txt" || result.IsDir {
+		t.Fatalf("CreateFile() = %+v, want a file named notes.txt", result)
+	}
+	info, err := os.Stat(result.RealPath)
+	if err != nil {
+		t.Fatalf("stat %s: %v", result.RealPath, err)
+	}
+	if info.Size() != 0 {
+		t.Fatalf("CreateFile() wrote %d bytes, want an empty file", info.Size())
+	}
+}
+
+func TestCreateFileRefusesAnExistingName(t *testing.T) {
+	dir := t.TempDir()
+	path := writeTempFile(t, dir, "notes.txt", "hello")
+
+	if _, err := NewApp().CreateFile(dir, "notes.txt"); err == nil {
+		t.Fatal("CreateFile() error = nil, want it to refuse an existing file")
+	}
+	// The refusal must not have truncated what was there.
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if string(data) != "hello" {
+		t.Fatalf("existing file = %q, want it untouched", data)
+	}
+}
+
+func TestCreateFolderCreatesDirectory(t *testing.T) {
+	dir := t.TempDir()
+
+	result, err := NewApp().CreateFolder(dir, "src")
+	if err != nil {
+		t.Fatalf("CreateFolder() error = %v", err)
+	}
+	if !result.IsDir {
+		t.Fatalf("CreateFolder() = %+v, want a directory", result)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "src")); err != nil {
+		t.Fatalf("stat new folder: %v", err)
+	}
+}
+
+func TestTreeNamesCannotWalkUpTheTree(t *testing.T) {
+	dir := t.TempDir()
+	app := NewApp()
+
+	for _, name := range []string{"", "  ", "..", "../escape.txt", "a/b.txt"} {
+		if _, err := app.CreateFile(dir, name); err == nil {
+			t.Fatalf("CreateFile(%q) error = nil, want a rejected name", name)
+		}
+		if _, err := app.CreateFolder(dir, name); err == nil {
+			t.Fatalf("CreateFolder(%q) error = nil, want a rejected name", name)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "..", "escape.txt")); err == nil {
+		t.Fatal("a rejected name created a file outside the folder")
+	}
+}
+
+func TestCreateFileRejectsAFileAsParent(t *testing.T) {
+	path := writeTempFile(t, t.TempDir(), "notes.txt", "hello")
+
+	_, err := NewApp().CreateFile(path, "child.txt")
+	if err == nil {
+		t.Fatal("CreateFile() error = nil, want a not a folder error")
+	}
+	if !strings.Contains(err.Error(), "not a folder") {
+		t.Fatalf("CreateFile() error = %v, want it to say the parent is not a folder", err)
+	}
+}
+
+func TestRenamePathKeepsTheFileInItsFolder(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+
+	result, err := NewApp().RenamePath(source, "journal.txt")
+	if err != nil {
+		t.Fatalf("RenamePath() error = %v", err)
+	}
+
+	want := filepath.Join(dir, "journal.txt")
+	if result.Path != want {
+		t.Fatalf("RenamePath() path = %q, want %q", result.Path, want)
+	}
+	if _, err := os.Stat(source); !os.IsNotExist(err) {
+		t.Fatalf("old path still exists: %v", err)
+	}
+	data, err := os.ReadFile(want)
+	if err != nil || string(data) != "hello" {
+		t.Fatalf("renamed file = %q, %v; want its content kept", data, err)
+	}
+}
+
+func TestRenamePathRefusesATakenName(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+	writeTempFile(t, dir, "taken.txt", "other")
+
+	_, err := NewApp().RenamePath(source, "taken.txt")
+	if err == nil {
+		t.Fatal("RenamePath() error = nil, want it to refuse an existing file")
+	}
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("RenamePath() error = %v, want an already exists error", err)
+	}
+}
+
+func TestRenamePathAcceptsItsOwnName(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+	app := NewApp()
+
+	// Submitting the unchanged name is not an "already exists" failure.
+	result, err := app.RenamePath(source, "notes.txt")
+	if err != nil {
+		t.Fatalf("RenamePath() error = %v", err)
+	}
+	if result.Path != source {
+		t.Fatalf("RenamePath() path = %q, want %q", result.Path, source)
+	}
+
+	// A case-only rename is how a macOS volume reports the same file.
+	if _, err := app.RenamePath(source, "Notes.txt"); err != nil {
+		t.Fatalf("RenamePath() case change error = %v", err)
+	}
+}
+
+func TestRenamePathRefusesATakenSibling(t *testing.T) {
+	root := t.TempDir()
+	first := filepath.Join(root, "first")
+	second := filepath.Join(root, "second")
+	for _, path := range []string{first, second} {
+		if err := os.Mkdir(path, 0o755); err != nil {
+			t.Fatalf("create %s: %v", path, err)
+		}
+	}
+
+	// Renaming a folder to a name its folder already holds is refused, so two
+	// folders never merge by accident.
+	if _, err := NewApp().RenamePath(first, "second"); err == nil {
+		t.Fatal("RenamePath() error = nil, want it to refuse a taken name")
+	}
+	if _, err := os.Stat(filepath.Join(second, filepath.Base(first))); err == nil {
+		t.Fatal("a refused rename moved the folder into the taken one")
+	}
+}
+
+func TestMovePathRefusesAFolderInsideItself(t *testing.T) {
+	dir := t.TempDir()
+	inner := filepath.Join(dir, "inner")
+	if err := os.MkdirAll(filepath.Join(inner, "deep"), 0o755); err != nil {
+		t.Fatalf("create folders: %v", err)
+	}
+
+	if _, err := NewApp().MovePath(dir, filepath.Join(inner, "deep")); err == nil {
+		t.Fatal("MovePath() error = nil, want it to refuse moving a folder into itself")
+	}
+	if _, err := os.Stat(filepath.Join(inner, "deep", filepath.Base(dir))); err == nil {
+		t.Fatal("a refused move created a folder inside the source")
+	}
+}
+
+func TestDuplicatePathSuggestionPicksTheFirstFreeName(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+	app := NewApp()
+
+	var paths []string
+	for range 3 {
+		suggestion, err := app.DuplicatePathSuggestion(source)
+		if err != nil {
+			t.Fatalf("DuplicatePathSuggestion() error = %v", err)
+		}
+		result, err := app.DuplicatePath(source, suggestion)
+		if err != nil {
+			t.Fatalf("DuplicatePath() error = %v", err)
+		}
+		paths = append(paths, filepath.Base(result.Path))
+	}
+
+	// The suggestion must never land on the name the source already has.
+	want := []string{"notes copy.txt", "notes copy 1.txt", "notes copy 2.txt"}
+	if strings.Join(paths, ",") != strings.Join(want, ",") {
+		t.Fatalf("duplicate names = %q, want %q", paths, want)
+	}
+}
+
+func TestDuplicatePathCopiesToTheChosenName(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+
+	result, err := NewApp().DuplicatePath(source, "notes (archived).txt")
+	if err != nil {
+		t.Fatalf("DuplicatePath() error = %v", err)
+	}
+
+	want := filepath.Join(dir, "notes (archived).txt")
+	if result.Path != want {
+		t.Fatalf("DuplicatePath() path = %q, want %q", result.Path, want)
+	}
+	data, err := os.ReadFile(want)
+	if err != nil || string(data) != "hello" {
+		t.Fatalf("duplicate = %q, %v; want a copy of the file", data, err)
+	}
+	// The original is untouched, so a duplicate is never a move.
+	if _, err := os.Stat(source); err != nil {
+		t.Fatalf("original disappeared: %v", err)
+	}
+}
+
+func TestDuplicatePathCreatesMissingFolders(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+
+	result, err := NewApp().DuplicatePath(source, filepath.Join("archive", "notes.txt"))
+	if err != nil {
+		t.Fatalf("DuplicatePath() error = %v", err)
+	}
+
+	want := filepath.Join(dir, "archive", "notes.txt")
+	if result.Path != want {
+		t.Fatalf("DuplicatePath() path = %q, want %q", result.Path, want)
+	}
+}
+
+func TestDuplicatePathRefusesATakenName(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+	taken := writeTempFile(t, dir, "notes copy.txt", "keep me")
+
+	if _, err := NewApp().DuplicatePath(source, taken); err == nil {
+		t.Fatal("DuplicatePath() error = nil, want a refusal for a taken name")
+	}
+	if _, err := NewApp().DuplicatePath(source, source); err == nil {
+		t.Fatal("DuplicatePath() error = nil, want a refusal for the source's own path")
+	}
+	data, err := os.ReadFile(taken)
+	if err != nil || string(data) != "keep me" {
+		t.Fatalf("taken file = %q, %v; want it untouched", data, err)
+	}
+}
+
+func TestDuplicatePathRefusesAFolderInsideItself(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(dir, "project")
+	if err := os.MkdirAll(filepath.Join(source, "nested"), 0o755); err != nil {
+		t.Fatalf("create folders: %v", err)
+	}
+
+	target := filepath.Join(source, "nested", "project copy")
+	if _, err := NewApp().DuplicatePath(source, target); err == nil {
+		t.Fatal("DuplicatePath() error = nil, want it to refuse copying a folder into itself")
+	}
+	if _, err := os.Stat(target); err == nil {
+		t.Fatal("a refused duplicate created a folder inside the source")
+	}
+}
+
+func TestDuplicatePathCopiesADirectoryTree(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(dir, "project")
+	if err := os.MkdirAll(filepath.Join(source, "nested"), 0o755); err != nil {
+		t.Fatalf("create folders: %v", err)
+	}
+	writeTempFile(t, source, "main.go", "package main\n")
+	writeTempFile(t, filepath.Join(source, "nested"), "notes.txt", "hello")
+
+	app := NewApp()
+	suggestion, err := app.DuplicatePathSuggestion(source)
+	if err != nil {
+		t.Fatalf("DuplicatePathSuggestion() error = %v", err)
+	}
+	result, err := app.DuplicatePath(source, suggestion)
+	if err != nil {
+		t.Fatalf("DuplicatePath() error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(result.Path, "nested", "notes.txt")); err != nil {
+		t.Fatalf("duplicate is missing a nested file: %v", err)
+	}
+}
+
+func TestCopyPathPutsTheCopyInTheTargetFolder(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+	target := filepath.Join(dir, "archive")
+	if err := os.Mkdir(target, 0o755); err != nil {
+		t.Fatalf("create target: %v", err)
+	}
+
+	result, err := NewApp().CopyPath(source, target)
+	if err != nil {
+		t.Fatalf("CopyPath() error = %v", err)
+	}
+	want := filepath.Join(target, "notes.txt")
+	if result.Path != want {
+		t.Fatalf("CopyPath() path = %q, want %q", result.Path, want)
+	}
+	if _, err := os.Stat(source); err != nil {
+		t.Fatalf("original disappeared: %v", err)
+	}
+}
+
+func TestCopyPathRejectsAFileAsTarget(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+	target := writeTempFile(t, dir, "archive.txt", "")
+
+	_, err := NewApp().CopyPath(source, target)
+	if err == nil {
+		t.Fatal("CopyPath() error = nil, want a not a folder error")
+	}
+	if !strings.Contains(err.Error(), "not a folder") {
+		t.Fatalf("CopyPath() error = %v, want it to say the target is not a folder", err)
+	}
+}
+
+func TestMovePathMovesFileIntoFolder(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+	target := filepath.Join(dir, "archive")
+	if err := os.Mkdir(target, 0o755); err != nil {
+		t.Fatalf("create target: %v", err)
+	}
+
+	result, err := NewApp().MovePath(source, target)
+	if err != nil {
+		t.Fatalf("MovePath() error = %v", err)
+	}
+	want := filepath.Join(target, "notes.txt")
+	if result.Path != want {
+		t.Fatalf("MovePath() path = %q, want %q", result.Path, want)
+	}
+	if _, err := os.Stat(source); !os.IsNotExist(err) {
+		t.Fatalf("source still exists after the move: %v", err)
+	}
+	data, err := os.ReadFile(want)
+	if err != nil || string(data) != "hello" {
+		t.Fatalf("moved file = %q, %v; want its content kept", data, err)
+	}
+}
+
+func TestMovePathIntoItsOwnFolderChangesNothing(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+
+	result, err := NewApp().MovePath(source, dir)
+	if err != nil {
+		t.Fatalf("MovePath() error = %v", err)
+	}
+	if result.Path != source {
+		t.Fatalf("MovePath() path = %q, want %q", result.Path, source)
+	}
+}
+
+func TestMovePathRefusesATakenName(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+	target := filepath.Join(dir, "archive")
+	if err := os.Mkdir(target, 0o755); err != nil {
+		t.Fatalf("create target: %v", err)
+	}
+	writeTempFile(t, target, "notes.txt", "other")
+
+	if _, err := NewApp().MovePath(source, target); err == nil {
+		t.Fatal("MovePath() error = nil, want it to refuse an existing file")
+	}
+	if _, err := os.Stat(source); err != nil {
+		t.Fatalf("source disappeared after a refused move: %v", err)
+	}
+}
+
+func TestRenamePathMovesAndRenamesIntoANewFolder(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+	target := filepath.Join(dir, "archive", "deep", "journal.txt")
+
+	result, err := NewApp().RenamePath(source, target)
+	if err != nil {
+		t.Fatalf("RenamePath() error = %v", err)
+	}
+	if result.Path != target {
+		t.Fatalf("RenamePath() path = %q, want %q", result.Path, target)
+	}
+	if _, err := os.Stat(source); !os.IsNotExist(err) {
+		t.Fatalf("old path still exists: %v", err)
+	}
+	data, err := os.ReadFile(target)
+	if err != nil || string(data) != "hello" {
+		t.Fatalf("renamed file = %q, %v; want its content kept", data, err)
+	}
+}
+
+func TestRenamePathReadsARelativePathFromTheSourceFolder(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+
+	result, err := NewApp().RenamePath(source, "archive/journal.txt")
+	if err != nil {
+		t.Fatalf("RenamePath() error = %v", err)
+	}
+	want := filepath.Join(dir, "archive", "journal.txt")
+	if result.Path != want {
+		t.Fatalf("RenamePath() path = %q, want %q", result.Path, want)
+	}
+}
+
+func TestRenamePathRefusesAFolderInsideItself(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(dir, "project")
+	if err := os.MkdirAll(filepath.Join(source, "nested"), 0o755); err != nil {
+		t.Fatalf("create folders: %v", err)
+	}
+	target := filepath.Join(source, "nested", "deeper", "renamed")
+
+	if _, err := NewApp().RenamePath(source, target); err == nil {
+		t.Fatal("RenamePath() error = nil, want it to refuse moving a folder inside itself")
+	}
+	if _, err := os.Stat(filepath.Join(source, "nested", "deeper")); !os.IsNotExist(err) {
+		t.Fatalf("a refused rename created %s anyway", filepath.Join(source, "nested", "deeper"))
+	}
+}
+
+func TestRenamePathRefusesATakenTargetInAnotherFolder(t *testing.T) {
+	dir := t.TempDir()
+	source := writeTempFile(t, dir, "notes.txt", "hello")
+	target := filepath.Join(dir, "archive")
+	if err := os.Mkdir(target, 0o755); err != nil {
+		t.Fatalf("create target: %v", err)
+	}
+	writeTempFile(t, target, "notes.txt", "other")
+
+	if _, err := NewApp().RenamePath(source, filepath.Join(target, "notes.txt")); err == nil {
+		t.Fatal("RenamePath() error = nil, want it to refuse an existing file")
+	}
+	if _, err := os.Stat(source); err != nil {
+		t.Fatalf("source disappeared after a refused rename: %v", err)
+	}
+}
+
+func TestRenamePathRejectsAnEmptyTarget(t *testing.T) {
+	source := writeTempFile(t, t.TempDir(), "notes.txt", "hello")
+
+	if _, err := NewApp().RenamePath(source, "  "); err == nil {
+		t.Fatal("RenamePath() error = nil, want a rejected empty target")
+	}
+}
+
+func TestResolveInputPathExpandsHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	got, err := fileops.ResolveInputPath("~/Code", "/tmp")
+	if err != nil {
+		t.Fatalf("fileops.ResolveInputPath() error = %v", err)
+	}
+	if want := filepath.Join(home, "Code"); got != want {
+		t.Fatalf("fileops.ResolveInputPath() = %q, want %q", got, want)
+	}
+}
+
+func TestTrashPathRejectsAnEmptyPath(t *testing.T) {
+	if err := NewApp().TrashPath("  "); err == nil {
+		t.Fatal("TrashPath() error = nil, want a rejected path")
+	}
+}
+
+func TestTrashPathReportsAMissingFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "gone.txt")
+
+	err := NewApp().TrashPath(path)
+	if err == nil {
+		t.Fatal("TrashPath() error = nil, want a missing file error")
+	}
+	if !strings.Contains(err.Error(), "Trash") {
+		t.Fatalf("TrashPath() error = %v, want it to mention the Trash", err)
+	}
+}
+
+func TestCopyPathRefusesFolderIntoItself(t *testing.T) {
+	root := t.TempDir()
+	folder := filepath.Join(root, "a")
+	if err := os.MkdirAll(filepath.Join(folder, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	app := &App{}
+	for _, target := range []string{folder, filepath.Join(folder, "sub")} {
+		if _, err := app.CopyPath(folder, target); err == nil {
+			t.Fatalf("CopyPath(%q, %q) succeeded, want an error", folder, target)
+		}
+	}
+}
+
+func TestCopyPathSkipsNamedPipe(t *testing.T) {
+	root := t.TempDir()
+	folder := filepath.Join(root, "a")
+	if err := os.Mkdir(folder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Mkfifo(filepath.Join(folder, "pipe"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dest := filepath.Join(root, "dest")
+	if err := os.Mkdir(dest, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (&App{}).CopyPath(folder, dest); err == nil {
+		t.Fatal("CopyPath with a FIFO succeeded, want an error")
+	}
+}
+
+func TestCopyPathCopiesReadOnlyFolder(t *testing.T) {
+	root := t.TempDir()
+	folder := filepath.Join(root, "ro")
+	if err := os.Mkdir(folder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(folder, "f.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(folder, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	dest := filepath.Join(root, "dest")
+	if err := os.Mkdir(dest, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		os.Chmod(folder, 0o755)
+		os.Chmod(filepath.Join(dest, "ro"), 0o755)
+	})
+	if _, err := (&App{}).CopyPath(folder, dest); err != nil {
+		t.Fatalf("CopyPath() error = %v", err)
+	}
+	info, err := os.Stat(filepath.Join(dest, "ro"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o555 {
+		t.Fatalf("copy mode = %v, want 0555", info.Mode().Perm())
+	}
+}

@@ -1,5 +1,5 @@
 import * as monaco from 'monaco-editor';
-import { GetKeybindings, SetAppearanceMode, SetViewOption } from '../../bindings/kaze/app';
+import { GetKeybindings, SetAppearanceMode, SetViewOption } from '../../bindings/kaze/internal/app/app';
 import { COMMANDS } from '../commands';
 import { VIEW_OPTIONS, type ViewOption } from '../editorcommands';
 import {

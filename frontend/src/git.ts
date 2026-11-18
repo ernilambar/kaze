@@ -1,5 +1,5 @@
 import type * as models from '../bindings/kaze/internal/git/models';
-import { GetGitBaseline, GetGitDiff, GetGitStatus } from '../bindings/kaze/app';
+import { GetGitBaseline, GetGitDiff, GetGitStatus } from '../bindings/kaze/internal/app/app';
 import { isWithin, relativePath } from './sidebar';
 
 // The status vocabulary mirrors internal/git/git.go. `modified` covers staged and unstaged

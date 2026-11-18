@@ -7,7 +7,7 @@ import {
     RemoveAllSidebarFolders,
     RemoveSidebarFolder,
     SetSidebarFolders,
-} from '../bindings/kaze/app';
+} from '../bindings/kaze/internal/app/app';
 import { onWindowEvent } from './windowstate';
 
 // FolderEntry mirrors FolderEntry in internal/fileops/folder.go: one child of a folder. The

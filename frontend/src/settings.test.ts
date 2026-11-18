@@ -8,7 +8,7 @@ const { getSettings, updateEditorSettings, updateFilesSettings, updateSearchSett
         updateSearchSettings: vi.fn(),
     }));
 
-vi.mock('../bindings/kaze/app', () => ({
+vi.mock('../bindings/kaze/internal/app/app', () => ({
     GetSettings: getSettings,
     UpdateEditorSettings: updateEditorSettings,
     UpdateFilesSettings: updateFilesSettings,

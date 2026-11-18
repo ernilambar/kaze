@@ -1,4 +1,4 @@
-import { ListFiles } from '../bindings/kaze/app';
+import { ListFiles } from '../bindings/kaze/internal/app/app';
 import { onWindowEvent } from './windowstate';
 import type { PaletteItem } from './palette';
 import { folderName, isWithin } from './sidebar';

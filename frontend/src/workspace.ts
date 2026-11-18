@@ -1,4 +1,4 @@
-import type * as models from '../bindings/kaze/models';
+import type * as models from '../bindings/kaze/internal/app/models';
 import type * as config from '../bindings/kaze/internal/config/models';
 import type * as workspacefile from '../bindings/kaze/internal/workspacefile/models';
 import {
@@ -14,7 +14,7 @@ import {
     SetSidebarAutoReveal,
     SetSidebarVisible,
     WatchPaths,
-} from '../bindings/kaze/app';
+} from '../bindings/kaze/internal/app/app';
 import { onWindowEvent } from './windowstate';
 
 // WorkspaceState is the state shared by every window: the sidebar's visibility

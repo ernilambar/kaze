@@ -5,7 +5,7 @@ import {
     ResolveClose,
     SaveDocument,
     SaveFileDialog,
-} from '../../bindings/kaze/app';
+} from '../../bindings/kaze/internal/app/app';
 import type { SaveResult } from '../../bindings/kaze/internal/document/models';
 import {
     createUntitledDocument,
