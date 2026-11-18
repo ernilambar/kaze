@@ -8,9 +8,9 @@ info:
   companyName: "Nilambar Sharma" # The name of the company
   productName: "Kaze" # The name of the application
   productIdentifier: "net.nilambar.kaze" # The unique product identifier
-  description: "A simple text editor." # The application description
+  description: "A lightweight macOS editor for code and plain text." # The application description
   copyright: "Copyright © 2026 Nilambar Sharma" # Copyright text
-  comments: "A simple text editor." # Comments
+  comments: "A lightweight macOS editor for code and plain text." # Comments
   version: "0.1.1" # The application version
   # cfBundleIconName: "appicon" # The macOS icon name in Assets.car icon bundles (optional)
   #                               # Should match the name of your .icon file without the extension

@@ -5,7 +5,7 @@
 		<key>CFBundleExecutable</key>
 		<string>kaze</string>
 		<key>CFBundleGetInfoString</key>
-		<string>A simple text editor.</string>
+		<string>A lightweight macOS editor for code and plain text.</string>
 		<key>CFBundleIconFile</key>
 		<string>icons</string>
 		<key>CFBundleIconName</key>

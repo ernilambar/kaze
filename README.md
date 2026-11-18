@@ -1,6 +1,6 @@
 # Kaze
 
-A minimal text editor for macOS.
+A lightweight macOS editor for code and plain text.
 
 ## Features
 

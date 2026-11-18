@@ -161,7 +161,7 @@ func parseCLIAction(args []string) cliAction {
 // cliUsageText is the help screen. It lists every spelling so the accepted flags
 // are discoverable from the terminal alone.
 func cliUsageText(meta appMetadata) string {
-	return fmt.Sprintf(`%s %s — a minimal text editor.
+	return fmt.Sprintf(`%s %s — a lightweight macOS editor for code and plain text.
 
 Usage:
   %s [path ...]
