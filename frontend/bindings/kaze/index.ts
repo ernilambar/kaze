@@ -16,7 +16,5 @@ export type {
     PrintRequest,
     SaveRequest,
     SaveResult,
-    WindowSession,
-    WorkspaceInfo,
-    WorkspaceSession
+    WindowSession
 } from "./models.js";

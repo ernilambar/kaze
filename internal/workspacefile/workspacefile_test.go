@@ -1,4 +1,4 @@
-package main
+package workspacefile
 
 import (
 	"encoding/json"
@@ -15,11 +15,11 @@ func TestWorkspaceFileStoresInsideFoldersRelative(t *testing.T) {
 		t.Fatal(err)
 	}
 	outside := t.TempDir()
-	path := filepath.Join(dir, "project"+workspaceExtension)
+	path := filepath.Join(dir, "project"+Extension)
 
-	info, err := writeWorkspaceFile(path, []string{inside, outside})
+	info, err := Write(path, []string{inside, outside})
 	if err != nil {
-		t.Fatalf("writeWorkspaceFile() error = %v", err)
+		t.Fatalf("Write() error = %v", err)
 	}
 	if info.Name != "project" {
 		t.Fatalf("workspace name = %q, want project", info.Name)
@@ -29,9 +29,9 @@ func TestWorkspaceFileStoresInsideFoldersRelative(t *testing.T) {
 		t.Fatalf("folders = %q, want %q", info.Folders, wantFolders)
 	}
 
-	loaded, err := loadWorkspaceFile(path)
+	loaded, err := Load(path)
 	if err != nil {
-		t.Fatalf("loadWorkspaceFile() error = %v", err)
+		t.Fatalf("Load() error = %v", err)
 	}
 	if !reflect.DeepEqual(loaded.Folders, wantFolders) {
 		t.Fatalf("loaded folders = %q, want %q", loaded.Folders, wantFolders)
@@ -57,12 +57,12 @@ func TestLoadWorkspaceFileResolvesRelativeFolders(t *testing.T) {
 	if err := os.Mkdir(nested, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(dir, "team"+workspaceExtension)
+	path := filepath.Join(dir, "team"+Extension)
 	writeWorkspaceTestFile(t, path, `{"folders":["nested"]}`)
 
-	info, err := loadWorkspaceFile(path)
+	info, err := Load(path)
 	if err != nil {
-		t.Fatalf("loadWorkspaceFile() error = %v", err)
+		t.Fatalf("Load() error = %v", err)
 	}
 	want := []string{nested}
 	if !reflect.DeepEqual(info.Folders, want) {
@@ -72,19 +72,19 @@ func TestLoadWorkspaceFileResolvesRelativeFolders(t *testing.T) {
 
 func TestLoadWorkspaceFileRejectsMissingFolder(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "project"+workspaceExtension)
+	path := filepath.Join(dir, "project"+Extension)
 	writeWorkspaceTestFile(t, path, `{"folders":["missing"]}`)
 
-	if _, err := loadWorkspaceFile(path); err == nil {
-		t.Fatal("loadWorkspaceFile() error = nil, want a missing folder error")
+	if _, err := Load(path); err == nil {
+		t.Fatal("Load() error = nil, want a missing folder error")
 	}
 }
 
 func TestWriteWorkspaceFileRequiresFolders(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "empty"+workspaceExtension)
+	path := filepath.Join(t.TempDir(), "empty"+Extension)
 
-	if _, err := writeWorkspaceFile(path, nil); err == nil {
-		t.Fatal("writeWorkspaceFile() error = nil, want an empty workspace error")
+	if _, err := Write(path, nil); err == nil {
+		t.Fatal("Write() error = nil, want an empty workspace error")
 	}
 }
 
@@ -103,7 +103,7 @@ func TestCodeWorkspaceReadsFoldersOnly(t *testing.T) {
 		}
 	}
 	outside := t.TempDir()
-	path := filepath.Join(dir, "project"+codeWorkspaceExtension)
+	path := filepath.Join(dir, "project"+CodeExtension)
 	data := `{
 	// VS Code writes JSONC.
 	"folders": [
@@ -119,9 +119,9 @@ func TestCodeWorkspaceReadsFoldersOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	info, err := loadWorkspaceFile(path)
+	info, err := Load(path)
 	if err != nil {
-		t.Fatalf("loadWorkspaceFile() error = %v", err)
+		t.Fatalf("Load() error = %v", err)
 	}
 	want := []string{filepath.Join(dir, "app"), filepath.Join(dir, "lib dir"), outside}
 	if !reflect.DeepEqual(info.Folders, want) {
@@ -133,12 +133,12 @@ func TestCodeWorkspaceReadsFoldersOnly(t *testing.T) {
 }
 
 func TestCodeWorkspaceRejectsRemoteFolder(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "remote"+codeWorkspaceExtension)
+	path := filepath.Join(t.TempDir(), "remote"+CodeExtension)
 	data := `{"folders": [{"uri": "vscode-remote://ssh-remote+host/home/me/app"}]}`
 	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := loadWorkspaceFile(path); err == nil {
-		t.Fatal("loadWorkspaceFile() error = nil, want a remote folder error")
+	if _, err := Load(path); err == nil {
+		t.Fatal("Load() error = nil, want a remote folder error")
 	}
 }

@@ -1,5 +1,6 @@
 import type * as models from '../bindings/kaze/models';
 import type * as config from '../bindings/kaze/internal/config/models';
+import type * as workspacefile from '../bindings/kaze/internal/workspacefile/models';
 import {
     AddRecentFile,
     ClearRecentFiles,
@@ -53,7 +54,7 @@ export function toWindowSession(session: models.WindowSession): SavedWindowSessi
     };
 }
 
-export function toWorkspaceSession(session: models.WorkspaceSession): SavedWorkspaceSession {
+export function toWorkspaceSession(session: workspacefile.WorkspaceSession): SavedWorkspaceSession {
     return {
         folders: session.folders ?? [],
         openFiles: session.open_files ?? [],
@@ -132,20 +133,20 @@ export async function saveSidebarAutoReveal(autoReveal: boolean): Promise<void> 
 // openWorkspaceDialog asks for a workspace file and returns its resolved
 // folders plus the tab set parked under it. An empty path means the picker was
 // cancelled.
-export async function openWorkspaceDialog(): Promise<models.WorkspaceInfo> {
+export async function openWorkspaceDialog(): Promise<workspacefile.WorkspaceInfo> {
     return await OpenWorkspaceDialog();
 }
 
 // loadWorkspace reopens the workspace a saved window was showing, without a
 // picker. It validates the file and returns the parked session, which may be
 // empty.
-export async function loadWorkspace(path: string): Promise<models.WorkspaceInfo> {
+export async function loadWorkspace(path: string): Promise<workspacefile.WorkspaceInfo> {
     return await LoadWorkspace(path);
 }
 
 // saveWorkspaceAs writes the current roots to a workspace file. An empty path
 // means the save panel was cancelled.
-export async function saveWorkspaceAs(folders: readonly string[]): Promise<models.WorkspaceInfo> {
+export async function saveWorkspaceAs(folders: readonly string[]): Promise<workspacefile.WorkspaceInfo> {
     return await SaveWorkspaceAs(folders.slice());
 }
 

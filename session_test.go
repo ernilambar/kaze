@@ -8,13 +8,14 @@ import (
 	"testing"
 
 	"kaze/internal/pathutil"
+	"kaze/internal/workspacefile"
 )
 
 func TestWorkspaceSessionParksTabsUnderCanonicalPath(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	app := NewApp()
 	folder := t.TempDir()
-	workspace := writeWorkspaceTestFileAt(t, folder, "work"+workspaceExtension)
+	workspace := writeWorkspaceTestFileAt(t, folder, "work"+workspacefile.Extension)
 
 	err := app.SetSession("", WindowSession{
 		Workspace: workspace,
@@ -41,8 +42,8 @@ func TestWorkspaceSessionFollowsRenamedWorkspaceByFolderSet(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	app := NewApp()
 	folder := t.TempDir()
-	oldPath := filepath.Join(folder, "old"+workspaceExtension)
-	newPath := writeWorkspaceTestFileAt(t, folder, "new"+workspaceExtension)
+	oldPath := filepath.Join(folder, "old"+workspacefile.Extension)
+	newPath := writeWorkspaceTestFileAt(t, folder, "new"+workspacefile.Extension)
 
 	err := app.SetSession("", WindowSession{
 		Workspace: oldPath,
@@ -87,9 +88,9 @@ func TestWorkspaceSessionDoesNotGuessBetweenDuplicateFolderSets(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	app := NewApp()
 	folder := t.TempDir()
-	first := writeWorkspaceTestFileAt(t, folder, "first"+workspaceExtension)
-	second := writeWorkspaceTestFileAt(t, folder, "second"+workspaceExtension)
-	target := writeWorkspaceTestFileAt(t, folder, "target"+workspaceExtension)
+	first := writeWorkspaceTestFileAt(t, folder, "first"+workspacefile.Extension)
+	second := writeWorkspaceTestFileAt(t, folder, "second"+workspacefile.Extension)
+	target := writeWorkspaceTestFileAt(t, folder, "target"+workspacefile.Extension)
 	// Both parked sets are orphans, so the folder set alone cannot say which
 	// one the new target belongs to.
 	if err := os.Remove(first); err != nil {
@@ -131,7 +132,7 @@ func TestLaterWindowsParkWithoutReplacingTheLaunchSession(t *testing.T) {
 	app.registerWindow("main", emptyLaunchRequest())
 	app.registerWindow("window-2", emptyLaunchRequest())
 	folder := t.TempDir()
-	workspace := writeWorkspaceTestFileAt(t, folder, "work"+workspaceExtension)
+	workspace := writeWorkspaceTestFileAt(t, folder, "work"+workspacefile.Extension)
 
 	if err := app.SetSession("main", WindowSession{OpenFiles: []string{"/main.txt"}}); err != nil {
 		t.Fatal(err)
@@ -164,8 +165,8 @@ func TestWorkspaceSessionDoesNotStealACopiedWorkspace(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	app := NewApp()
 	folder := t.TempDir()
-	original := writeWorkspaceTestFileAt(t, folder, "original"+workspaceExtension)
-	copied := writeWorkspaceTestFileAt(t, folder, "copy"+workspaceExtension)
+	original := writeWorkspaceTestFileAt(t, folder, "original"+workspacefile.Extension)
+	copied := writeWorkspaceTestFileAt(t, folder, "copy"+workspacefile.Extension)
 
 	if err := app.SetSession("", WindowSession{
 		Workspace: original,
@@ -276,5 +277,12 @@ func TestNormalizeWindowFrameDropsUnusable(t *testing.T) {
 	frame := WindowFrame{Width: minWindowWidth, Height: minWindowHeight}
 	if got := normalizeWindowFrame(frame); got != frame {
 		t.Fatalf("valid frame = %+v, want it kept", got)
+	}
+}
+
+func writeWorkspaceTestFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -26,6 +26,9 @@ import * as keybindings$0 from "./internal/keybindings/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as themes$0 from "./internal/themes/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as workspacefile$0 from "./internal/workspacefile/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -301,7 +304,7 @@ export function LoadTheme(name: string): $CancellablePromise<themes$0.ThemePalet
  * launch follow the same path. An empty session means this workspace has not
  * been open since session.json was written.
  */
-export function LoadWorkspace(path: string): $CancellablePromise<$models.WorkspaceInfo> {
+export function LoadWorkspace(path: string): $CancellablePromise<workspacefile$0.WorkspaceInfo> {
     return $Call.ByID(3689398994, path);
 }
 
@@ -376,7 +379,7 @@ export function OpenThemesFolder(): $CancellablePromise<void> {
  * OpenWorkspaceDialog asks for a workspace file and loads its folders. An empty
  * WorkspaceInfo means the user cancelled, which is not an error.
  */
-export function OpenWorkspaceDialog(): $CancellablePromise<$models.WorkspaceInfo> {
+export function OpenWorkspaceDialog(): $CancellablePromise<workspacefile$0.WorkspaceInfo> {
     return $Call.ByID(3825048786);
 }
 
@@ -479,7 +482,7 @@ export function SaveFileDialog(suggested: string): $CancellablePromise<string> {
  * workspace file there. The folders are stored relative to the file when they
  * share a directory tree, so the result can live in the repository.
  */
-export function SaveWorkspaceAs(folders: string[] | null): $CancellablePromise<$models.WorkspaceInfo> {
+export function SaveWorkspaceAs(folders: string[] | null): $CancellablePromise<workspacefile$0.WorkspaceInfo> {
     return $Call.ByID(771674549, folders);
 }
 
