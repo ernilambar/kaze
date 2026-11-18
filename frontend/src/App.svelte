@@ -5,21 +5,15 @@
         CloseWindow,
         CopyText,
         DefaultSettingsFile,
-        FileExists,
         GetProductName,
         InstallCommandLineTool,
         KeybindingsFile,
         MinimiseWindow,
-        MoveTabToNewWindow,
         NewWindow,
-        OpenFileDialog,
         OpenFolderInNewWindow,
         OpenThemesFolder,
         PrintDocument,
-        ResolveClose,
         RevealFile,
-        SaveDocument,
-        SaveFileDialog,
         SetAppearanceMode,
         SetUnsavedChanges,
         SettingsFile,
@@ -29,10 +23,11 @@
         WatchConfig,
         ZoomWindow,
     } from '../bindings/kaze/app';
-    import type { SaveResult, WorkspaceInfo } from '../bindings/kaze/models';
+    import type { WorkspaceInfo } from '../bindings/kaze/models';
     import { Appearance } from './app/appearance.svelte';
     import { WindowContext } from './app/context.svelte';
     import { dispatchCommand, type CommandHandlers } from './app/dispatch';
+    import { Documents } from './app/documents.svelte';
     import { subscribeAll } from './app/events';
     import { GitController } from './app/git.svelte';
     import { contextMenuItems as buildContextMenuItems } from './app/menus';
@@ -57,13 +52,10 @@
     import { INDENT_PALETTE_COMMANDS, rankCommands } from './commands';
     import type { ContextMenuItem } from './contextmenu';
     import {
-        createUntitledDocument,
-        normalizeEol,
         readDocument,
         shownPath,
         toBufferDocument,
         type DocumentEOL,
-        type LaunchBuffer,
         type LaunchRequest,
         type OpenDocument,
     } from './document';
@@ -80,7 +72,6 @@
         type SelectionCommand,
         type ZoomCommand,
     } from './editorcommands';
-    import type { CloseReason } from './filecommands';
     import {
         copyPath,
         createFile,
@@ -127,23 +118,14 @@
     } from './sidebar';
     import { indentationLabel, noticeFor } from './status';
     import {
-        closeDocumentTab,
         findDocumentByPath,
-        moveDocumentTab,
-        openDocumentTab,
         setDocumentDirty,
         pathWithin,
         retargetDocumentPaths,
-        stepTabId,
-        tabIdAt,
         tabsToClose,
         updateDocument,
     } from './tabs';
-    import {
-        appendFinalNewline,
-        trimTrailingWhitespace as trimTrailingWhitespaceText,
-        type LineTransform,
-    } from './text';
+    import type { LineTransform } from './text';
     import {
         clearRecentFiles,
         loadWindowSession,
@@ -162,13 +144,6 @@
     } from './workspace';
     import type { CopyPathKind } from './workspacecommands';
     import { resolveWindowName, setWindowName } from './windowstate';
-
-    // ClosedTab is one entry in the Reopen Closed Tab stack. The buffer text is
-    // kept because an untitled tab has no file to read again.
-    interface ClosedTab {
-        document: OpenDocument;
-        content: string;
-    }
 
     // PreviewState is the buffer a preview is showing. It is a snapshot: the
     // editor is hidden while the preview is up, so nothing can change underneath
@@ -220,9 +195,6 @@
     // subscribes to the tab list when suspended; clearing it must run the
     // effect again.
     let sessionSuspended = $state(false);
-    // closedTabs is the Reopen Closed Tab stack. It is never rendered, so it
-    // stays a plain array instead of reactive state.
-    let closedTabs: ClosedTab[] = [];
 
     let imageSize = $state<{ id: string; width: number; height: number } | null>(null);
 
@@ -269,12 +241,24 @@
     // callbacks are the functions that still live in this component.
     const ctx = new WindowContext(() => editorPane);
     const prompts = new Prompts();
-    const git = new GitController(ctx, { showDocument });
-    const search = new SearchController(ctx, prompts, git, { openFile, refreshTree });
+    // git and search reach documents through closures: documents is built
+    // last because it uses both, and the closures only run after init.
+    const git = new GitController(ctx, {
+        showDocument: (document, record) => documents.showDocument(document, record),
+    });
+    const search = new SearchController(ctx, prompts, git, {
+        openFile: (path) => documents.openFile(path),
+        refreshTree,
+    });
     const appearance = new Appearance(ctx, {
         refreshTree,
         sidebarVisible: () => sidebarVisible,
         selectCommand,
+    });
+    const documents = new Documents(ctx, prompts, git, appearance, {
+        appName: () => appName,
+        recordRecent,
+        refreshTree,
     });
 
     let imageActive = $derived(ctx.active?.kind === 'image');
@@ -341,22 +325,6 @@
               : 'No matching files.',
     );
 
-    // showDocument adds a tab for the document unless its file is already open,
-    // then makes it active. Restoring a session passes record=false, so a
-    // relaunch does not reshuffle the Open Recent list.
-    function showDocument(document: OpenDocument, record = true): void {
-        const opened = openDocumentTab(ctx.tabs, document);
-        ctx.tabs = opened.tabs;
-        ctx.activeId = opened.activeId;
-        ctx.searchActive = false;
-        if (record && document.path !== '') {
-            void recordRecent(document.path);
-        }
-        if (document.kind === 'text' && document.path !== '') {
-            void git.loadBaseline(document.id, document.path);
-        }
-    }
-
     // addFolders saves each root from a launch request and adopts the result.
     // The backend deduplicates, so relaunching with the same folder is a no-op.
     // The first failure is returned so the caller can show it in the status bar.
@@ -397,14 +365,14 @@
         // image or diff is read again from its path.
         for (const buffer of request.buffers) {
             if (buffer.kind === 'image' && buffer.path !== '') {
-                await openFile(buffer.path);
+                await documents.openFile(buffer.path);
                 continue;
             }
             if (buffer.kind === 'diff' && buffer.source_path !== '') {
                 await git.openDiff(buffer.source_path);
                 continue;
             }
-            showDocument(toBufferDocument(buffer), false);
+            documents.showDocument(toBufferDocument(buffer), false);
         }
 
         for (const path of request.files) {
@@ -420,33 +388,10 @@
                 }
                 continue;
             }
-            showDocument(opened);
+            documents.showDocument(opened);
         }
 
         ctx.notice = failure !== '' ? failure : noticeFor(request);
-    }
-
-    // openFile opens one file and returns the tab that now holds it, or an
-    // empty id when it could not be read. The id is the path spelling the tab
-    // was created with, which can differ from the one passed in when the file
-    // is open through a symlink.
-    async function openFile(path: string): Promise<string> {
-        // Clicking a file that is already open focuses its tab instead of
-        // rereading the file, which would discard edits made in the buffer.
-        const existing = findDocumentByPath(ctx.tabs, path);
-        if (existing !== undefined) {
-            ctx.activeId = existing.id;
-            ctx.notice = '';
-            return existing.id;
-        }
-        const opened = await readDocument(path);
-        if (opened === undefined) {
-            ctx.notice = `Cannot open ${path}`;
-            return '';
-        }
-        showDocument(opened);
-        ctx.notice = '';
-        return ctx.activeId;
     }
 
     // switchSidebarView moves between the explorer and the changes list. The
@@ -476,15 +421,6 @@
         ctx.tabs = updateDocument(ctx.tabs, tab.id, { eol });
     }
 
-    // newFile opens an empty buffer with no path yet. Save turns it into a
-    // Save As, which is how most editors treat an untitled document.
-    function newFile(): void {
-        const document = createUntitledDocument(ctx.tabs);
-        ctx.tabs = [...ctx.tabs, document];
-        ctx.activeId = document.id;
-        ctx.notice = '';
-    }
-
     // newFileFromMenu is File → New File: the file is created inside a sidebar
     // folder, so it exists on disk from the start. The folder is the one the
     // selected entry lives in; with no folders there is nowhere to create one,
@@ -493,7 +429,7 @@
         const folder = selectedFolder();
         if (folder === '') {
             ctx.notice = 'Add a folder to the sidebar to create a file.';
-            newFile();
+            documents.newFile();
             return;
         }
         await newFileInFolder(folder);
@@ -525,306 +461,9 @@
         return selected;
     }
 
-    async function openFromDialog(): Promise<void> {
-        if (ctx.busy) {
-            return;
-        }
-        ctx.busy = true;
-        try {
-            const path = await OpenFileDialog();
-            // Cancelling the dialog is a decision, not a failure.
-            if (path === '') {
-                return;
-            }
-            await openFile(path);
-        } catch (error) {
-            ctx.notice = errorMessage(error);
-        } finally {
-            ctx.busy = false;
-        }
-    }
-
-    function removeTab(id: string): void {
-        const result = closeDocumentTab(ctx.tabs, id, ctx.activeId);
-        ctx.tabs = result.tabs;
-        ctx.activeId = result.activeId;
-    }
-
-    // bufferText is what the editor holds right now. A tab that has never been
-    // displayed has no model yet, so its loaded content is the answer.
-    function bufferText(tab: OpenDocument): string {
-        return editorPane?.value(tab.id) ?? tab.content;
-    }
-
-    async function chooseSavePath(tab: OpenDocument): Promise<string> {
-        try {
-            return await SaveFileDialog(tab.path !== '' ? tab.path : tab.name);
-        } catch (error) {
-            ctx.notice = errorMessage(error);
-            return '';
-        }
-    }
-
-    function applySaved(id: string, result: SaveResult, content: string): void {
-        const previousPath = ctx.findTab(id)?.path ?? '';
-        // The editor decides whether the buffer is clean: typing during the
-        // write leaves newer text in the model than the file now holds.
-        const clean = editorPane?.markSaved(id, content) ?? true;
-        ctx.tabs = updateDocument(ctx.tabs, id, {
-            path: result.path,
-            realPath: result.real_path || result.path,
-            name: result.name,
-            modified: result.modified,
-            content,
-            savedContent: undefined,
-            dirty: !clean,
-            // The file on disk is valid UTF-8 now; the replacement characters
-            // it holds are what the user agreed to write.
-            invalidUTF8: false,
-            deleted: false,
-        });
-        // Save As can give an untitled buffer a real path, and with it a
-        // language the model should start highlighting. An explicit override
-        // still wins over the new extension.
-        const saved = ctx.findTab(id);
-        editorPane?.setLanguage(
-            id,
-            languageForDocument(
-                result.path,
-                editorPane?.value(id) ?? saved?.content ?? '',
-                saved?.language ?? '',
-            ),
-        );
-        if (previousPath !== result.path) {
-            void git.loadBaseline(id, result.path);
-        }
-        void git.refreshGitAfterSave(result.path).catch((error) =>
-            console.error('Failed to refresh the git status.', error),
-        );
-        ctx.notice = '';
-    }
-
-    // saveDocument writes one buffer, asking for a path when it has none. A file
-    // another program changed is reported as a conflict first, so its content is
-    // never overwritten without the user saying so. False means nothing was
-    // written: a cancelled dialog, a conflict the user declined, or an error.
-    async function saveDocument(id: string, saveAs = false): Promise<boolean> {
-        const tab = ctx.findTab(id);
-        // Pictures are read-only here, and a diff is a generated view, so
-        // there is nothing to write back for either.
-        if (tab === undefined || tab.kind !== 'text') {
-            return true;
-        }
-
-        // These save-time rewrites edit the buffer before its text is read, so
-        // the write and the model still agree and the tab does not stay dirty.
-        if (appearance.filesTrimTrailingWhitespace) {
-            editorPane?.trimTrailingWhitespaceInBuffer(tab.id);
-        }
-        if (appearance.editorSettings.ensureFinalNewline) {
-            editorPane?.ensureFinalNewline(tab.id);
-        }
-        let content = bufferText(tab);
-        if (appearance.editorSettings.ensureFinalNewline) {
-            content = appendFinalNewline(content);
-        }
-        // The model's text is already normalized to the document's EOL, but a
-        // buffer that was never shown comes straight from the tab. Normalizing
-        // here keeps the baseline markSaved compares with the model.
-        content = normalizeEol(content, tab.eol);
-        if (appearance.filesTrimTrailingWhitespace) {
-            content = trimTrailingWhitespaceText(content);
-        }
-        let path = tab.path;
-        let expected = tab.modified;
-        if (saveAs || path === '') {
-            path = await chooseSavePath(tab);
-            if (path === '') {
-                return false;
-            }
-            expected = 0;
-            // Two tabs writing one file would disagree about its content, so
-            // Save As refuses a path that is already open. The dialog returns a
-            // resolved path, so an alias of an open file counts too.
-            if (
-                ctx.tabs.some(
-                    (other) =>
-                        other.id !== id && (other.path === path || other.realPath === path),
-                )
-            ) {
-                ctx.notice = `${path} is already open.`;
-                return false;
-            }
-        }
-
-        let overwrite = false;
-        let allowInvalidUTF8 = false;
-        try {
-            for (;;) {
-                const result = await SaveDocument({
-                    path,
-                    content,
-                    expected_modified: expected,
-                    overwrite,
-                    bom: tab.bom,
-                    eol: tab.eol,
-                    invalid_utf8: tab.invalidUTF8,
-                    allow_invalid_utf8: allowInvalidUTF8,
-                });
-                if (result.invalid_utf8) {
-                    const proceed = await prompts.askConfirm(
-                        'Invalid UTF-8',
-                        `${result.name} is not valid UTF-8. Saving replaces the bytes that could not be decoded with U+FFFD. Continue?`,
-                        'Save Anyway',
-                    );
-                    if (!proceed) {
-                        return false;
-                    }
-                    allowInvalidUTF8 = true;
-                    continue;
-                }
-                if (result.conflict) {
-                    const choice = await prompts.askConflict(
-                        'File Changed on Disk',
-                        `${result.name} changed on disk since it was opened. Overwrite it with your version, or reload it from disk?`,
-                    );
-                    if (choice === 'cancel') {
-                        return false;
-                    }
-                    if (choice === 'reload') {
-                        // The user chose the disk copy: replace the buffer and
-                        // forget its edits. The tab is clean afterwards, so a
-                        // save during close can go on to close it.
-                        const opened = await readDocument(tab.path);
-                        if (opened === undefined) {
-                            ctx.notice = `Could not reload ${tab.name} from disk.`;
-                            return false;
-                        }
-                        applyReload(id, opened);
-                        void git.loadBaseline(id, tab.path);
-                        void git.refreshDiffTabs();
-                        void git.refreshGitStatus();
-                        return true;
-                    }
-                    overwrite = true;
-                    continue;
-                }
-                applySaved(id, result, content);
-                return true;
-            }
-        } catch (error) {
-            ctx.notice = errorMessage(error);
-            return false;
-        }
-    }
-
-    // saveAll writes every modified buffer in tab order. A cancelled Save As or
-    // a failed write stops the run, so the rest are left exactly as they were.
-    async function saveAll(): Promise<boolean> {
-        for (const tab of ctx.tabs.filter((entry) => entry.dirty)) {
-            if (!(await saveDocument(tab.id))) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    // closeTab drops a buffer. A modified buffer asks first, because closing it
-    // is also what discards its undo stack. The result is false when the user
-    // cancelled or the save failed, so a group command can stop there.
-    async function closeTab(id: string): Promise<boolean> {
-        const tab = ctx.findTab(id);
-        if (tab === undefined) {
-            return false;
-        }
-        if (tab.dirty) {
-            const answer = await prompts.askUnsaved({
-                title: 'Close Tab',
-                message: `Save changes to ${tab.name} before closing?`,
-                details: [],
-                confirmLabel: 'Save',
-            });
-            if (answer === 'cancel') {
-                return false;
-            }
-            if (answer === 'save' && !(await saveDocument(id))) {
-                return false;
-            }
-        }
-        rememberClosedTab(tab);
-        removeTab(id);
-        return true;
-    }
-
-    // closeTabsInOrder closes a group one tab at a time, stopping at the first
-    // cancelled prompt or failed save so the remaining tabs stay exactly as
-    // they were.
-    async function closeTabsInOrder(candidates: readonly OpenDocument[]): Promise<boolean> {
-        for (const tab of candidates) {
-            if (!(await closeTab(tab.id))) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    async function resolveClose(quit: boolean): Promise<void> {
-        try {
-            await ResolveClose(ctx.windowName, quit);
-        } catch (error) {
-            ctx.notice = errorMessage(error);
-        }
-    }
-
-    // confirmClose answers Go's close request for this window. It is the one
-    // place that decides whether the window may go away, so the close button
-    // and Cmd+Q behave the same and share one prompt. The reason changes the
-    // wording: closing one window is not quitting the app.
-    async function confirmClose(reason: CloseReason = 'quit'): Promise<void> {
-        // Another prompt is already on screen; the user is deciding, so a
-        // second Cmd+Q must not stack a dialog on top of it. Answering the
-        // request with "cancel" clears Go's pending flag, so the next Cmd+Q
-        // asks again instead of being swallowed.
-        if (prompts.unsaved !== null || prompts.confirm !== null) {
-            await resolveClose(false);
-            return;
-        }
-
-        const dirty = ctx.tabs.filter((tab) => tab.dirty);
-        if (dirty.length === 0) {
-            await resolveClose(true);
-            return;
-        }
-
-        const answer = await prompts.askUnsaved({
-            title: reason === 'close' ? 'Close Window' : `Quit ${appName}`,
-            message:
-                reason === 'close'
-                    ? dirty.length === 1
-                        ? 'Save changes before closing this window?'
-                        : `${dirty.length} files in this window have unsaved changes.`
-                    : dirty.length === 1
-                      ? 'Save changes before quitting?'
-                      : `${dirty.length} files have unsaved changes.`,
-            details: dirty.map((tab) => tab.name),
-            confirmLabel: dirty.length === 1 ? 'Save' : 'Save All',
-        });
-        if (answer === 'cancel') {
-            await resolveClose(false);
-            return;
-        }
-        if (answer === 'save' && !(await saveAll())) {
-            // Saving failed or was cancelled: stay open rather than drop the
-            // buffers the user just tried to keep.
-            await resolveClose(false);
-            return;
-        }
-        await resolveClose(true);
-    }
-
     async function openSettings(): Promise<void> {
         try {
-            await openFile(await SettingsFile());
+            await documents.openFile(await SettingsFile());
         } catch (error) {
             ctx.notice = errorMessage(error);
         }
@@ -851,7 +490,7 @@
 
     async function openDefaultSettings(): Promise<void> {
         try {
-            await openFile(await DefaultSettingsFile());
+            await documents.openFile(await DefaultSettingsFile());
         } catch (error) {
             ctx.notice = errorMessage(error);
         }
@@ -868,7 +507,7 @@
 
     async function openKeybindings(): Promise<void> {
         try {
-            await openFile(await KeybindingsFile());
+            await documents.openFile(await KeybindingsFile());
         } catch (error) {
             ctx.notice = errorMessage(error);
         }
@@ -885,7 +524,7 @@
         try {
             await PrintDocument({
                 path: tab.path,
-                content: tab.kind === 'image' ? '' : bufferText(tab),
+                content: tab.kind === 'image' ? '' : documents.bufferText(tab),
                 image: tab.kind === 'image',
             });
             ctx.notice = '';
@@ -908,7 +547,7 @@
             ctx.notice = 'Preview is available for Markdown and SVG files.';
             return;
         }
-        preview = { id: tab.id, kind, content: bufferText(tab) };
+        preview = { id: tab.id, kind, content: documents.bufferText(tab) };
         ctx.notice = '';
     }
 
@@ -976,7 +615,7 @@
     // an already-open tab is focused instead of reread.
     async function openFromQuickOpen(path: string): Promise<void> {
         quickOpen = false;
-        await openFile(path);
+        await documents.openFile(path);
     }
 
     // The two palettes share Palette.svelte, so Quick Open rows are mapped onto
@@ -1068,7 +707,7 @@
 
     function saveActive(saveAs = false): void {
         if (ctx.activeId !== '') {
-            void saveDocument(ctx.activeId, saveAs);
+            void documents.saveDocument(ctx.activeId, saveAs);
         }
     }
 
@@ -1077,39 +716,6 @@
         void command().catch((error) => {
             ctx.notice = errorMessage(error);
         });
-    }
-
-    // moveTabToNewWindow hands one tab to a new window and drops it from this
-    // one. The buffer text travels with the request, so unsaved edits are not
-    // lost; the tab is removed only after the call succeeds. Without an id the
-    // active tab is moved, which is what the menu command does.
-    async function moveTabToNewWindow(id: string = ctx.activeId): Promise<void> {
-        const tab = ctx.findTab(id);
-        if (tab === undefined) {
-            ctx.notice = 'Open a tab to move to a new window.';
-            return;
-        }
-        const buffer: LaunchBuffer = {
-            name: tab.name,
-            path: tab.kind === 'diff' ? '' : tab.path,
-            real_path: tab.kind === 'diff' ? '' : tab.realPath,
-            kind: tab.kind,
-            content: tab.kind === 'text' ? bufferText(tab) : tab.content,
-            saved_content: tab.content,
-            modified: tab.modified,
-            dirty: tab.kind === 'text' ? tab.dirty : false,
-            source_path: tab.sourcePath ?? '',
-            bom: tab.bom,
-            eol: tab.eol,
-            invalid_utf8: tab.invalidUTF8,
-        };
-        try {
-            await MoveTabToNewWindow(buffer);
-            removeTab(tab.id);
-            ctx.notice = '';
-        } catch (error) {
-            ctx.notice = errorMessage(error);
-        }
     }
 
     // selectCommand closes the palette before running the command, so commands
@@ -1127,11 +733,11 @@
     const commandHandlers: CommandHandlers = {
         newFile: () => void newFileFromMenu(),
         newFolder: () => void newFolderFromMenu(),
-        newBuffer: newFile,
-        openFile: () => void openFromDialog(),
+        newBuffer: documents.newFile,
+        openFile: () => void documents.openFromDialog(),
         save: () => saveActive(),
         saveAs: () => saveActive(true),
-        saveAll: () => void saveAll(),
+        saveAll: () => void documents.saveAll(),
         print: () => void printActive(),
         trimWhitespace,
         transformSelection,
@@ -1155,15 +761,15 @@
         addFolder: () => void addFolderFromDialog(),
         closeActiveTab: () => {
             if (ctx.activeId !== '') {
-                void closeTab(ctx.activeId);
+                void documents.closeTab(ctx.activeId);
             }
         },
-        goToTab,
-        stepTab,
-        reopenClosedTab: () => void reopenClosedTab(),
+        goToTab: documents.goToTab,
+        stepTab: documents.stepTab,
+        reopenClosedTab: () => void documents.reopenClosedTab(),
         closeAllTabs: () => void closeAllTabs(),
         closeAllFolders: () => void closeAllFolders(),
-        moveTabToNewWindow: () => void moveTabToNewWindow(),
+        moveTabToNewWindow: () => void documents.moveTabToNewWindow(),
         openSettingsJson: () => void openSettings(),
         openDefaultSettings: () => void openDefaultSettings(),
         openThemesFolder: () => void openThemesFolder(),
@@ -1218,7 +824,7 @@
             if (opened === undefined) {
                 continue;
             }
-            showDocument(opened, false);
+            documents.showDocument(opened, false);
         }
         const restoredActive = findDocumentByPath(ctx.tabs, session.active);
         if (restoredActive !== undefined) {
@@ -1233,7 +839,7 @@
     function clearWorkspaceTabs(): void {
         ctx.tabs = [];
         ctx.activeId = '';
-        closedTabs = [];
+        documents.closedTabs = [];
         if (search.open) {
             search.closeSearchTab();
         }
@@ -1257,7 +863,7 @@
             return false;
         }
         if (answer === 'save') {
-            return await saveAll();
+            return await documents.saveAll();
         }
         return true;
     }
@@ -1393,81 +999,6 @@
         }
     }
 
-    // rememberClosedTab pushes a tab onto the Reopen Closed Tab stack, newest
-    // last. The stack is capped so a long session cannot grow without bound.
-    function rememberClosedTab(tab: OpenDocument): void {
-        closedTabs.push({ document: { ...tab }, content: bufferText(tab) });
-        if (closedTabs.length > 20) {
-            closedTabs.shift();
-        }
-    }
-
-    async function reopenClosedTab(): Promise<void> {
-        const closed = closedTabs.pop();
-        if (closed === undefined) {
-            ctx.notice = 'No closed tab to reopen.';
-            return;
-        }
-
-        const saved = closed.document;
-        // A clean file tab is reopened from disk. Closing a dirty tab already
-        // discarded its edits, so there is nothing newer to restore.
-        if (saved.kind === 'text' && saved.path !== '' && !saved.dirty) {
-            const opened = await readDocument(saved.path);
-            if (opened !== undefined) {
-                showDocument(opened);
-                ctx.notice = '';
-                return;
-            }
-        }
-
-        // An untitled buffer lives only in memory, so its text comes from the
-        // stack. A file that disappeared falls back to the same snapshot.
-        let restored = saved;
-        if (saved.kind === 'text' && saved.path === '' && ctx.tabs.some((tab) => tab.id === saved.id)) {
-            // A New File made since the close may already own this name; give
-            // the restored buffer a fresh id so the two do not share a model.
-            const replacement = createUntitledDocument(ctx.tabs);
-            restored = { ...saved, id: replacement.id, name: replacement.name };
-        }
-        showDocument({
-            ...restored,
-            content: closed.content,
-            // The model's clean baseline is the file's text (nothing for an
-            // untitled buffer), not the edited snapshot, or undo could mark
-            // the reopened edits clean.
-            savedContent:
-                restored.path === '' ? '' : (restored.savedContent ?? restored.content),
-            dirty:
-                restored.kind === 'text' &&
-                (restored.dirty || (restored.path === '' && closed.content !== '')),
-        });
-        ctx.notice = '';
-    }
-
-    function stepTab(direction: 1 | -1): void {
-        if (ctx.tabs.length === 0) {
-            return;
-        }
-        ctx.searchActive = false;
-        ctx.activeId = stepTabId(ctx.tabs, ctx.activeId, direction);
-    }
-
-    function goToTab(position: number): void {
-        const id = tabIdAt(ctx.tabs, position);
-        if (id === '') {
-            return;
-        }
-        ctx.searchActive = false;
-        ctx.activeId = id;
-    }
-
-    // reorderTab keeps the dragged tab on the same side of the target the
-    // insertion line showed. The tab list order is the saved session order.
-    function reorderTab(id: string, targetId: string, placeAfter: boolean): void {
-        ctx.tabs = moveDocumentTab(ctx.tabs, id, targetId, placeAfter);
-    }
-
     // ---- File tree operations -------------------------------------------------
     //
     // New File, New Folder, Rename, Duplicate, Cut/Copy/Paste, Delete (to the
@@ -1531,7 +1062,7 @@
                 try {
                     const entry = await createFile(folder, name);
                     refreshTree();
-                    await openFile(entry.path);
+                    await documents.openFile(entry.path);
                     ctx.notice = '';
                     return '';
                 } catch (error) {
@@ -1754,7 +1285,7 @@
         try {
             await trashPath(path);
             for (const tab of affected) {
-                removeTab(tab.id);
+                documents.removeTab(tab.id);
             }
             if (pathWithin(clipboardPath, path)) {
                 clipboardPath = '';
@@ -1809,10 +1340,10 @@
                 await revealPath(tab.path || tab.sourcePath || '');
                 break;
             case 'close-tab':
-                await closeTab(tabId);
+                await documents.closeTab(tabId);
                 break;
             case 'move-tab-new-window':
-                await moveTabToNewWindow(tabId);
+                await documents.moveTabToNewWindow(tabId);
                 break;
             case 'close-other-tabs':
                 await closeOtherTabs(tabId);
@@ -1832,7 +1363,7 @@
     // closeOtherTabs leaves only the right-clicked tab, which becomes active.
     // The Find in Files tab counts as another tab, so it closes too.
     async function closeOtherTabs(id: string): Promise<void> {
-        if (!(await closeTabsInOrder(tabsToClose(ctx.tabs, id, 'others')))) {
+        if (!(await documents.closeTabsInOrder(tabsToClose(ctx.tabs, id, 'others')))) {
             return;
         }
         if (search.open) {
@@ -1847,7 +1378,7 @@
         if (ctx.findTab(id) === undefined) {
             return;
         }
-        if (!(await closeTabsInOrder(tabsToClose(ctx.tabs, id, 'right')))) {
+        if (!(await documents.closeTabsInOrder(tabsToClose(ctx.tabs, id, 'right')))) {
             return;
         }
         if (search.open) {
@@ -1859,7 +1390,7 @@
     // buffers are asked about one at a time, and a cancelled prompt stops the
     // run with the remaining tabs still open.
     async function closeAllTabs(): Promise<void> {
-        if (!(await closeTabsInOrder(tabsToClose(ctx.tabs, '', 'all')))) {
+        if (!(await documents.closeTabsInOrder(tabsToClose(ctx.tabs, '', 'all')))) {
             return;
         }
         if (search.open) {
@@ -1870,7 +1401,7 @@
     // closeDeletedTabs closes the buffers whose files are gone. A dirty one
     // still asks, because closing it discards text that could recreate the file.
     async function closeDeletedTabs(): Promise<void> {
-        await closeTabsInOrder(tabsToClose(ctx.tabs, '', 'deleted'));
+        await documents.closeTabsInOrder(tabsToClose(ctx.tabs, '', 'deleted'));
     }
 
     async function runTreeCommand(id: string, path: string, isDir: boolean): Promise<void> {
@@ -1932,7 +1463,7 @@
             revealInTree(path);
             return;
         }
-        await openFile(path);
+        await documents.openFile(path);
     }
 
     // copyTreeText copies a path spelling of one tree entry. The variants match
@@ -2052,85 +1583,9 @@
         }
     }
 
-    // applyReload replaces a clean buffer with what is on disk. The model is
-    // told first, so the editor's dirty check agrees with the tab record.
-    function applyReload(id: string, opened: OpenDocument): void {
-        if (opened.kind === 'text') {
-            editorPane?.reload(id, opened.content, opened.eol);
-        }
-        ctx.tabs = updateDocument(ctx.tabs, id, {
-            kind: opened.kind,
-            content: opened.content,
-            savedContent: undefined,
-            src: opened.src,
-            modified: opened.modified,
-            dirty: false,
-            bom: opened.bom,
-            eol: opened.eol,
-            invalidUTF8: opened.invalidUTF8,
-            realPath: opened.realPath || opened.path,
-            deleted: false,
-        });
-    }
-
-    // markDeletedIfGone flags a tab whose file no longer exists, keeping its
-    // buffer so a save writes it back. A read can fail for other reasons (a
-    // binary swapped in, lost permissions), so only a missing file marks the
-    // tab; anything else stays silent like before.
-    async function markDeletedIfGone(tab: OpenDocument): Promise<boolean> {
-        if (tab.deleted) {
-            return true;
-        }
-        let exists = true;
-        try {
-            exists = await FileExists(tab.path);
-        } catch (error) {
-            console.error(`Failed to check ${tab.path}.`, error);
-            return false;
-        }
-        if (!exists) {
-            ctx.tabs = updateDocument(ctx.tabs, tab.id, { deleted: true });
-            return true;
-        }
-        return false;
-    }
-
-    // reloadIfClean applies a read that was started while the tab was clean.
-    // The user may have typed while it was in flight, and those edits win.
-    function reloadIfClean(id: string, opened: OpenDocument): void {
-        const current = ctx.findTab(id);
-        if (current === undefined || current.dirty) {
-            return;
-        }
-        applyReload(id, opened);
-    }
-
-    async function refreshOpenDocuments(): Promise<void> {
-        for (const snapshot of ctx.tabs) {
-            // Earlier reads await, so the tab may have changed or closed since
-            // the loop started.
-            const tab = ctx.findTab(snapshot.id);
-            if (tab === undefined || tab.kind !== 'text' || tab.path === '') {
-                continue;
-            }
-            if (!tab.dirty) {
-                // External changes never overwrite edits the user has not
-                // saved; the next save reports the conflict instead.
-                const opened = await readDocument(tab.path);
-                if (opened !== undefined) {
-                    reloadIfClean(tab.id, opened);
-                    continue;
-                }
-            }
-            // The file could not be read, or the tab is dirty so reading was
-            // skipped: only a file that is really gone marks its tab.
-            await markDeletedIfGone(tab);
-        }
-    }
-
     async function refreshWorkspace(): Promise<void> {
         treeRefreshToken++;
-        await refreshOpenDocuments();
+        await documents.refreshOpenDocuments();
         await git.refreshDiffTabs();
         await git.refreshGitStatus();
         // HEAD may have moved since the buffers were opened, so the gutter
@@ -2141,39 +1596,6 @@
             }
         }
         ctx.notice = '';
-    }
-
-    // handleWatchedChanges reloads clean buffers and refreshes the tree for
-    // anything else. A dirty buffer stays as it is and says why; a deleted
-    // file marks its tab either way, keeping the buffer for a save.
-    async function handleWatchedChanges(paths: string[]): Promise<void> {
-        let refreshTree = false;
-        for (const path of paths) {
-            const tab = findDocumentByPath(ctx.tabs, path);
-            if (tab === undefined || tab.kind !== 'text') {
-                refreshTree = true;
-                continue;
-            }
-            if (tab.dirty) {
-                if (!(await markDeletedIfGone(tab))) {
-                    ctx.notice = `${tab.name} changed on disk; your edits were kept.`;
-                }
-                continue;
-            }
-            const opened = await readDocument(path);
-            if (opened === undefined) {
-                await markDeletedIfGone(tab);
-                continue;
-            }
-            reloadIfClean(tab.id, opened);
-        }
-        if (refreshTree) {
-            treeRefreshToken++;
-        }
-        // A file that changed on disk is exactly what the marks and an open
-        // diff describe, so both follow the same reread.
-        void git.refreshGitStatus();
-        void git.refreshDiffTabs();
     }
 
     function showFindInFiles(): void {
@@ -2291,7 +1713,7 @@
             if (opened === undefined) {
                 continue;
             }
-            showDocument(opened, false);
+            documents.showDocument(opened, false);
         }
         const restoredActive = findDocumentByPath(ctx.tabs, session.active);
         if (restoredActive !== undefined) {
@@ -2473,7 +1895,7 @@
                 addFolder: () => void addFolderFromDialog(),
                 closeTab: () => {
                     if (ctx.activeId !== '') {
-                        void closeTab(ctx.activeId);
+                        void documents.closeTab(ctx.activeId);
                     }
                 },
                 quickOpen: () => void showQuickOpen(),
@@ -2482,14 +1904,14 @@
                 fileCommands: {
                     'new-file': () => void newFileFromMenu(),
                     'new-folder': () => void newFolderFromMenu(),
-                    'new-buffer': newFile,
-                    'open-file': () => void openFromDialog(),
+                    'new-buffer': documents.newFile,
+                    'open-file': () => void documents.openFromDialog(),
                     'save': () => saveActive(),
                     'save-as': () => saveActive(true),
-                    'save-all': () => void saveAll(),
+                    'save-all': () => void documents.saveAll(),
                     'print': () => void printActive(),
                 },
-                closeRequest: (reason) => void confirmClose(reason),
+                closeRequest: (reason) => void documents.confirmClose(reason),
                 editorCommands: {
                     transformSelection,
                     trimWhitespace,
@@ -2503,7 +1925,7 @@
                     nextFindResult: () => void search.stepFindResult(1),
                     previousFindResult: () => void search.stepFindResult(-1),
                 },
-                watchedChanges: (paths) => void handleWatchedChanges(paths),
+                watchedChanges: (paths) => void documents.handleWatchedChanges(paths),
                 workspaceCommands: {
                     openRecent: showRecentFiles,
                     openWorkspace: () => void openWorkspaceFromDialog(),
@@ -2517,11 +1939,11 @@
                     copyPath: (kind) => void copyActivePath(kind),
                 },
                 tabCommands: {
-                    next: () => stepTab(1),
-                    previous: () => stepTab(-1),
-                    reopen: () => void reopenClosedTab(),
-                    goToTab,
-                    moveToNewWindow: () => void moveTabToNewWindow(),
+                    next: () => documents.stepTab(1),
+                    previous: () => documents.stepTab(-1),
+                    reopen: () => void documents.reopenClosedTab(),
+                    goToTab: documents.goToTab,
+                    moveToNewWindow: () => void documents.moveTabToNewWindow(),
                 },
                 configChange: (change) => {
                     if (change.themes) {
@@ -2584,7 +2006,7 @@
                     iconStyle={appearance.uiSettings.iconStyle}
                     onAddFolder={() => void addFolderFromDialog()}
                     onRemoveFolder={(path) => void removeFolder(path)}
-                    onOpenFile={(path) => void openFile(path)}
+                    onOpenFile={(path) => void documents.openFile(path)}
                     onContextMenu={showContextMenu}
                     onEmptyAreaMenu={showEmptyAreaMenu}
                     onExpandedChange={setExpanded}
@@ -2604,9 +2026,9 @@
                     ctx.activeId = id;
                     ctx.searchActive = false;
                 }}
-                onClose={(id) => void closeTab(id)}
+                onClose={(id) => void documents.closeTab(id)}
                 onContextMenu={(event, tab) => showTabContextMenu(event, tab)}
-                onReorder={reorderTab}
+                onReorder={documents.reorderTab}
                 onSelectSearch={() => {
                     search.open = true;
                     ctx.searchActive = true;
@@ -2725,7 +2147,7 @@
             empty="No recent files."
             onSelect={(path) => {
                 recentOpen = false;
-                void openFile(path);
+                void documents.openFile(path);
             }}
             onClose={closeRecentFiles}
         />
