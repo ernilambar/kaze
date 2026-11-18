@@ -28,8 +28,8 @@ describe('sidebarLabel', () => {
         expect(sidebarLabel(['/Users/me/projects'])).toBe('projects');
     });
 
-    it('counts several roots instead of naming only the first', () => {
-        expect(sidebarLabel(['/one', '/two', '/three'])).toBe('3 folders');
+    it('prints nothing for several roots instead of counting them', () => {
+        expect(sidebarLabel(['/one', '/two', '/three'])).toBe('');
     });
 });
 

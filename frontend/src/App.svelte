@@ -242,6 +242,9 @@
         imageActive ? '' : (ctx.active?.savedContent ?? ctx.active?.content ?? ''),
     );
     let openIds = $derived(ctx.tabs.map((tab) => tab.id));
+    // folderLabel names the workspace in the title bar: the workspace file's
+    // name when one is open, else a single root. Ad-hoc multi-root windows
+    // print nothing; the sidebar already lists their roots.
     let folderLabel = $derived(
         workspaces.activeWorkspace !== null && workspaces.activeWorkspace.name !== ''
             ? workspaces.activeWorkspace.name
@@ -1254,7 +1257,6 @@
         indentation={indentationText}
         invalidUTF8={ctx.active?.kind === 'text' && ctx.active.invalidUTF8}
         notice={ctx.notice}
-        {folderLabel}
         imageSize={imageSizeLabel}
         branch={git.branch}
         sidebarView={sidebarView}

@@ -16,7 +16,6 @@ interface Props {
     // indentation is the active buffer's indent style and width, formatted
     // for display; empty for a tab with none to configure.
     indentation?: string;
-    folderLabel?: string;
     notice?: string;
     // imageSize is the natural pixel size of the image tab, formatted for
     // display; empty for text tabs.
@@ -43,7 +42,6 @@ let {
     eol = '',
     invalidUTF8 = false,
     indentation = '',
-    folderLabel = '',
     notice = '',
     imageSize = '',
     branch = '',
@@ -118,9 +116,6 @@ let {
         {/if}
         {#if imageSize !== ''}
             <span class="statusbar__image">{imageSize}</span>
-        {/if}
-        {#if folderLabel !== ''}
-            <span class="statusbar__folder">{folderLabel}</span>
         {/if}
         {#if indentation !== '' && onPickIndentation}
             <button
@@ -240,13 +235,6 @@ let {
     }
 
     .statusbar__image {
-        white-space: nowrap;
-    }
-
-    .statusbar__folder {
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
         white-space: nowrap;
     }
 

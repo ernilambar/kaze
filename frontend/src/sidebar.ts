@@ -32,16 +32,11 @@ export function folderName(folder: string): string {
     return parts.length === 0 ? '/' : parts[parts.length - 1];
 }
 
-// sidebarLabel summarizes the roots for the title and status bars. One root is
-// named; several are counted, because naming only the first would mislead.
+// sidebarLabel names the open root for the title bar. One root is named; several
+// print nothing, because a count identifies no folder and the sidebar already
+// lists them.
 export function sidebarLabel(folders: string[]): string {
-    if (folders.length === 0) {
-        return '';
-    }
-    if (folders.length === 1) {
-        return folderName(folders[0]);
-    }
-    return `${folders.length} folders`;
+    return folders.length === 1 ? folderName(folders[0]) : '';
 }
 
 // errorMessage turns whatever the backend rejected with into a line the sidebar
