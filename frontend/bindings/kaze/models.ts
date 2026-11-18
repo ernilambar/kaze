@@ -127,33 +127,6 @@ export interface GitSnapshot {
 }
 
 /**
- * Keybinding is one entry in keybindings.json, using VS Code's shape. Command
- * is a command id; a leading "-" removes that command's default shortcut.
- */
-export interface Keybinding {
-    "key": string;
-    "command": string;
-    "when"?: string;
-}
-
-/**
- * KeybindingsState is what the frontend receives: the accepted bindings plus a
- * human-readable list of entries that were rejected.
- */
-export interface KeybindingsState {
-    "bindings": Keybinding[] | null;
-    "error": string;
-
-    /**
-     * Parsed says the file decoded; entries may still have been rejected. The
-     * frontend installs the accepted list when it is true, even if every entry
-     * was rejected, and keeps the previous list when a broken file made the
-     * whole decode fail.
-     */
-    "parsed": boolean;
-}
-
-/**
  * LaunchBuffer is one tab handed to another window. A text buffer carries its
  * text, so unsaved edits move with the tab; an image or diff travels by path
  * and the receiving window reads it again.

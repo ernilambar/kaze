@@ -14,6 +14,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as config$0 from "./internal/config/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as keybindings$0 from "./internal/keybindings/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -170,7 +173,7 @@ export function GetGitStatus(folders: string[] | null): $CancellablePromise<$mod
  * frontend installs the list and reports the error without losing the valid
  * entries.
  */
-export function GetKeybindings(): $CancellablePromise<$models.KeybindingsState> {
+export function GetKeybindings(): $CancellablePromise<keybindings$0.KeybindingsState> {
     return $Call.ByID(3015840904);
 }
 

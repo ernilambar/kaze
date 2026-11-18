@@ -1,4 +1,4 @@
-import type { Keybinding } from '../bindings/kaze/models';
+import type { Keybinding } from '../bindings/kaze/internal/keybindings/models';
 
 // KeyContext is the small set of states a `when` expression can test. Unknown
 // identifiers evaluate to false, matching VS Code's context keys.

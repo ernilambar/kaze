@@ -1,4 +1,4 @@
-package main
+package keybindings
 
 import (
 	"os"
@@ -92,7 +92,7 @@ func TestMenuSuppressionUsesCommandAndFirstChord(t *testing.T) {
 		{Key: "cmd+k cmd+t", Command: "toggle-preview"},
 		{Key: "cmd+s", Command: "-save"},
 	}
-	suppressed, claimed := menuSuppression(bindings)
+	suppressed, claimed := MenuSuppression(bindings)
 	for _, command := range []string{"toggle-sidebar", "command-palette", "toggle-preview", "save"} {
 		if !suppressed[command] {
 			t.Errorf("command %q was not suppressed", command)
@@ -107,8 +107,8 @@ func TestMenuSuppressionUsesCommandAndFirstChord(t *testing.T) {
 
 func TestEnsureKeybindingsFileWritesTemplate(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "keybindings.json")
-	if err := ensureKeybindingsFile(path); err != nil {
-		t.Fatalf("ensureKeybindingsFile() error = %v", err)
+	if err := EnsureFile(path); err != nil {
+		t.Fatalf("EnsureFile() error = %v", err)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -129,9 +129,9 @@ func TestEnsureKeybindingsFileWritesTemplate(t *testing.T) {
 
 func TestReadKeybindingsCreatesMissingFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "keybindings.json")
-	bindings, problems, err := readKeybindings(path)
+	bindings, problems, err := Read(path)
 	if err != nil {
-		t.Fatalf("readKeybindings() error = %v", err)
+		t.Fatalf("Read() error = %v", err)
 	}
 	if !reflect.DeepEqual(bindings, []Keybinding{}) {
 		t.Fatalf("bindings = %+v, want empty", bindings)

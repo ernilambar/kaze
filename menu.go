@@ -6,6 +6,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"kaze/internal/config"
+	"kaze/internal/keybindings"
 )
 
 // menuBuilder adds command items and applies keybindings.json. An item whose
@@ -23,8 +24,8 @@ type menuBuilder struct {
 	appearanceItems map[string]*application.MenuItem
 }
 
-func newMenuBuilder(app *App, bindings []Keybinding) *menuBuilder {
-	suppressed, claimed := menuSuppression(bindings)
+func newMenuBuilder(app *App, bindings []keybindings.Keybinding) *menuBuilder {
+	suppressed, claimed := keybindings.MenuSuppression(bindings)
 	return &menuBuilder{
 		app:             app,
 		suppressed:      suppressed,
@@ -52,7 +53,7 @@ func (b *menuBuilder) item(
 // accelerate sets an item's default accelerator unless keybindings.json
 // rebinds the command or claims the key.
 func (b *menuBuilder) accelerate(item *application.MenuItem, id string, accelerator string) {
-	if accelerator != "" && !b.suppressed[id] && !b.claimed[normalizeAccelerator(accelerator)] {
+	if accelerator != "" && !b.suppressed[id] && !b.claimed[keybindings.NormalizeAccelerator(accelerator)] {
 		item.SetAccelerator(accelerator)
 	}
 }
@@ -466,7 +467,7 @@ func buildMenu(
 	app *App,
 	editor config.EditorSettings,
 	theme config.ThemeSettings,
-	bindings []Keybinding,
+	bindings []keybindings.Keybinding,
 ) *application.Menu {
 	builder := newMenuBuilder(app, bindings)
 	menu := wailsApp.NewMenu()

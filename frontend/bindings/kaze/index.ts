@@ -15,8 +15,6 @@ export type {
     GitChange,
     GitRepo,
     GitSnapshot,
-    Keybinding,
-    KeybindingsState,
     LaunchBuffer,
     LaunchRequest,
     PrintRequest,
