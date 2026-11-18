@@ -8,6 +8,7 @@ import (
 
 	"kaze/internal/config"
 	"kaze/internal/keybindings"
+	"kaze/internal/themes"
 )
 
 // configChangedEvent tells the frontend that the themes folder,
@@ -48,7 +49,7 @@ func (a *App) configWatchLoop() {
 	}
 	// Create every input before taking the baseline, so first-run creation
 	// does not look like a user edit.
-	_ = ensureThemesDir(dir)
+	_ = themes.EnsureDir(dir)
 	_ = keybindings.EnsureFile(keyPath)
 	_ = config.EnsureFile(settingsPath)
 

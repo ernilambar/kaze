@@ -1,7 +1,7 @@
 import { onWindowEvent } from './windowstate';
 import type * as monaco from 'monaco-editor';
 import { ListThemes, LoadTheme } from '../bindings/kaze/app';
-import type * as models from '../bindings/kaze/models';
+import type * as models from '../bindings/kaze/internal/themes/models';
 import {
     DEFAULT_UI_FONT,
     type ThemeMode,

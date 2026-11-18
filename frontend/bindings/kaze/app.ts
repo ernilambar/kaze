@@ -17,6 +17,9 @@ import * as config$0 from "./internal/config/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as keybindings$0 from "./internal/keybindings/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as themes$0 from "./internal/themes/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -253,7 +256,7 @@ export function ListFiles(window: string): $CancellablePromise<$models.FileList>
  * ListThemes returns the installed variants, with per-file errors rather than
  * one failure for the whole folder.
  */
-export function ListThemes(): $CancellablePromise<$models.ThemeCatalog> {
+export function ListThemes(): $CancellablePromise<themes$0.ThemeCatalog> {
     return $Call.ByID(3487303623);
 }
 
@@ -282,7 +285,7 @@ export function LoadSidebarFolders(window: string): $CancellablePromise<string[]
  * LoadTheme resolves one variant and returns the CSS and Monaco values that
  * apply it. Missing style keys fall back to the matching built-in palette.
  */
-export function LoadTheme(name: string): $CancellablePromise<$models.ThemePalette> {
+export function LoadTheme(name: string): $CancellablePromise<themes$0.ThemePalette> {
     return $Call.ByID(2120010470, name);
 }
 

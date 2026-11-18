@@ -322,53 +322,6 @@ export interface SearchResult {
 }
 
 /**
- * ThemeCatalog is the set of readable themes plus the files that failed to
- * parse. One broken theme file must not hide the working ones.
- */
-export interface ThemeCatalog {
-    "themes": ThemeSummary[] | null;
-    "errors": string[] | null;
-}
-
-/**
- * ThemePalette is the frontend-facing form of one theme. UI keys are CSS
- * variable names without the leading `--`; Editor keys are Monaco color ids.
- */
-export interface ThemePalette {
-    "family": string;
-    "name": string;
-    "appearance": string;
-    "ui": { [_ in string]?: string } | null;
-    "editor": { [_ in string]?: string } | null;
-    "syntax": { [_ in string]?: themeHighlight } | null;
-}
-
-/**
- * ThemePreview is the handful of colors the picker paints for a variant. It is
- * resolved through mergeStyle, so a partial user theme still previews with the
- * built-in contrast instead of blank swatches.
- */
-export interface ThemePreview {
-    "background": string;
-    "foreground": string;
-    "accent": string;
-    "keyword": string;
-    "string": string;
-    "comment": string;
-}
-
-/**
- * ThemeSummary is one variant in the theme picker. Name is what settings.json
- * stores; Family is what the file calls the group it belongs to.
- */
-export interface ThemeSummary {
-    "family": string;
-    "name": string;
-    "appearance": string;
-    "preview": ThemePreview;
-}
-
-/**
  * WindowSession is the state a relaunch restores for one window. It lives in
  * session.json, never in settings.json or a workspace file. Only tabs backed by
  * a file are recorded; untitled buffers have no text on disk.
@@ -408,13 +361,4 @@ export interface WorkspaceSession {
     "active": string;
     "expanded": string[] | null;
     "updated": number;
-}
-
-/**
- * themeHighlight is one syntax capture's color and font style.
- */
-export interface themeHighlight {
-    "color": string;
-    "font_style": string;
-    "font_weight": number;
 }

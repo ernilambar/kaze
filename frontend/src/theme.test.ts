@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
-import type * as models from '../bindings/kaze/models';
+import type * as models from '../bindings/kaze/internal/themes/models';
 import { defaultThemeSettings } from './settings';
 import {
     applyStartupTheme,

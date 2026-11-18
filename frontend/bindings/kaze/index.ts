@@ -24,10 +24,6 @@ export type {
     SearchMatch,
     SearchRequest,
     SearchResult,
-    ThemeCatalog,
-    ThemePalette,
-    ThemePreview,
-    ThemeSummary,
     WindowSession,
     WorkspaceInfo,
     WorkspaceSession
