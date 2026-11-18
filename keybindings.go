@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"kaze/internal/jsonc"
 )
 
 // Keybinding is one entry in keybindings.json, using VS Code's shape. Command
@@ -87,7 +89,7 @@ func readKeybindings(path string) ([]Keybinding, []string, error) {
 
 func parseKeybindings(data []byte) ([]Keybinding, []string, error) {
 	var raw []Keybinding
-	if err := json.Unmarshal(stripJSONComments(data), &raw); err != nil {
+	if err := json.Unmarshal(jsonc.StripComments(data), &raw); err != nil {
 		return nil, nil, fmt.Errorf("parse keybindings: %w", err)
 	}
 
@@ -115,60 +117,6 @@ func parseKeybindings(data []byte) ([]Keybinding, []string, error) {
 		})
 	}
 	return bindings, problems, nil
-}
-
-// stripJSONComments blanks // and /* */ comments while leaving string contents
-// alone. VS Code's keybindings.json is JSONC, so users will paste comments.
-func stripJSONComments(data []byte) []byte {
-	out := make([]byte, 0, len(data))
-	inString := false
-	escaped := false
-	for i := 0; i < len(data); i++ {
-		c := data[i]
-		if inString {
-			out = append(out, c)
-			switch {
-			case escaped:
-				escaped = false
-			case c == '\\':
-				escaped = true
-			case c == '"':
-				inString = false
-			}
-			continue
-		}
-		if c == '"' {
-			inString = true
-			out = append(out, c)
-			continue
-		}
-		if c == '/' && i+1 < len(data) && data[i+1] == '/' {
-			i += 2
-			for i < len(data) && data[i] != '\n' {
-				out = append(out, ' ')
-				i++
-			}
-			if i < len(data) {
-				out = append(out, '\n')
-			}
-			continue
-		}
-		if c == '/' && i+1 < len(data) && data[i+1] == '*' {
-			i += 2
-			for i+1 < len(data) && !(data[i] == '*' && data[i+1] == '/') {
-				if data[i] == '\n' {
-					out = append(out, '\n')
-				} else {
-					out = append(out, ' ')
-				}
-				i++
-			}
-			i++
-			continue
-		}
-		out = append(out, c)
-	}
-	return out
 }
 
 // normalizeKeySequence makes two spellings of the same shortcut compare equal.

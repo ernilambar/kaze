@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+
+	"kaze/internal/jsonc"
 )
 
 // WorkspaceInfo is what the frontend receives after opening or saving a
@@ -159,7 +161,7 @@ func loadWorkspaceFile(path string) (WorkspaceInfo, error) {
 // Kaze cannot open.
 func parseCodeWorkspace(data []byte) ([]string, error) {
 	var file codeWorkspaceFile
-	if err := json.Unmarshal(stripTrailingCommas(stripJSONComments(data)), &file); err != nil {
+	if err := json.Unmarshal(jsonc.StripTrailingCommas(jsonc.StripComments(data)), &file); err != nil {
 		return nil, err
 	}
 	entries := make([]string, 0, len(file.Folders))
@@ -178,40 +180,6 @@ func parseCodeWorkspace(data []byte) ([]string, error) {
 		entries = append(entries, u.Path)
 	}
 	return entries, nil
-}
-
-// stripTrailingCommas drops a comma that is followed only by whitespace and a
-// closing bracket, leaving string contents alone. Run it after comments are
-// stripped so a comment between the comma and the bracket does not hide it.
-func stripTrailingCommas(data []byte) []byte {
-	out := make([]byte, 0, len(data))
-	inString := false
-	escaped := false
-	for i := 0; i < len(data); i++ {
-		c := data[i]
-		if inString {
-			switch {
-			case escaped:
-				escaped = false
-			case c == '\\':
-				escaped = true
-			case c == '"':
-				inString = false
-			}
-		} else if c == '"' {
-			inString = true
-		} else if c == ',' {
-			j := i + 1
-			for j < len(data) && strings.IndexByte(" \t\r\n", data[j]) >= 0 {
-				j++
-			}
-			if j < len(data) && (data[j] == ']' || data[j] == '}') {
-				continue
-			}
-		}
-		out = append(out, c)
-	}
-	return out
 }
 
 // writeWorkspaceFile validates folders, encodes them relative to path's

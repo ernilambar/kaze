@@ -500,24 +500,6 @@ func TestTrashPathReportsAMissingFile(t *testing.T) {
 	}
 }
 
-func TestIsWithinPath(t *testing.T) {
-	cases := []struct {
-		folder string
-		path   string
-		want   bool
-	}{
-		{"/a/b", "/a/b", true},
-		{"/a/b", "/a/b/c", true},
-		{"/a/b", "/a/bc", false},
-		{"/a/b", "/a", false},
-	}
-	for _, entry := range cases {
-		if got := isWithinPath(entry.folder, entry.path); got != entry.want {
-			t.Errorf("isWithinPath(%q, %q) = %v, want %v", entry.folder, entry.path, got, entry.want)
-		}
-	}
-}
-
 func TestCopyPathRefusesFolderIntoItself(t *testing.T) {
 	root := t.TempDir()
 	folder := filepath.Join(root, "a")

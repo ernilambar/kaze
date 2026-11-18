@@ -11,6 +11,8 @@ import (
 	"strings"
 	"unicode/utf16"
 	"unicode/utf8"
+
+	"kaze/internal/pathutil"
 )
 
 const (
@@ -395,7 +397,7 @@ func replaceInFile(
 	if !write {
 		return true, matches, nil
 	}
-	if err := atomicWriteFile(path, replaced); err != nil {
+	if err := pathutil.WriteFileAtomic(path, replaced); err != nil {
 		return false, 0, fmt.Errorf("replace in %s: %w", filepath.Base(path), err)
 	}
 	return true, matches, nil

@@ -142,11 +142,3 @@ func TestCodeWorkspaceRejectsRemoteFolder(t *testing.T) {
 		t.Fatal("loadWorkspaceFile() error = nil, want a remote folder error")
 	}
 }
-
-func TestStripTrailingCommasKeepsStrings(t *testing.T) {
-	got := string(stripTrailingCommas([]byte(`{"a": [1, 2, ], "b": "x, ]", "c": "\", }",}`)))
-	want := `{"a": [1, 2 ], "b": "x, ]", "c": "\", }"}`
-	if got != want {
-		t.Fatalf("stripTrailingCommas() = %s, want %s", got, want)
-	}
-}

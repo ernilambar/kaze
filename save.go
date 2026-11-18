@@ -6,9 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+
+	"kaze/internal/pathutil"
 )
 
 // SaveRequest is one buffer on its way to disk. ExpectedModified is the mtime
@@ -68,7 +69,7 @@ func saveDocument(request SaveRequest) (SaveResult, error) {
 	if err != nil {
 		return SaveResult{}, err
 	}
-	realPath := canonicalPath(path)
+	realPath := pathutil.CanonicalPath(path)
 
 	if !request.Overwrite && request.ExpectedModified > 0 {
 		conflict, err := changedOnDisk(path, request.ExpectedModified)
@@ -88,7 +89,7 @@ func saveDocument(request SaveRequest) (SaveResult, error) {
 	if request.BOM {
 		text = byteOrderMark + text
 	}
-	if err := atomicWriteFile(path, []byte(text)); err != nil {
+	if err := pathutil.WriteFileAtomic(path, []byte(text)); err != nil {
 		return SaveResult{}, fmt.Errorf("save %s: %w", filepath.Base(path), err)
 	}
 
@@ -100,103 +101,10 @@ func saveDocument(request SaveRequest) (SaveResult, error) {
 	}
 	return SaveResult{
 		Path:     path,
-		RealPath: canonicalPath(path),
+		RealPath: pathutil.CanonicalPath(path),
 		Name:     filepath.Base(path),
 		Modified: info.ModTime().UnixMilli(),
 	}, nil
-}
-
-// atomicWriteFile replaces path with data without ever exposing a half-written
-// file: the bytes land in a temp file in the same directory, are synced, and
-// renamed over the target in one step. The target keeps its permissions; a new
-// file gets the usual 0644.
-func atomicWriteFile(path string, data []byte) error {
-	// A direct symlink is the file's alias, not its identity. Resolve it first
-	// so the rename replaces the target and the link keeps pointing at it.
-	if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink != 0 {
-		target, err := filepath.EvalSymlinks(path)
-		if err != nil {
-			return err
-		}
-		path = target
-	}
-
-	mode := os.FileMode(0o644)
-	exists := false
-	if info, err := os.Stat(path); err == nil {
-		mode = info.Mode()
-		exists = true
-		// A rename gives the path a new inode, and the other names of a hard
-		// link would keep the old text. Write those in place instead.
-		if stat, ok := info.Sys().(*syscall.Stat_t); ok && stat.Nlink > 1 {
-			return writeFileInPlace(path, data)
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-
-	dir := filepath.Dir(path)
-	temp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
-	if err != nil {
-		// A writable file in a folder that is not writable cannot take a temp
-		// sibling; it can still be saved in place.
-		if exists && errors.Is(err, os.ErrPermission) {
-			return writeFileInPlace(path, data)
-		}
-		return err
-	}
-	tempPath := temp.Name()
-	renamed := false
-	defer func() {
-		if !renamed {
-			temp.Close()
-			os.Remove(tempPath)
-		}
-	}()
-
-	if _, err := temp.Write(data); err != nil {
-		return err
-	}
-	if err := temp.Chmod(mode); err != nil {
-		return err
-	}
-	if err := temp.Sync(); err != nil {
-		return err
-	}
-	if err := temp.Close(); err != nil {
-		return err
-	}
-	if err := os.Rename(tempPath, path); err != nil {
-		return err
-	}
-	renamed = true
-
-	// The rename itself is a directory entry; sync it so a crash cannot leave
-	// the new name unwritten. Best effort: the file's contents are already safe.
-	if dirFile, err := os.Open(dir); err == nil {
-		dirFile.Sync()
-		dirFile.Close()
-	}
-	return nil
-}
-
-// writeFileInPlace overwrites an existing file through its own inode, keeping
-// hard links, extended attributes and ownership. It is not atomic: a crash
-// mid-write leaves a truncated file, so it is only the fallback.
-func writeFileInPlace(path string, data []byte) error {
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0)
-	if err != nil {
-		return err
-	}
-	if _, err := file.Write(data); err != nil {
-		file.Close()
-		return err
-	}
-	if err := file.Sync(); err != nil {
-		file.Close()
-		return err
-	}
-	return file.Close()
 }
 
 // normalizeEOL rewrites every line ending to the file's chosen sequence. The
@@ -273,5 +181,5 @@ func (a *App) SaveFileDialog(suggested string) (string, error) {
 	}
 	// Resolve the chosen path so a save onto an alias of an open file is
 	// recognised as that file, not as a second tab.
-	return canonicalPath(path), nil
+	return pathutil.CanonicalPath(path), nil
 }

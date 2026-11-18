@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"kaze/internal/pathutil"
 )
 
 const (
@@ -255,7 +257,7 @@ func (a *App) GetRecentFiles() ([]string, error) {
 func normalizeWindowSession(session WindowSession) WindowSession {
 	session.Workspace = strings.TrimSpace(session.Workspace)
 	if session.Workspace != "" {
-		session.Workspace = canonicalPath(session.Workspace)
+		session.Workspace = pathutil.CanonicalPath(session.Workspace)
 	}
 	session.Folders = canonicalFolderList(session.Folders)
 	session.OpenFiles = normalizeSessionFiles(session.OpenFiles)
@@ -294,7 +296,7 @@ func canonicalFolderList(folders []string) []string {
 		if folder == "" {
 			continue
 		}
-		folder = canonicalPath(folder)
+		folder = pathutil.CanonicalPath(folder)
 		if seen[folder] {
 			continue
 		}
@@ -341,7 +343,7 @@ func (a *App) SetSession(window string, session WindowSession) error {
 		state.Window = session
 	}
 	if session.Workspace != "" {
-		key := canonicalPath(session.Workspace)
+		key := pathutil.CanonicalPath(session.Workspace)
 		state.Workspaces[key] = WorkspaceSession{
 			Folders:   session.Folders,
 			OpenFiles: session.OpenFiles,
@@ -367,7 +369,7 @@ func (a *App) parkedWorkspace(info WorkspaceInfo) WorkspaceSession {
 	if err != nil {
 		return WorkspaceSession{}
 	}
-	key := canonicalPath(info.Path)
+	key := pathutil.CanonicalPath(info.Path)
 	if parked, ok := state.Workspaces[key]; ok {
 		return parked
 	}

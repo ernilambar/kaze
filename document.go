@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
+
+	"kaze/internal/pathutil"
 )
 
 // maxDocumentSize caps what the editor will read. Monaco slows to a crawl far
@@ -148,7 +150,7 @@ func loadDocument(path string) (Document, error) {
 
 	return Document{
 		Path:        path,
-		RealPath:    canonicalPath(path),
+		RealPath:    pathutil.CanonicalPath(path),
 		Name:        name,
 		Kind:        documentKindText,
 		Content:     content,
@@ -194,7 +196,7 @@ func loadImage(path, name, mimeType string, modified int64) (Document, error) {
 	encoded := base64.StdEncoding.EncodeToString(data)
 	return Document{
 		Path:     path,
-		RealPath: canonicalPath(path),
+		RealPath: pathutil.CanonicalPath(path),
 		Name:     name,
 		Kind:     documentKindImage,
 		Src:      "data:" + mimeType + ";base64," + encoded,

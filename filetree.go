@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"kaze/internal/pathutil"
 )
 
 // FileTreeResult is one path a tree command produced: the spelling that was
@@ -30,7 +32,7 @@ func treeResult(path string) (FileTreeResult, error) {
 	}
 	return FileTreeResult{
 		Path:     path,
-		RealPath: canonicalPath(path),
+		RealPath: pathutil.CanonicalPath(path),
 		Name:     filepath.Base(path),
 		IsDir:    info.IsDir(),
 	}, nil
@@ -101,7 +103,7 @@ func (a *App) RenamePath(path, target string) (FileTreeResult, error) {
 	}
 	// A directory cannot become a child of itself. Check before a missing parent
 	// is created inside it, so a refusal leaves no empty folder behind.
-	if info.IsDir() && isWithinPath(path, next) {
+	if info.IsDir() && pathutil.IsWithin(path, next) {
 		return FileTreeResult{}, errors.New("a folder cannot be moved inside itself")
 	}
 	// A case-only rename finds the file itself at the target on a
@@ -175,7 +177,7 @@ func (a *App) DuplicatePath(path, target string) (FileTreeResult, error) {
 	}
 	// Copying a folder into itself would recurse through the copy it is
 	// writing, so the guard is checked before any folder is created.
-	if info.IsDir() && isWithinPath(source, next) {
+	if info.IsDir() && pathutil.IsWithin(source, next) {
 		return FileTreeResult{}, errors.New("a folder cannot be copied inside itself")
 	}
 	if _, statErr := os.Lstat(next); statErr == nil {
@@ -210,7 +212,7 @@ func (a *App) CopyPath(path, targetDir string) (FileTreeResult, error) {
 	}
 	// The copy would land inside the tree being read and copy itself again,
 	// without end.
-	if info.IsDir() && isWithinPath(source, dir) {
+	if info.IsDir() && pathutil.IsWithin(source, dir) {
 		return FileTreeResult{}, errors.New("a folder cannot be copied inside itself")
 	}
 	target, err := uniqueCopyPath(filepath.Join(dir, filepath.Base(source)))
@@ -244,7 +246,7 @@ func (a *App) MovePath(path, targetDir string) (FileTreeResult, error) {
 		return treeResult(source)
 	}
 	// Moving a folder inside itself would detach the subtree from the tree.
-	if info.IsDir() && isWithinPath(source, dir) {
+	if info.IsDir() && pathutil.IsWithin(source, dir) {
 		return FileTreeResult{}, errors.New("a folder cannot be moved inside itself")
 	}
 	target := filepath.Join(dir, filepath.Base(source))
@@ -350,21 +352,6 @@ func directoryTarget(target string) (string, error) {
 		return "", fmt.Errorf("%s is not a folder", filepath.Base(target))
 	}
 	return target, nil
-}
-
-// isWithinPath reports whether path sits inside folder. It is the Go side of the
-// guard that keeps a folder from being dropped into its own subtree.
-func isWithinPath(folder, path string) bool {
-	folder = filepath.Clean(folder)
-	path = filepath.Clean(path)
-	if folder == path {
-		return true
-	}
-	rel, err := filepath.Rel(folder, path)
-	if err != nil {
-		return false
-	}
-	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // uniqueCopyPath returns the first free name for a copy of path: photo.png

@@ -19,22 +19,6 @@ type FileList struct {
 	Truncated bool     `json:"truncated"`
 }
 
-// canonicalPath resolves symlinks so the same file reached through a link and
-// through its real path compares equal. It is the identity tabs match on, and
-// what git paths are compared against the sidebar roots with. A deleted file
-// resolves through its parent, because the file itself no longer exists to
-// follow.
-func canonicalPath(path string) string {
-	if resolved, err := filepath.EvalSymlinks(path); err == nil {
-		return resolved
-	}
-	dir, name := filepath.Split(path)
-	if resolved, err := filepath.EvalSymlinks(filepath.Clean(dir)); err == nil {
-		return filepath.Join(resolved, name)
-	}
-	return path
-}
-
 // ListFiles returns every regular file under one window's sidebar roots,
 // sorted by path. The frontend filters this list locally, so each keystroke in
 // Quick Open costs nothing. files.exclude decides what is walked, so a folder

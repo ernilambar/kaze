@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"kaze/internal/pathutil"
 )
 
 // FolderEntry is one child of a folder in the sidebar tree. Directories are
@@ -63,7 +65,7 @@ func readFolderExcluding(path, root string, excludes excludeMatcher) ([]FolderEn
 	// A root that does not contain path (or none at all) falls back to path
 	// itself, which still applies unanchored patterns by name.
 	prefix := ""
-	if root != "" && isWithinPath(root, path) {
+	if root != "" && pathutil.IsWithin(root, path) {
 		if rel, err := filepath.Rel(root, path); err == nil && rel != "." {
 			prefix = filepath.ToSlash(rel) + "/"
 		}

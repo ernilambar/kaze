@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"kaze/internal/pathutil"
 )
 
 // Git is read-only: the app inspects a repository's state so the sidebar, the
@@ -77,7 +79,7 @@ func (a *App) GetGitStatus(folders []string) (GitSnapshot, error) {
 		repo.Root = folder
 		snapshot.Repos = append(snapshot.Repos, repo)
 		for _, change := range changes {
-			if !withinAny(change.Path, folders) || seenChanges[change.Path] {
+			if !pathutil.WithinAny(change.Path, folders) || seenChanges[change.Path] {
 				continue
 			}
 			seenChanges[change.Path] = true
@@ -326,11 +328,11 @@ func gitStatusKind(xy string) string {
 // gitRepoRoot returns the top level of the repository containing dir, or an
 // empty string when git is missing or dir is not in a repository.
 func gitRepoRoot(dir string) string {
-	output, err := gitOutput(canonicalPath(dir), "rev-parse", "--show-toplevel")
+	output, err := gitOutput(pathutil.CanonicalPath(dir), "rev-parse", "--show-toplevel")
 	if err != nil {
 		return ""
 	}
-	return canonicalPath(strings.TrimSpace(string(output)))
+	return pathutil.CanonicalPath(strings.TrimSpace(string(output)))
 }
 
 // gitRepoRootForFile resolves the repository for a file path, including a
@@ -342,7 +344,7 @@ func gitRepoRootForFile(path string) string {
 // gitRelativePath is the repository-relative, slash-separated name git expects
 // on the command line. Git always speaks forward slashes.
 func gitRelativePath(root, path string) (string, error) {
-	relative, err := filepath.Rel(root, canonicalPath(path))
+	relative, err := filepath.Rel(root, pathutil.CanonicalPath(path))
 	if err != nil || relative == "." || relative == ".." ||
 		strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("%s is outside %s", path, root)
@@ -362,7 +364,7 @@ func gitPathspec(relative string) string {
 // entries from that root, so status marks only match when the prefix agrees.
 func sidebarPath(path string, folders []string) (string, string) {
 	for _, folder := range folders {
-		relative, err := filepath.Rel(canonicalPath(folder), path)
+		relative, err := filepath.Rel(pathutil.CanonicalPath(folder), path)
 		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 			continue
 		}
@@ -434,20 +436,4 @@ func runGit(allowExitOne bool, dir string, args ...string) (stdout []byte, stder
 		return nil, errOut.Bytes(), fmt.Errorf("%s", message)
 	}
 	return out.Bytes(), errOut.Bytes(), nil
-}
-
-// withinAny reports whether path sits inside one of the sidebar roots. Nested
-// roots and a repo wider than a root both land on the same answer.
-func withinAny(path string, folders []string) bool {
-	for _, folder := range folders {
-		if folder == "" {
-			continue
-		}
-		relative, err := filepath.Rel(canonicalPath(folder), path)
-		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-			continue
-		}
-		return true
-	}
-	return false
 }

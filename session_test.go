@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"kaze/internal/pathutil"
 )
 
 func TestWorkspaceSessionParksTabsUnderCanonicalPath(t *testing.T) {
@@ -73,10 +75,10 @@ func TestWorkspaceSessionFollowsRenamedWorkspaceByFolderSet(t *testing.T) {
 	if err := json.Unmarshal(data, &state); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := state.Workspaces[canonicalPath(oldPath)]; ok {
+	if _, ok := state.Workspaces[pathutil.CanonicalPath(oldPath)]; ok {
 		t.Error("the old workspace key survived adoption")
 	}
-	if _, ok := state.Workspaces[canonicalPath(newPath)]; !ok {
+	if _, ok := state.Workspaces[pathutil.CanonicalPath(newPath)]; !ok {
 		t.Error("the renamed workspace has no parked session")
 	}
 }
@@ -193,7 +195,7 @@ func TestWorkspaceSessionDoesNotStealACopiedWorkspace(t *testing.T) {
 	if err := json.Unmarshal(data, &state); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := state.Workspaces[canonicalPath(original)]; !ok {
+	if _, ok := state.Workspaces[pathutil.CanonicalPath(original)]; !ok {
 		t.Error("the original workspace lost its parked session")
 	}
 }

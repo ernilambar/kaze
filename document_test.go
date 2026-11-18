@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"kaze/internal/pathutil"
 )
 
 func TestLoadDocumentReadsTextFile(t *testing.T) {
@@ -22,7 +24,7 @@ func TestLoadDocumentReadsTextFile(t *testing.T) {
 
 	want := Document{
 		Path:     path,
-		RealPath: canonicalPath(path),
+		RealPath: pathutil.CanonicalPath(path),
 		Name:     "notes.txt",
 		Kind:     documentKindText,
 		Content:  "first\nsecond\n",
