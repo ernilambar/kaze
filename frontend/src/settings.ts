@@ -1,4 +1,4 @@
-import type * as models from '../bindings/kaze/models';
+import type * as models from '../bindings/kaze/internal/config/models';
 import {
     GetSettings,
     UpdateEditorSettings,
@@ -32,7 +32,7 @@ export interface EditorSettings {
     smartIndent: boolean;
 }
 
-// Mirrors defaultSettings in settings.go. Used only when the backend call
+// Mirrors Default in internal/config/settings.go. Used only when the backend call
 // fails, e.g. running `pnpm dev` outside a Wails window.
 export const defaultEditorSettings: EditorSettings = {
     fontFamily: 'Menlo',
@@ -153,7 +153,7 @@ export interface UISettings {
 export const DEFAULT_UI_FONT =
     '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
-// Defaults mirror defaultSettings in settings.go: a fixed dark appearance, the
+// Defaults mirror Default in internal/config/settings.go: a fixed dark appearance, the
 // built-in pair, the system UI font, 13px chrome, file icons on and the sidebar
 // left.
 export const defaultThemeSettings: ThemeSettings = {
@@ -177,7 +177,7 @@ export interface FileSettings {
     trimTrailingWhitespace: boolean;
 }
 
-// defaultExcludePatterns mirrors defaultExcludePatterns in settings.go.
+// defaultExcludePatterns mirrors DefaultExcludePatterns in internal/config/settings.go.
 export const defaultExcludePatterns: readonly string[] = [
     '.git',
     '.hg',

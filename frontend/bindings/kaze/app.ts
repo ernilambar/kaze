@@ -13,6 +13,34 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as cli$0 from "./internal/cli/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as config$0 from "./internal/config/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as document$0 from "./internal/document/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as fileops$0 from "./internal/fileops/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as find$0 from "./internal/find/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as git$0 from "./internal/git/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as keybindings$0 from "./internal/keybindings/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as themes$0 from "./internal/themes/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as workspacefile$0 from "./internal/workspacefile/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
 /**
@@ -63,7 +91,7 @@ export function CloseWindow(window: string): $CancellablePromise<void> {
  * there gets the next free " copy" name instead of failing, so pasting the same
  * file twice is not an error.
  */
-export function CopyPath(path: string, targetDir: string): $CancellablePromise<$models.FileTreeResult> {
+export function CopyPath(path: string, targetDir: string): $CancellablePromise<fileops$0.FileTreeResult> {
     return $Call.ByID(1297703531, path, targetDir);
 }
 
@@ -81,7 +109,7 @@ export function CopyText(text: string): $CancellablePromise<void> {
  * than an overwrite: the tree is a file manager here, so New File must never
  * truncate something the user already has.
  */
-export function CreateFile(parent: string, name: string): $CancellablePromise<$models.FileTreeResult> {
+export function CreateFile(parent: string, name: string): $CancellablePromise<fileops$0.FileTreeResult> {
     return $Call.ByID(3418645411, parent, name);
 }
 
@@ -90,7 +118,7 @@ export function CreateFile(parent: string, name: string): $CancellablePromise<$m
  * than trusted from the caller, because a name that walks up the tree would put
  * the new folder somewhere the user cannot see.
  */
-export function CreateFolder(parent: string, name: string): $CancellablePromise<$models.FileTreeResult> {
+export function CreateFolder(parent: string, name: string): $CancellablePromise<fileops$0.FileTreeResult> {
     return $Call.ByID(1403526973, parent, name);
 }
 
@@ -111,7 +139,7 @@ export function DefaultSettingsFile(): $CancellablePromise<string> {
  * user typed over something else. A directory is copied whole, so the duplicate
  * is a snapshot rather than a second name for the same contents.
  */
-export function DuplicatePath(path: string, target: string): $CancellablePromise<$models.FileTreeResult> {
+export function DuplicatePath(path: string, target: string): $CancellablePromise<fileops$0.FileTreeResult> {
     return $Call.ByID(3607991813, path, target);
 }
 
@@ -139,7 +167,7 @@ export function FileExists(path: string): $CancellablePromise<boolean> {
  * repository, or one HEAD does not contain, reports that instead of an error:
  * the gutter only needs to know whether it has a baseline to compare against.
  */
-export function GetGitBaseline(path: string): $CancellablePromise<$models.GitBaseline> {
+export function GetGitBaseline(path: string): $CancellablePromise<git$0.GitBaseline> {
     return $Call.ByID(3065424274, path);
 }
 
@@ -157,7 +185,7 @@ export function GetGitDiff(path: string): $CancellablePromise<string> {
  * changed files inside them. A root outside a repository is skipped silently:
  * a non-repository folder is normal, not a failure.
  */
-export function GetGitStatus(folders: string[] | null): $CancellablePromise<$models.GitSnapshot> {
+export function GetGitStatus(folders: string[] | null): $CancellablePromise<git$0.GitSnapshot> {
     return $Call.ByID(4123560639, folders);
 }
 
@@ -166,7 +194,7 @@ export function GetGitStatus(folders: string[] | null): $CancellablePromise<$mod
  * frontend installs the list and reports the error without losing the valid
  * entries.
  */
-export function GetKeybindings(): $CancellablePromise<$models.KeybindingsState> {
+export function GetKeybindings(): $CancellablePromise<keybindings$0.KeybindingsState> {
     return $Call.ByID(3015840904);
 }
 
@@ -175,7 +203,7 @@ export function GetKeybindings(): $CancellablePromise<$models.KeybindingsState> 
  * frontend calls it once after attaching its listener, so anything passed in
  * before the UI was ready is still opened.
  */
-export function GetLaunchRequest(window: string): $CancellablePromise<$models.LaunchRequest> {
+export function GetLaunchRequest(window: string): $CancellablePromise<cli$0.LaunchRequest> {
     return $Call.ByID(2194906801, window);
 }
 
@@ -200,7 +228,7 @@ export function GetRecentFiles(): $CancellablePromise<string[] | null> {
  * first run. The frontend calls this once at startup and applies the values to
  * the editor.
  */
-export function GetSettings(): $CancellablePromise<$models.Settings> {
+export function GetSettings(): $CancellablePromise<config$0.Settings> {
     return $Call.ByID(2554697378);
 }
 
@@ -238,7 +266,7 @@ export function KeybindingsFile(): $CancellablePromise<string> {
  * hidden in the tree is hidden here too; .gitignore files and VCS directories
  * are skipped as well.
  */
-export function ListFiles(window: string): $CancellablePromise<$models.FileList> {
+export function ListFiles(window: string): $CancellablePromise<fileops$0.FileList> {
     return $Call.ByID(3557170708, window);
 }
 
@@ -246,7 +274,7 @@ export function ListFiles(window: string): $CancellablePromise<$models.FileList>
  * ListThemes returns the installed variants, with per-file errors rather than
  * one failure for the whole folder.
  */
-export function ListThemes(): $CancellablePromise<$models.ThemeCatalog> {
+export function ListThemes(): $CancellablePromise<themes$0.ThemeCatalog> {
     return $Call.ByID(3487303623);
 }
 
@@ -258,7 +286,7 @@ export function ListThemes(): $CancellablePromise<$models.ThemeCatalog> {
  * small mis-encoded log would be less useful than showing it. Supported image
  * formats are returned as a data URL for the image viewer.
  */
-export function LoadDocument(path: string): $CancellablePromise<$models.Document> {
+export function LoadDocument(path: string): $CancellablePromise<document$0.Document> {
     return $Call.ByID(3916855336, path);
 }
 
@@ -275,7 +303,7 @@ export function LoadSidebarFolders(window: string): $CancellablePromise<string[]
  * LoadTheme resolves one variant and returns the CSS and Monaco values that
  * apply it. Missing style keys fall back to the matching built-in palette.
  */
-export function LoadTheme(name: string): $CancellablePromise<$models.ThemePalette> {
+export function LoadTheme(name: string): $CancellablePromise<themes$0.ThemePalette> {
     return $Call.ByID(2120010470, name);
 }
 
@@ -285,7 +313,7 @@ export function LoadTheme(name: string): $CancellablePromise<$models.ThemePalett
  * launch follow the same path. An empty session means this workspace has not
  * been open since session.json was written.
  */
-export function LoadWorkspace(path: string): $CancellablePromise<$models.WorkspaceInfo> {
+export function LoadWorkspace(path: string): $CancellablePromise<workspacefile$0.WorkspaceInfo> {
     return $Call.ByID(3689398994, path);
 }
 
@@ -302,7 +330,7 @@ export function MinimiseWindow(window: string): $CancellablePromise<void> {
  * copy-free path; when the two folders are on different volumes the contents are
  * copied and the source removed, which is what the user asked for either way.
  */
-export function MovePath(path: string, targetDir: string): $CancellablePromise<$models.FileTreeResult> {
+export function MovePath(path: string, targetDir: string): $CancellablePromise<fileops$0.FileTreeResult> {
     return $Call.ByID(2028899675, path, targetDir);
 }
 
@@ -311,7 +339,7 @@ export function MovePath(path: string, targetDir: string): $CancellablePromise<$
  * tab from its own list once this returns, because the buffer now lives in the
  * new window.
  */
-export function MoveTabToNewWindow(buffer: $models.LaunchBuffer): $CancellablePromise<void> {
+export function MoveTabToNewWindow(buffer: cli$0.LaunchBuffer): $CancellablePromise<void> {
     return $Call.ByID(116838076, buffer);
 }
 
@@ -360,7 +388,7 @@ export function OpenThemesFolder(): $CancellablePromise<void> {
  * OpenWorkspaceDialog asks for a workspace file and loads its folders. An empty
  * WorkspaceInfo means the user cancelled, which is not an error.
  */
-export function OpenWorkspaceDialog(): $CancellablePromise<$models.WorkspaceInfo> {
+export function OpenWorkspaceDialog(): $CancellablePromise<workspacefile$0.WorkspaceInfo> {
     return $Call.ByID(3825048786);
 }
 
@@ -383,7 +411,7 @@ export function PrintDocument(request: $models.PrintRequest): $CancellablePromis
  * relative to it, so an anchored `/build` hides only the top-level folder and
  * `docs/gen` hides a nested one, the same as Quick Open.
  */
-export function ReadFolder(path: string, root: string): $CancellablePromise<$models.FolderEntry[] | null> {
+export function ReadFolder(path: string, root: string): $CancellablePromise<fileops$0.FolderEntry[] | null> {
     return $Call.ByID(4221321413, path, root);
 }
 
@@ -409,7 +437,7 @@ export function RemoveSidebarFolder(window: string, folder: string): $Cancellabl
  * rename in place, so the common case is unchanged. The caller retargets the
  * open tabs afterwards, so a renamed file stays open under its new path.
  */
-export function RenamePath(path: string, target: string): $CancellablePromise<$models.FileTreeResult> {
+export function RenamePath(path: string, target: string): $CancellablePromise<fileops$0.FileTreeResult> {
     return $Call.ByID(1959759948, path, target);
 }
 
@@ -420,7 +448,7 @@ export function RenamePath(path: string, target: string): $CancellablePromise<$m
  * overwritten: someone may have edited it, and Replace All must not discard
  * that change. Skipped paths are reported so the frontend can say so.
  */
-export function ReplaceInProject(window: string, request: $models.SearchRequest): $CancellablePromise<$models.ReplaceResult> {
+export function ReplaceInProject(window: string, request: find$0.SearchRequest): $CancellablePromise<find$0.ReplaceResult> {
     return $Call.ByID(2481749581, window, request);
 }
 
@@ -445,7 +473,7 @@ export function RevealFile(path: string): $CancellablePromise<void> {
  * it passes the whole buffer instead of a path Go could reread: an unsaved edit
  * is exactly what should land in the file.
  */
-export function SaveDocument(request: $models.SaveRequest): $CancellablePromise<$models.SaveResult> {
+export function SaveDocument(request: document$0.SaveRequest): $CancellablePromise<document$0.SaveResult> {
     return $Call.ByID(83010905, request);
 }
 
@@ -463,7 +491,7 @@ export function SaveFileDialog(suggested: string): $CancellablePromise<string> {
  * workspace file there. The folders are stored relative to the file when they
  * share a directory tree, so the result can live in the repository.
  */
-export function SaveWorkspaceAs(folders: string[] | null): $CancellablePromise<$models.WorkspaceInfo> {
+export function SaveWorkspaceAs(folders: string[] | null): $CancellablePromise<workspacefile$0.WorkspaceInfo> {
     return $Call.ByID(771674549, folders);
 }
 
@@ -472,7 +500,7 @@ export function SaveWorkspaceAs(folders: string[] | null): $CancellablePromise<$
  * and search.exclude decide what is read, and every .gitignore file on the way
  * is honoured, so generated and ignored trees stay out of the results.
  */
-export function SearchProject(window: string, request: $models.SearchRequest): $CancellablePromise<$models.SearchResult> {
+export function SearchProject(window: string, request: find$0.SearchRequest): $CancellablePromise<find$0.SearchResult> {
     return $Call.ByID(2238777482, window, request);
 }
 
@@ -585,7 +613,7 @@ export function TrashPath(path: string): $CancellablePromise<void> {
  * the normalized result. The frontend calls it whenever a view toggle changes,
  * so the next launch starts with the same editor.
  */
-export function UpdateEditorSettings(editor: $models.EditorSettings): $CancellablePromise<$models.EditorSettings> {
+export function UpdateEditorSettings(editor: config$0.EditorSettings): $CancellablePromise<config$0.EditorSettings> {
     return $Call.ByID(3125471320, editor);
 }
 
@@ -594,7 +622,7 @@ export function UpdateEditorSettings(editor: $models.EditorSettings): $Cancellab
  * the normalized result. The frontend calls it when the explorer's exclude
  * patterns change, so the tree hides the same entries the next read does.
  */
-export function UpdateFilesSettings(files: $models.FilesSettings): $CancellablePromise<$models.FilesSettings> {
+export function UpdateFilesSettings(files: config$0.FilesSettings): $CancellablePromise<config$0.FilesSettings> {
     return $Call.ByID(1764760390, files);
 }
 
@@ -603,7 +631,7 @@ export function UpdateFilesSettings(files: $models.FilesSettings): $CancellableP
  * returns the normalized result. Find in Files applies both lists, so this
  * only writes the patterns the search window owns.
  */
-export function UpdateSearchSettings(search: $models.SearchSettings): $CancellablePromise<$models.SearchSettings> {
+export function UpdateSearchSettings(search: config$0.SearchSettings): $CancellablePromise<config$0.SearchSettings> {
     return $Call.ByID(3451417453, search);
 }
 
@@ -612,7 +640,7 @@ export function UpdateSearchSettings(search: $models.SearchSettings): $Cancellab
  * the normalized result. The frontend calls it when the appearance mode or one
  * of the selected palettes changes.
  */
-export function UpdateThemeSettings(theme: $models.ThemeSettings): $CancellablePromise<$models.ThemeSettings> {
+export function UpdateThemeSettings(theme: config$0.ThemeSettings): $CancellablePromise<config$0.ThemeSettings> {
     return $Call.ByID(1834452164, theme);
 }
 
@@ -621,7 +649,7 @@ export function UpdateThemeSettings(theme: $models.ThemeSettings): $CancellableP
  * the normalized result. Typography, icon style and sidebar side all travel
  * through this one write path.
  */
-export function UpdateUISettings(ui: $models.UISettings): $CancellablePromise<$models.UISettings> {
+export function UpdateUISettings(ui: config$0.UISettings): $CancellablePromise<config$0.UISettings> {
     return $Call.ByID(379592115, ui);
 }
 

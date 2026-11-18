@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"strings"
+
+	"kaze/internal/config"
 )
 
 // PrintRequest is the buffer to print. An image prints from Path, which lets
@@ -42,11 +44,11 @@ func (a *App) PrintDocument(request PrintRequest) error {
 func printFontFamily() string {
 	path, err := settingsFilePath()
 	if err != nil {
-		return defaultFontFamily
+		return config.DefaultFontFamily
 	}
-	settings, err := loadSettings(path)
+	settings, err := config.Load(path)
 	if err != nil {
-		return defaultFontFamily
+		return config.DefaultFontFamily
 	}
 	return settings.Editor.FontFamily
 }

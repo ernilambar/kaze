@@ -1,4 +1,4 @@
-import type { SearchMatch } from '../bindings/kaze/models';
+import type { SearchMatch } from '../bindings/kaze/internal/find/models';
 
 // SearchFileGroup is the results list's unit: one file and every match in it.
 // Grouping happens here so the panel and its tests share one shape.
@@ -66,13 +66,13 @@ const REGEX_SPECIAL = /[.*+?^${}()|[\]\\]/g;
 
 // searchExpression builds the regular expression for one query: a literal
 // query is quoted so a period is a period, and the case option becomes a flag.
-// This mirrors searchExpression in search.go.
+// This mirrors Expression in internal/find/search.go.
 export function searchExpression(query: string, regex: boolean, caseSensitive: boolean): RegExp {
     const source = regex ? query : query.replace(REGEX_SPECIAL, '\\$&');
     return new RegExp(source, caseSensitive ? 'g' : 'gi');
 }
 
-// replaceText edits one buffer the way replaceLines in search.go edits a file:
+// replaceText edits one buffer the way replaceLines in internal/find/search.go edits a file:
 // one line at a time, so a match never spans lines and a CRLF ending stays.
 // In regex mode $1, $& and $<name> expand; a literal replacement is text.
 export function replaceText(

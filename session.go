@@ -10,6 +10,10 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"kaze/internal/config"
+	"kaze/internal/pathutil"
+	"kaze/internal/workspacefile"
 )
 
 const (
@@ -37,18 +41,6 @@ type WindowSession struct {
 	OpenFiles []string `json:"open_files"`
 	Active    string   `json:"active"`
 	Expanded  []string `json:"expanded"`
-}
-
-// WorkspaceSession is the tab set parked under a workspace file. Switching
-// away parks the current tabs here; switching back restores them. Folders are
-// the workspace file's resolved roots, used to adopt a session after the file
-// itself was moved or renamed.
-type WorkspaceSession struct {
-	Folders   []string `json:"folders"`
-	OpenFiles []string `json:"open_files"`
-	Active    string   `json:"active"`
-	Expanded  []string `json:"expanded"`
-	Updated   int64    `json:"updated"`
 }
 
 // RecentFiles is the Open Recent history, newest first. It is state shared by
@@ -104,12 +96,12 @@ func (s *sidebarRootsByWindow) UnmarshalJSON(data []byte) error {
 // window that owns the launch session; every window may park a workspace tab
 // set in Workspaces.
 type sessionFile struct {
-	Version    int                         `json:"version"`
-	Recent     RecentFiles                 `json:"recent"`
-	Sidebar    sidebarRootsByWindow        `json:"sidebar"`
-	Frame      WindowFrame                 `json:"frame"`
-	Window     WindowSession               `json:"window"`
-	Workspaces map[string]WorkspaceSession `json:"workspaces"`
+	Version    int                                       `json:"version"`
+	Recent     RecentFiles                               `json:"recent"`
+	Sidebar    sidebarRootsByWindow                      `json:"sidebar"`
+	Frame      WindowFrame                               `json:"frame"`
+	Window     WindowSession                             `json:"window"`
+	Workspaces map[string]workspacefile.WorkspaceSession `json:"workspaces"`
 }
 
 // sessionFilePath returns the app-written state file beside settings.json.
@@ -128,7 +120,7 @@ func emptySession() sessionFile {
 		Recent:     RecentFiles{Files: []string{}},
 		Sidebar:    sidebarRootsByWindow{},
 		Window:     WindowSession{},
-		Workspaces: map[string]WorkspaceSession{},
+		Workspaces: map[string]workspacefile.WorkspaceSession{},
 	}
 }
 
@@ -198,7 +190,7 @@ func (a *App) adoptLegacyRecentLocked() {
 
 	a.settingsMu.Lock()
 	defer a.settingsMu.Unlock()
-	_ = dropSettingsSection(settingsPath, "recent")
+	_ = config.DropSection(settingsPath, "recent")
 }
 
 // normalizeSession repairs a file written by hand or by a future version that
@@ -212,13 +204,13 @@ func normalizeSession(state sessionFile) sessionFile {
 		if name == "" {
 			continue
 		}
-		roots[name] = sidebarRoots{Roots: normalizeFolderList(entry.Roots)}
+		roots[name] = sidebarRoots{Roots: config.NormalizeFolderList(entry.Roots)}
 	}
 	state.Sidebar = roots
 	state.Frame = normalizeWindowFrame(state.Frame)
 	state.Window = normalizeWindowSession(state.Window)
 	if state.Workspaces == nil {
-		state.Workspaces = map[string]WorkspaceSession{}
+		state.Workspaces = map[string]workspacefile.WorkspaceSession{}
 	}
 	for key, workspace := range state.Workspaces {
 		state.Workspaces[key] = normalizeWorkspaceSession(workspace)
@@ -229,7 +221,7 @@ func normalizeSession(state sessionFile) sessionFile {
 // normalizeRecentFiles trims entries, drops repeats past the cap and always
 // returns a non-nil list.
 func normalizeRecentFiles(files []string) []string {
-	normalized := normalizeFileList(files)
+	normalized := config.NormalizeFileList(files)
 	if len(normalized) > maxRecentFiles {
 		normalized = normalized[:maxRecentFiles]
 	}
@@ -255,7 +247,7 @@ func (a *App) GetRecentFiles() ([]string, error) {
 func normalizeWindowSession(session WindowSession) WindowSession {
 	session.Workspace = strings.TrimSpace(session.Workspace)
 	if session.Workspace != "" {
-		session.Workspace = canonicalPath(session.Workspace)
+		session.Workspace = pathutil.CanonicalPath(session.Workspace)
 	}
 	session.Folders = canonicalFolderList(session.Folders)
 	session.OpenFiles = normalizeSessionFiles(session.OpenFiles)
@@ -264,7 +256,7 @@ func normalizeWindowSession(session WindowSession) WindowSession {
 	return session
 }
 
-func normalizeWorkspaceSession(session WorkspaceSession) WorkspaceSession {
+func normalizeWorkspaceSession(session workspacefile.WorkspaceSession) workspacefile.WorkspaceSession {
 	session.Folders = canonicalFolderList(session.Folders)
 	session.OpenFiles = normalizeSessionFiles(session.OpenFiles)
 	session.Active = strings.TrimSpace(session.Active)
@@ -274,7 +266,7 @@ func normalizeWorkspaceSession(session WorkspaceSession) WorkspaceSession {
 
 // normalizeSessionFiles trims paths, drops repeats and applies the cap.
 func normalizeSessionFiles(files []string) []string {
-	normalized := normalizeFileList(files)
+	normalized := config.NormalizeFileList(files)
 	if len(normalized) > maxSessionFiles {
 		normalized = normalized[:maxSessionFiles]
 	}
@@ -294,7 +286,7 @@ func canonicalFolderList(folders []string) []string {
 		if folder == "" {
 			continue
 		}
-		folder = canonicalPath(folder)
+		folder = pathutil.CanonicalPath(folder)
 		if seen[folder] {
 			continue
 		}
@@ -341,8 +333,8 @@ func (a *App) SetSession(window string, session WindowSession) error {
 		state.Window = session
 	}
 	if session.Workspace != "" {
-		key := canonicalPath(session.Workspace)
-		state.Workspaces[key] = WorkspaceSession{
+		key := pathutil.CanonicalPath(session.Workspace)
+		state.Workspaces[key] = workspacefile.WorkspaceSession{
 			Folders:   session.Folders,
 			OpenFiles: session.OpenFiles,
 			Active:    session.Active,
@@ -359,22 +351,22 @@ func (a *App) SetSession(window string, session WindowSession) error {
 // canonical path wins; otherwise a unique entry with the same resolved folders
 // is adopted, which is what makes moving or renaming a workspace file keep its
 // tabs. Two possible matches are left alone rather than guessed between.
-func (a *App) parkedWorkspace(info WorkspaceInfo) WorkspaceSession {
+func (a *App) parkedWorkspace(info workspacefile.WorkspaceInfo) workspacefile.WorkspaceSession {
 	a.sessionMu.Lock()
 	defer a.sessionMu.Unlock()
 
 	state, err := a.loadSessionLocked()
 	if err != nil {
-		return WorkspaceSession{}
+		return workspacefile.WorkspaceSession{}
 	}
-	key := canonicalPath(info.Path)
+	key := pathutil.CanonicalPath(info.Path)
 	if parked, ok := state.Workspaces[key]; ok {
 		return parked
 	}
 
 	folders := canonicalFolderList(info.Folders)
 	var matchKey string
-	var match WorkspaceSession
+	var match workspacefile.WorkspaceSession
 	for candidateKey, parked := range state.Workspaces {
 		if len(parked.Folders) == 0 || !sameFolderSet(parked.Folders, folders) {
 			continue
@@ -385,13 +377,13 @@ func (a *App) parkedWorkspace(info WorkspaceInfo) WorkspaceSession {
 			continue
 		}
 		if matchKey != "" {
-			return WorkspaceSession{}
+			return workspacefile.WorkspaceSession{}
 		}
 		matchKey = candidateKey
 		match = parked
 	}
 	if matchKey == "" {
-		return WorkspaceSession{}
+		return workspacefile.WorkspaceSession{}
 	}
 
 	// Adopt the orphan under the new path. The old key no longer names a

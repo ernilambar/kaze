@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SearchMatch } from '../bindings/kaze/models';
+import type { SearchMatch } from '../bindings/kaze/internal/find/models';
 import {
     expectedModified,
     groupSearchMatches,

@@ -7,6 +7,9 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+
+	"kaze/internal/cli"
+	"kaze/internal/config"
 )
 
 //go:embed all:frontend/dist
@@ -15,14 +18,14 @@ var assets embed.FS
 // startupSettings loads settings.json before the menu is built, so the View
 // menu starts with the same checkmarks the editor will use. A missing or broken
 // file falls back to the defaults the frontend also falls back to.
-func startupSettings() Settings {
+func startupSettings() config.Settings {
 	path, err := settingsFilePath()
 	if err != nil {
-		return defaultSettings()
+		return config.Default()
 	}
-	settings, err := loadSettings(path)
+	settings, err := config.Load(path)
 	if err != nil {
-		return defaultSettings()
+		return config.Default()
 	}
 	return settings
 }
@@ -35,17 +38,17 @@ func main() {
 
 	// Help and version print in this process, before the single-instance lock,
 	// so they never open or forward to a window.
-	switch parseCLIAction(os.Args[1:]) {
-	case cliActionHelp:
+	switch cli.ParseAction(os.Args[1:]) {
+	case cli.ActionHelp:
 		fmt.Print(cliUsageText(meta))
 		return
-	case cliActionVersion:
+	case cli.ActionVersion:
 		fmt.Print(cliVersionText(meta))
 		return
 	}
 
 	// Paths on the command line are opened by the UI once it is live.
-	app.queueLaunch(parseLaunchRequest(os.Args[1:]))
+	app.queueLaunch(cli.ParseLaunchRequest(os.Args[1:]))
 
 	wailsApp := application.New(application.Options{
 		Name:        meta.ProductName,
@@ -97,7 +100,7 @@ func main() {
 	// The first window adopts the paths queued before it existed. Later windows
 	// are created by New Window, Open Folder in New Window and Move Tab to New
 	// Window, each with its own launch request.
-	if err := app.openWindow(emptyLaunchRequest()); err != nil {
+	if err := app.openWindow(cli.EmptyLaunchRequest()); err != nil {
 		println("Error:", err.Error())
 		return
 	}

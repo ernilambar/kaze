@@ -1,4 +1,4 @@
-import type { Keybinding } from '../bindings/kaze/models';
+import type { Keybinding } from '../bindings/kaze/internal/keybindings/models';
 
 // KeyContext is the small set of states a `when` expression can test. Unknown
 // identifiers evaluate to false, matching VS Code's context keys.
@@ -15,7 +15,7 @@ export interface KeybindingBinding {
     when: string;
 }
 
-// normalizeChord mirrors normalizeChord in keybindings.go, so a menu
+// normalizeChord mirrors normalizeChord in internal/keybindings/keybindings.go, so a menu
 // accelerator and the JSON spelling compare equal.
 export function normalizeChord(chord: string): string {
     const modifiers: string[] = [];

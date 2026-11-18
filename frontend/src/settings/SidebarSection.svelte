@@ -10,7 +10,7 @@
 
     let { sidebarVisible, autoReveal, onSidebarVisible, onAutoReveal }: Props = $props();
 
-    // SIDEBAR_DEFAULTS mirrors defaultSettings in settings.go. The overlay only
+    // SIDEBAR_DEFAULTS mirrors Default in internal/config/settings.go. The overlay only
     // needs the two booleans it can reset; the folder list has no default.
     const SIDEBAR_DEFAULTS = { visible: true, autoReveal: true } as const;
 </script>

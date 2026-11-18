@@ -1,8 +1,9 @@
-import type * as models from '../bindings/kaze/models';
+import type * as cli from '../bindings/kaze/internal/cli/models';
+import type * as documentModels from '../bindings/kaze/internal/document/models';
 import { GetLaunchRequest, LoadDocument } from '../bindings/kaze/app';
 import { onWindowEvent } from './windowstate';
 
-// LaunchBuffer mirrors LaunchBuffer in cli.go: one tab handed to another
+// LaunchBuffer mirrors LaunchBuffer in internal/cli/cli.go: one tab handed to another
 // window. A text buffer carries its text so unsaved edits move with it.
 export interface LaunchBuffer {
     name: string;
@@ -19,7 +20,7 @@ export interface LaunchBuffer {
     invalid_utf8: boolean;
 }
 
-// Mirrors LaunchRequest in cli.go. The backend resolves paths; the frontend only
+// Mirrors LaunchRequest in internal/cli/cli.go. The backend resolves paths; the frontend only
 // decides what to display for them.
 export interface LaunchRequest {
     files: string[];
@@ -42,7 +43,7 @@ export const emptyLaunchRequest: LaunchRequest = {
 // toLaunchRequest normalizes the binding model, whose slices are nullable
 // because a nil Go slice encodes as null. The rest of the frontend works with
 // arrays only.
-export function toLaunchRequest(request: models.LaunchRequest): LaunchRequest {
+export function toLaunchRequest(request: cli.LaunchRequest): LaunchRequest {
     return {
         files: request.files ?? [],
         folders: request.folders ?? [],
@@ -67,11 +68,11 @@ export function toLaunchRequest(request: models.LaunchRequest): LaunchRequest {
 }
 
 // DocumentKind selects the tab's surface: Monaco for text and diffs, the image
-// viewer for pictures. Mirrors the Kind field in document.go, plus the
+// viewer for pictures. Mirrors the Kind field in internal/document/document.go, plus the
 // frontend-only diff tab.
 export type DocumentKind = 'text' | 'image' | 'diff';
 
-// DocumentEOL mirrors the EOL flag in document.go. A document is shown with
+// DocumentEOL mirrors the EOL flag in internal/document/document.go. A document is shown with
 // this sequence and written back with it, so a save never converts a file's
 // line endings unless the user edited them.
 export type DocumentEOL = 'lf' | 'crlf';
@@ -267,7 +268,7 @@ export function shownPath(document: OpenDocument | undefined): string {
     return document.path !== '' ? document.path : document.name;
 }
 
-export function toOpenDocument(document: models.Document): OpenDocument {
+export function toOpenDocument(document: documentModels.Document): OpenDocument {
     return {
         id: document.path,
         path: document.path,

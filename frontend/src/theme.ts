@@ -1,7 +1,7 @@
 import { onWindowEvent } from './windowstate';
 import type * as monaco from 'monaco-editor';
 import { ListThemes, LoadTheme } from '../bindings/kaze/app';
-import type * as models from '../bindings/kaze/models';
+import type * as models from '../bindings/kaze/internal/themes/models';
 import {
     DEFAULT_UI_FONT,
     type ThemeMode,
@@ -45,7 +45,7 @@ export interface ThemePalette {
     family: string;
     name: string;
     appearance: ThemeAppearance;
-    // CSS custom property names without the `--`, matching settings.go.
+    // CSS custom property names without the `--`, matching internal/themes/themes.go.
     ui: Record<string, string>;
     // Monaco color ids.
     editor: Record<string, string>;

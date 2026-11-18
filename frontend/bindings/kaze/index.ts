@@ -7,37 +7,6 @@ export {
 };
 
 export type {
-    Document,
-    EditorSettings,
-    FileList,
-    FileTreeResult,
-    FilesSettings,
-    FolderEntry,
-    GitBaseline,
-    GitChange,
-    GitRepo,
-    GitSnapshot,
-    Keybinding,
-    KeybindingsState,
-    LaunchBuffer,
-    LaunchRequest,
     PrintRequest,
-    ReplaceResult,
-    SaveRequest,
-    SaveResult,
-    SearchMatch,
-    SearchRequest,
-    SearchResult,
-    SearchSettings,
-    Settings,
-    SidebarSettings,
-    ThemeCatalog,
-    ThemePalette,
-    ThemePreview,
-    ThemeSettings,
-    ThemeSummary,
-    UISettings,
-    WindowSession,
-    WorkspaceInfo,
-    WorkspaceSession
+    WindowSession
 } from "./models.js";

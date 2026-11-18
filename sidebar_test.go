@@ -5,6 +5,9 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+
+	"kaze/internal/cli"
+	"kaze/internal/config"
 )
 
 // useTempSettingsDir points the settings file at a fresh directory, so the
@@ -99,9 +102,9 @@ func TestSetSidebarAutoRevealSavesChoice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("settingsFilePath() error = %v", err)
 	}
-	settings, err := loadSettings(path)
+	settings, err := config.Load(path)
 	if err != nil {
-		t.Fatalf("loadSettings() error = %v", err)
+		t.Fatalf("config.Load() error = %v", err)
 	}
 	if settings.Sidebar.AutoReveal {
 		t.Fatal("Sidebar.AutoReveal = true, want the saved false")
@@ -229,8 +232,8 @@ func TestSetSidebarFoldersKeepsOldListOnMissingFolder(t *testing.T) {
 func TestSidebarRootsAreIsolatedPerWindow(t *testing.T) {
 	useTempSettingsDir(t)
 	app := NewApp()
-	app.registerWindow(defaultWindowName, emptyLaunchRequest())
-	app.registerWindow("window-2", emptyLaunchRequest())
+	app.registerWindow(defaultWindowName, cli.EmptyLaunchRequest())
+	app.registerWindow("window-2", cli.EmptyLaunchRequest())
 	first := t.TempDir()
 	second := t.TempDir()
 
@@ -260,8 +263,8 @@ func TestSidebarRootsAreIsolatedPerWindow(t *testing.T) {
 func TestOnlyLaunchWindowSavesSidebarRoots(t *testing.T) {
 	useTempSettingsDir(t)
 	app := NewApp()
-	app.registerWindow(defaultWindowName, emptyLaunchRequest())
-	app.registerWindow("window-2", emptyLaunchRequest())
+	app.registerWindow(defaultWindowName, cli.EmptyLaunchRequest())
+	app.registerWindow("window-2", cli.EmptyLaunchRequest())
 	second := t.TempDir()
 
 	if _, err := app.SetSidebarFolders("window-2", []string{second}); err != nil {

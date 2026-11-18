@@ -1,4 +1,4 @@
-package main
+package ignore
 
 import (
 	"os"
@@ -10,22 +10,22 @@ func TestGitignoreRulesHideMatchingFiles(t *testing.T) {
 	dir := t.TempDir()
 	rules := parseIgnoreRules(dir, "*.log\nbuild/\n/secret.txt\n!keep.log\n")
 
-	if !ignored(rules, filepath.Join(dir, "debug.log"), false) {
+	if !Ignored(rules, filepath.Join(dir, "debug.log"), false) {
 		t.Error("debug.log was not ignored")
 	}
-	if ignored(rules, filepath.Join(dir, "keep.log"), false) {
+	if Ignored(rules, filepath.Join(dir, "keep.log"), false) {
 		t.Error("keep.log was ignored despite the negation")
 	}
-	if !ignored(rules, filepath.Join(dir, "build"), true) {
+	if !Ignored(rules, filepath.Join(dir, "build"), true) {
 		t.Error("build/ was not ignored")
 	}
-	if ignored(rules, filepath.Join(dir, "build"), false) {
+	if Ignored(rules, filepath.Join(dir, "build"), false) {
 		t.Error("directory-only pattern matched a file")
 	}
-	if !ignored(rules, filepath.Join(dir, "secret.txt"), false) {
+	if !Ignored(rules, filepath.Join(dir, "secret.txt"), false) {
 		t.Error("anchored pattern did not match at the root")
 	}
-	if ignored(rules, filepath.Join(dir, "src", "secret.txt"), false) {
+	if Ignored(rules, filepath.Join(dir, "src", "secret.txt"), false) {
 		t.Error("anchored pattern matched below its directory")
 	}
 }
@@ -38,10 +38,10 @@ func TestGitignoreRulesInChildDirectoryOnlyApplyBelowIt(t *testing.T) {
 	}
 
 	rules := append(parseIgnoreRules(dir, ""), parseIgnoreRules(child, "*.gen.go")...)
-	if !ignored(rules, filepath.Join(child, "model.gen.go"), false) {
+	if !Ignored(rules, filepath.Join(child, "model.gen.go"), false) {
 		t.Error("child rule did not match its own directory")
 	}
-	if ignored(rules, filepath.Join(dir, "model.gen.go"), false) {
+	if Ignored(rules, filepath.Join(dir, "model.gen.go"), false) {
 		t.Error("child rule matched the parent directory")
 	}
 }

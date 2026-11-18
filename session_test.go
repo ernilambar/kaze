@@ -6,13 +6,17 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"kaze/internal/cli"
+	"kaze/internal/pathutil"
+	"kaze/internal/workspacefile"
 )
 
 func TestWorkspaceSessionParksTabsUnderCanonicalPath(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	app := NewApp()
 	folder := t.TempDir()
-	workspace := writeWorkspaceTestFileAt(t, folder, "work"+workspaceExtension)
+	workspace := writeWorkspaceTestFileAt(t, folder, "work"+workspacefile.Extension)
 
 	err := app.SetSession("", WindowSession{
 		Workspace: workspace,
@@ -39,8 +43,8 @@ func TestWorkspaceSessionFollowsRenamedWorkspaceByFolderSet(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	app := NewApp()
 	folder := t.TempDir()
-	oldPath := filepath.Join(folder, "old"+workspaceExtension)
-	newPath := writeWorkspaceTestFileAt(t, folder, "new"+workspaceExtension)
+	oldPath := filepath.Join(folder, "old"+workspacefile.Extension)
+	newPath := writeWorkspaceTestFileAt(t, folder, "new"+workspacefile.Extension)
 
 	err := app.SetSession("", WindowSession{
 		Workspace: oldPath,
@@ -73,10 +77,10 @@ func TestWorkspaceSessionFollowsRenamedWorkspaceByFolderSet(t *testing.T) {
 	if err := json.Unmarshal(data, &state); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := state.Workspaces[canonicalPath(oldPath)]; ok {
+	if _, ok := state.Workspaces[pathutil.CanonicalPath(oldPath)]; ok {
 		t.Error("the old workspace key survived adoption")
 	}
-	if _, ok := state.Workspaces[canonicalPath(newPath)]; !ok {
+	if _, ok := state.Workspaces[pathutil.CanonicalPath(newPath)]; !ok {
 		t.Error("the renamed workspace has no parked session")
 	}
 }
@@ -85,9 +89,9 @@ func TestWorkspaceSessionDoesNotGuessBetweenDuplicateFolderSets(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	app := NewApp()
 	folder := t.TempDir()
-	first := writeWorkspaceTestFileAt(t, folder, "first"+workspaceExtension)
-	second := writeWorkspaceTestFileAt(t, folder, "second"+workspaceExtension)
-	target := writeWorkspaceTestFileAt(t, folder, "target"+workspaceExtension)
+	first := writeWorkspaceTestFileAt(t, folder, "first"+workspacefile.Extension)
+	second := writeWorkspaceTestFileAt(t, folder, "second"+workspacefile.Extension)
+	target := writeWorkspaceTestFileAt(t, folder, "target"+workspacefile.Extension)
 	// Both parked sets are orphans, so the folder set alone cannot say which
 	// one the new target belongs to.
 	if err := os.Remove(first); err != nil {
@@ -126,10 +130,10 @@ func writeWorkspaceTestFileAt(t *testing.T, folder, name string) string {
 func TestLaterWindowsParkWithoutReplacingTheLaunchSession(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	app := NewApp()
-	app.registerWindow("main", emptyLaunchRequest())
-	app.registerWindow("window-2", emptyLaunchRequest())
+	app.registerWindow("main", cli.EmptyLaunchRequest())
+	app.registerWindow("window-2", cli.EmptyLaunchRequest())
 	folder := t.TempDir()
-	workspace := writeWorkspaceTestFileAt(t, folder, "work"+workspaceExtension)
+	workspace := writeWorkspaceTestFileAt(t, folder, "work"+workspacefile.Extension)
 
 	if err := app.SetSession("main", WindowSession{OpenFiles: []string{"/main.txt"}}); err != nil {
 		t.Fatal(err)
@@ -162,8 +166,8 @@ func TestWorkspaceSessionDoesNotStealACopiedWorkspace(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	app := NewApp()
 	folder := t.TempDir()
-	original := writeWorkspaceTestFileAt(t, folder, "original"+workspaceExtension)
-	copied := writeWorkspaceTestFileAt(t, folder, "copy"+workspaceExtension)
+	original := writeWorkspaceTestFileAt(t, folder, "original"+workspacefile.Extension)
+	copied := writeWorkspaceTestFileAt(t, folder, "copy"+workspacefile.Extension)
 
 	if err := app.SetSession("", WindowSession{
 		Workspace: original,
@@ -193,7 +197,7 @@ func TestWorkspaceSessionDoesNotStealACopiedWorkspace(t *testing.T) {
 	if err := json.Unmarshal(data, &state); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := state.Workspaces[canonicalPath(original)]; !ok {
+	if _, ok := state.Workspaces[pathutil.CanonicalPath(original)]; !ok {
 		t.Error("the original workspace lost its parked session")
 	}
 }
@@ -274,5 +278,12 @@ func TestNormalizeWindowFrameDropsUnusable(t *testing.T) {
 	frame := WindowFrame{Width: minWindowWidth, Height: minWindowHeight}
 	if got := normalizeWindowFrame(frame); got != frame {
 		t.Fatalf("valid frame = %+v, want it kept", got)
+	}
+}
+
+func writeWorkspaceTestFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }

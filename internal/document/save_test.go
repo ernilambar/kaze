@@ -1,4 +1,4 @@
-package main
+package document
 
 import (
 	"os"
@@ -10,15 +10,15 @@ import (
 func TestSaveDocumentWritesContent(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "notes.txt")
 
-	result, err := saveDocument(SaveRequest{Path: path, Content: "hello\n"})
+	result, err := Save(SaveRequest{Path: path, Content: "hello\n"})
 	if err != nil {
-		t.Fatalf("saveDocument() error = %v", err)
+		t.Fatalf("Save() error = %v", err)
 	}
 	if result.Conflict {
-		t.Fatal("saveDocument() conflict = true, want a plain write")
+		t.Fatal("Save() conflict = true, want a plain write")
 	}
 	if result.Path != path || result.Name != "notes.txt" {
-		t.Fatalf("saveDocument() result = %+v, want it to name %s", result, path)
+		t.Fatalf("Save() result = %+v, want it to name %s", result, path)
 	}
 
 	data, err := os.ReadFile(path)
@@ -42,8 +42,8 @@ func TestSaveDocumentKeepsModeAndCleansUp(t *testing.T) {
 		t.Fatalf("set mode: %v", err)
 	}
 
-	if _, err := saveDocument(SaveRequest{Path: path, Content: "#!/bin/sh\necho hi\n"}); err != nil {
-		t.Fatalf("saveDocument() error = %v", err)
+	if _, err := Save(SaveRequest{Path: path, Content: "#!/bin/sh\necho hi\n"}); err != nil {
+		t.Fatalf("Save() error = %v", err)
 	}
 
 	info, err := os.Stat(path)
@@ -77,8 +77,8 @@ func TestSaveDocumentWritesThroughSymlink(t *testing.T) {
 		t.Skipf("cannot create a symlink: %v", err)
 	}
 
-	if _, err := saveDocument(SaveRequest{Path: link, Content: "new"}); err != nil {
-		t.Fatalf("saveDocument() error = %v", err)
+	if _, err := Save(SaveRequest{Path: link, Content: "new"}); err != nil {
+		t.Fatalf("Save() error = %v", err)
 	}
 
 	info, err := os.Lstat(link)
@@ -111,16 +111,16 @@ func TestSaveDocumentReportsResolvedPath(t *testing.T) {
 	}
 	path := filepath.Join(linkDir, "notes.txt")
 
-	result, err := saveDocument(SaveRequest{Path: path, Content: "hello\n"})
+	result, err := Save(SaveRequest{Path: path, Content: "hello\n"})
 	if err != nil {
-		t.Fatalf("saveDocument() error = %v", err)
+		t.Fatalf("Save() error = %v", err)
 	}
 	if result.Path != path {
-		t.Fatalf("saveDocument() path = %q, want the chosen spelling %q", result.Path, path)
+		t.Fatalf("Save() path = %q, want the chosen spelling %q", result.Path, path)
 	}
 	want := filepath.Join(realDir, "notes.txt")
 	if result.RealPath != want {
-		t.Fatalf("saveDocument() real path = %q, want %q", result.RealPath, want)
+		t.Fatalf("Save() real path = %q, want %q", result.RealPath, want)
 	}
 }
 
@@ -134,22 +134,22 @@ func TestSaveDocumentRestoresBOMAndCRLF(t *testing.T) {
 		t.Fatalf("write file: %v", err)
 	}
 
-	doc, err := loadDocument(path)
+	doc, err := Load(path)
 	if err != nil {
-		t.Fatalf("loadDocument() error = %v", err)
+		t.Fatalf("Load() error = %v", err)
 	}
 	// Monaco hands the text back with its model EOL, which is the file's.
-	result, err := saveDocument(SaveRequest{
+	result, err := Save(SaveRequest{
 		Path:    path,
 		Content: doc.Content,
 		BOM:     doc.BOM,
 		EOL:     doc.EOL,
 	})
 	if err != nil {
-		t.Fatalf("saveDocument() error = %v", err)
+		t.Fatalf("Save() error = %v", err)
 	}
 	if result.Conflict || result.InvalidUTF8 {
-		t.Fatalf("saveDocument() result = %+v, want a plain write", result)
+		t.Fatalf("Save() result = %+v, want a plain write", result)
 	}
 
 	data, err := os.ReadFile(path)
@@ -171,16 +171,16 @@ func TestSaveDocumentWarnsBeforeWritingInvalidUTF8(t *testing.T) {
 		t.Fatalf("write file: %v", err)
 	}
 
-	result, err := saveDocument(SaveRequest{
+	result, err := Save(SaveRequest{
 		Path:        path,
 		Content:     "caf\uFFFD\n",
 		InvalidUTF8: true,
 	})
 	if err != nil {
-		t.Fatalf("saveDocument() error = %v", err)
+		t.Fatalf("Save() error = %v", err)
 	}
 	if !result.InvalidUTF8 {
-		t.Fatal("saveDocument() invalid_utf8 = false, want the write to wait for agreement")
+		t.Fatal("Save() invalid_utf8 = false, want the write to wait for agreement")
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -190,17 +190,17 @@ func TestSaveDocumentWarnsBeforeWritingInvalidUTF8(t *testing.T) {
 		t.Fatalf("file content = %q, want the original bytes untouched", data)
 	}
 
-	result, err = saveDocument(SaveRequest{
+	result, err = Save(SaveRequest{
 		Path:             path,
 		Content:          "caf\uFFFD\n",
 		InvalidUTF8:      true,
 		AllowInvalidUTF8: true,
 	})
 	if err != nil {
-		t.Fatalf("saveDocument() error = %v", err)
+		t.Fatalf("Save() error = %v", err)
 	}
 	if result.InvalidUTF8 {
-		t.Fatal("saveDocument() invalid_utf8 = true, want the agreed write to go through")
+		t.Fatal("Save() invalid_utf8 = true, want the agreed write to go through")
 	}
 	data, err = os.ReadFile(path)
 	if err != nil {
@@ -216,17 +216,17 @@ func TestSaveDocumentWarnsBeforeWritingInvalidUTF8(t *testing.T) {
 func TestSaveDocumentModifiedMatchesReload(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "notes.txt")
 
-	saved, err := saveDocument(SaveRequest{Path: path, Content: "text\n"})
+	saved, err := Save(SaveRequest{Path: path, Content: "text\n"})
 	if err != nil {
-		t.Fatalf("saveDocument() error = %v", err)
+		t.Fatalf("Save() error = %v", err)
 	}
 
-	doc, err := loadDocument(path)
+	doc, err := Load(path)
 	if err != nil {
-		t.Fatalf("loadDocument() error = %v", err)
+		t.Fatalf("Load() error = %v", err)
 	}
 	if doc.Modified != saved.Modified {
-		t.Fatalf("loadDocument() modified = %d, want %d", doc.Modified, saved.Modified)
+		t.Fatalf("Load() modified = %d, want %d", doc.Modified, saved.Modified)
 	}
 }
 
@@ -237,9 +237,9 @@ func TestSaveDocumentRejectsChangedFile(t *testing.T) {
 		t.Fatalf("write file: %v", err)
 	}
 
-	doc, err := loadDocument(path)
+	doc, err := Load(path)
 	if err != nil {
-		t.Fatalf("loadDocument() error = %v", err)
+		t.Fatalf("Load() error = %v", err)
 	}
 
 	// Another program writes the file after the buffer was read.
@@ -251,16 +251,16 @@ func TestSaveDocumentRejectsChangedFile(t *testing.T) {
 		t.Fatalf("set file time: %v", err)
 	}
 
-	result, err := saveDocument(SaveRequest{
+	result, err := Save(SaveRequest{
 		Path:             path,
 		Content:          "mine",
 		ExpectedModified: doc.Modified,
 	})
 	if err != nil {
-		t.Fatalf("saveDocument() error = %v", err)
+		t.Fatalf("Save() error = %v", err)
 	}
 	if !result.Conflict {
-		t.Fatal("saveDocument() conflict = false, want the changed file to block the write")
+		t.Fatal("Save() conflict = false, want the changed file to block the write")
 	}
 
 	data, err := os.ReadFile(path)
@@ -279,26 +279,26 @@ func TestSaveDocumentOverwritesChangedFile(t *testing.T) {
 		t.Fatalf("write file: %v", err)
 	}
 
-	doc, err := loadDocument(path)
+	doc, err := Load(path)
 	if err != nil {
-		t.Fatalf("loadDocument() error = %v", err)
+		t.Fatalf("Load() error = %v", err)
 	}
 	later := time.Now().Add(time.Minute)
 	if err := os.Chtimes(path, later, later); err != nil {
 		t.Fatalf("set file time: %v", err)
 	}
 
-	result, err := saveDocument(SaveRequest{
+	result, err := Save(SaveRequest{
 		Path:             path,
 		Content:          "mine",
 		ExpectedModified: doc.Modified,
 		Overwrite:        true,
 	})
 	if err != nil {
-		t.Fatalf("saveDocument() error = %v", err)
+		t.Fatalf("Save() error = %v", err)
 	}
 	if result.Conflict {
-		t.Fatal("saveDocument() conflict = true, want the overwrite to go through")
+		t.Fatal("Save() conflict = true, want the overwrite to go through")
 	}
 
 	data, err := os.ReadFile(path)
@@ -318,24 +318,24 @@ func TestSaveDocumentRecreatesDeletedFile(t *testing.T) {
 		t.Fatalf("write file: %v", err)
 	}
 
-	doc, err := loadDocument(path)
+	doc, err := Load(path)
 	if err != nil {
-		t.Fatalf("loadDocument() error = %v", err)
+		t.Fatalf("Load() error = %v", err)
 	}
 	if err := os.Remove(path); err != nil {
 		t.Fatalf("remove file: %v", err)
 	}
 
-	result, err := saveDocument(SaveRequest{
+	result, err := Save(SaveRequest{
 		Path:             path,
 		Content:          "kept",
 		ExpectedModified: doc.Modified,
 	})
 	if err != nil {
-		t.Fatalf("saveDocument() error = %v", err)
+		t.Fatalf("Save() error = %v", err)
 	}
 	if result.Conflict {
-		t.Fatal("saveDocument() conflict = true, want a deleted file to be recreated")
+		t.Fatal("Save() conflict = true, want a deleted file to be recreated")
 	}
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("saved file is missing: %v", err)
@@ -343,54 +343,13 @@ func TestSaveDocumentRecreatesDeletedFile(t *testing.T) {
 }
 
 func TestSaveDocumentRejectsFolder(t *testing.T) {
-	if _, err := saveDocument(SaveRequest{Path: t.TempDir(), Content: "x"}); err == nil {
-		t.Fatal("saveDocument() error = nil, want a folder to be rejected")
+	if _, err := Save(SaveRequest{Path: t.TempDir(), Content: "x"}); err == nil {
+		t.Fatal("Save() error = nil, want a folder to be rejected")
 	}
 }
 
 func TestSaveDocumentRejectsEmptyPath(t *testing.T) {
-	if _, err := saveDocument(SaveRequest{Path: "  ", Content: "x"}); err == nil {
-		t.Fatal("saveDocument() error = nil, want an empty path to be rejected")
-	}
-}
-
-func TestAtomicWriteFileKeepsHardLink(t *testing.T) {
-	root := t.TempDir()
-	path := filepath.Join(root, "a.txt")
-	link := filepath.Join(root, "b.txt")
-	if err := os.WriteFile(path, []byte("old"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Link(path, link); err != nil {
-		t.Fatal(err)
-	}
-	if err := atomicWriteFile(path, []byte("new")); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(link)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(data) != "new" {
-		t.Fatalf("hard link reads %q, want \"new\"", data)
-	}
-}
-
-func TestAtomicWriteFileInReadOnlyFolder(t *testing.T) {
-	root := t.TempDir()
-	path := filepath.Join(root, "a.txt")
-	if err := os.WriteFile(path, []byte("old"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(root, 0o555); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { os.Chmod(root, 0o755) })
-	if err := atomicWriteFile(path, []byte("new")); err != nil {
-		t.Fatalf("atomicWriteFile() error = %v", err)
-	}
-	data, _ := os.ReadFile(path)
-	if string(data) != "new" {
-		t.Fatalf("file reads %q, want \"new\"", data)
+	if _, err := Save(SaveRequest{Path: "  ", Content: "x"}); err == nil {
+		t.Fatal("Save() error = nil, want an empty path to be rejected")
 	}
 }

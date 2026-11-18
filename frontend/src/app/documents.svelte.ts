@@ -6,7 +6,7 @@ import {
     SaveDocument,
     SaveFileDialog,
 } from '../../bindings/kaze/app';
-import type { SaveResult } from '../../bindings/kaze/models';
+import type { SaveResult } from '../../bindings/kaze/internal/document/models';
 import {
     createUntitledDocument,
     normalizeEol,

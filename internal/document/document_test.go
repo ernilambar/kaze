@@ -1,0 +1,289 @@
+package document
+
+import (
+	"encoding/base64"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"kaze/internal/pathutil"
+)
+
+func TestLoadDocumentReadsTextFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "notes.txt")
+	if err := os.WriteFile(path, []byte("first\nsecond\n"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	doc, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	want := Document{
+		Path:     path,
+		RealPath: pathutil.CanonicalPath(path),
+		Name:     "notes.txt",
+		Kind:     documentKindText,
+		Content:  "first\nsecond\n",
+		EOL:      documentEOLlf,
+		BOM:      false,
+		Modified: 0,
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat file: %v", err)
+	}
+	want.Modified = info.ModTime().UnixMilli()
+	if doc != want {
+		t.Fatalf("Load() = %+v, want %+v", doc, want)
+	}
+}
+
+func TestLoadDocumentResolvesSymlinkedPaths(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "notes.txt")
+	if err := os.WriteFile(target, []byte("first\n"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	realTarget, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		t.Fatalf("resolve target: %v", err)
+	}
+
+	// A symlinked directory is the common case: a project reached through a
+	// link (or /var on macOS) must still resolve to the file's real path.
+	linkDir := filepath.Join(t.TempDir(), "project")
+	if err := os.Symlink(dir, linkDir); err != nil {
+		t.Skipf("cannot create a symlink: %v", err)
+	}
+	linked := filepath.Join(linkDir, "notes.txt")
+
+	doc, err := Load(linked)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if doc.Path != linked {
+		t.Fatalf("Load() path = %q, want the opened path %q", doc.Path, linked)
+	}
+	if doc.RealPath != realTarget {
+		t.Fatalf("Load() real path = %q, want %q", doc.RealPath, realTarget)
+	}
+
+	direct, err := Load(target)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if direct.RealPath != doc.RealPath {
+		t.Fatalf(
+			"real paths differ: %q through the link and %q directly, want one file to match one tab",
+			doc.RealPath,
+			direct.RealPath,
+		)
+	}
+}
+
+func TestLoadDocumentResolvesSymlinkedFile(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "notes.txt")
+	if err := os.WriteFile(target, []byte("first\n"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	alias := filepath.Join(dir, "alias.txt")
+	if err := os.Symlink(target, alias); err != nil {
+		t.Skipf("cannot create a symlink: %v", err)
+	}
+	realTarget, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		t.Fatalf("resolve target: %v", err)
+	}
+
+	doc, err := Load(alias)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if doc.Path != alias || doc.Name != "alias.txt" {
+		t.Fatalf("Load() = %+v, want the alias spelling for display", doc)
+	}
+	if doc.RealPath != realTarget {
+		t.Fatalf("Load() real path = %q, want %q", doc.RealPath, realTarget)
+	}
+}
+
+func TestLoadDocumentStripsBOMAndDetectsCRLF(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "crlf.txt")
+	original := "\uFEFFfirst\r\nsecond\r\n"
+	if err := os.WriteFile(path, []byte(original), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	doc, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if !doc.BOM {
+		t.Fatal("Load() BOM = false, want the byte order mark recorded")
+	}
+	if doc.EOL != documentEOLcrlf {
+		t.Fatalf("Load() EOL = %q, want %q", doc.EOL, documentEOLcrlf)
+	}
+	if doc.Content != "first\r\nsecond\r\n" {
+		t.Fatalf("Load() content = %q, want the BOM stripped and the line endings kept", doc.Content)
+	}
+}
+
+func TestLoadDocumentOpensInvalidUTF8WithReplacement(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "latin1.txt")
+	if err := os.WriteFile(path, []byte{'c', 'a', 'f', 0xe9, '\n'}, 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	doc, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if !doc.InvalidUTF8 {
+		t.Fatal("Load() InvalidUTF8 = false, want the mis-encoded file flagged")
+	}
+	if doc.Content != "caf\uFFFD\n" {
+		t.Fatalf("Load() content = %q, want replacement characters", doc.Content)
+	}
+}
+
+func TestLoadDocumentRejectsDirectory(t *testing.T) {
+	if _, err := Load(t.TempDir()); err == nil {
+		t.Fatal("Load() error = nil, want a folder is not a document error")
+	}
+}
+
+func TestLoadDocumentRejectsMissingFile(t *testing.T) {
+	if _, err := Load(filepath.Join(t.TempDir(), "nope.txt")); err == nil {
+		t.Fatal("Load() error = nil, want a missing file error")
+	}
+}
+
+func TestLoadDocumentReadsImage(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "diagram.PNG")
+	data := []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	doc, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if doc.Kind != documentKindImage {
+		t.Fatalf("Load() kind = %q, want %q", doc.Kind, documentKindImage)
+	}
+	if doc.Content != "" {
+		t.Fatalf("Load() content = %q, want empty for an image", doc.Content)
+	}
+	want := "data:image/png;base64," + base64.StdEncoding.EncodeToString(data)
+	if doc.Src != want {
+		t.Fatalf("Load() src = %q, want %q", doc.Src, want)
+	}
+}
+
+func TestLoadDocumentMapsImageExtensions(t *testing.T) {
+	mimeTypes := map[string]string{
+		".png":  "image/png",
+		".jpg":  "image/jpeg",
+		".jpeg": "image/jpeg",
+		".gif":  "image/gif",
+		".webp": "image/webp",
+		".bmp":  "image/bmp",
+		".tif":  "image/tiff",
+		".tiff": "image/tiff",
+		".ico":  "image/x-icon",
+	}
+	dir := t.TempDir()
+	for ext, mimeType := range mimeTypes {
+		path := filepath.Join(dir, "image"+ext)
+		if err := os.WriteFile(path, []byte{0x00}, 0o644); err != nil {
+			t.Fatalf("write file: %v", err)
+		}
+
+		doc, err := Load(path)
+		if err != nil {
+			t.Fatalf("Load(%s) error = %v", ext, err)
+		}
+		if doc.Kind != documentKindImage {
+			t.Fatalf("Load(%s) kind = %q, want %q", ext, doc.Kind, documentKindImage)
+		}
+		if !strings.HasPrefix(doc.Src, "data:"+mimeType+";base64,") {
+			t.Fatalf("Load(%s) src = %q, want %s data URL", ext, doc.Src, mimeType)
+		}
+	}
+}
+
+func TestLoadDocumentRejectsBinaryContent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "blob.bin")
+	if err := os.WriteFile(path, []byte{0x89, 0x50, 0x4e, 0x47, 0x00, 0xff, 0xfe}, 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	if _, err := Load(path); err == nil {
+		t.Fatal("Load() error = nil, want a not a text file error")
+	}
+}
+
+func TestLoadDocumentRejectsOversizedFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "huge.txt")
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("create file: %v", err)
+	}
+	if err := file.Truncate(MaxSize + 1); err != nil {
+		file.Close()
+		t.Skipf("cannot create a sparse file on this filesystem: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close file: %v", err)
+	}
+
+	_, err = Load(path)
+	if err == nil {
+		t.Fatal("Load() error = nil, want a too large error")
+	}
+	if !strings.Contains(err.Error(), "larger than") {
+		t.Fatalf("Load() error = %v, want it to mention the size limit", err)
+	}
+}
+
+func TestLoadDocumentRejectsOversizedImage(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "huge.png")
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("create file: %v", err)
+	}
+	if err := file.Truncate(maxImageSize + 1); err != nil {
+		file.Close()
+		t.Skipf("cannot create a sparse file on this filesystem: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close file: %v", err)
+	}
+
+	_, err = Load(path)
+	if err == nil {
+		t.Fatal("Load() error = nil, want a too large error")
+	}
+	if !strings.Contains(err.Error(), "larger than") {
+		t.Fatalf("Load() error = %v, want it to mention the size limit", err)
+	}
+}
+
+func TestLoadDocumentRejectsSpecialFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "null")
+	if err := os.Symlink("/dev/null", path); err != nil {
+		t.Skipf("cannot create a symlink: %v", err)
+	}
+
+	if _, err := Load(path); err == nil {
+		t.Fatal("Load() error = nil, want a not a regular file error")
+	}
+}

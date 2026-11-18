@@ -1,6 +1,6 @@
 import { tick } from 'svelte';
 import { ReplaceInProject, SearchProject } from '../../bindings/kaze/app';
-import type { SearchMatch } from '../../bindings/kaze/models';
+import type { SearchMatch } from '../../bindings/kaze/internal/find/models';
 import type { OpenDocument } from '../document';
 import {
     expectedModified,

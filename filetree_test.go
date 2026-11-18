@@ -6,6 +6,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	"kaze/internal/fileops"
 )
 
 func TestCreateFileCreatesAnEmptyFile(t *testing.T) {
@@ -473,12 +475,12 @@ func TestResolveInputPathExpandsHome(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	got, err := resolveInputPath("~/Code", "/tmp")
+	got, err := fileops.ResolveInputPath("~/Code", "/tmp")
 	if err != nil {
-		t.Fatalf("resolveInputPath() error = %v", err)
+		t.Fatalf("fileops.ResolveInputPath() error = %v", err)
 	}
 	if want := filepath.Join(home, "Code"); got != want {
-		t.Fatalf("resolveInputPath() = %q, want %q", got, want)
+		t.Fatalf("fileops.ResolveInputPath() = %q, want %q", got, want)
 	}
 }
 
@@ -497,24 +499,6 @@ func TestTrashPathReportsAMissingFile(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "Trash") {
 		t.Fatalf("TrashPath() error = %v, want it to mention the Trash", err)
-	}
-}
-
-func TestIsWithinPath(t *testing.T) {
-	cases := []struct {
-		folder string
-		path   string
-		want   bool
-	}{
-		{"/a/b", "/a/b", true},
-		{"/a/b", "/a/b/c", true},
-		{"/a/b", "/a/bc", false},
-		{"/a/b", "/a", false},
-	}
-	for _, entry := range cases {
-		if got := isWithinPath(entry.folder, entry.path); got != entry.want {
-			t.Errorf("isWithinPath(%q, %q) = %v, want %v", entry.folder, entry.path, got, entry.want)
-		}
 	}
 }
 
@@ -579,20 +563,5 @@ func TestCopyPathCopiesReadOnlyFolder(t *testing.T) {
 	}
 	if info.Mode().Perm() != 0o555 {
 		t.Fatalf("copy mode = %v, want 0555", info.Mode().Perm())
-	}
-}
-
-func TestUniqueCopyPathDotfile(t *testing.T) {
-	root := t.TempDir()
-	path := filepath.Join(root, ".env")
-	if err := os.WriteFile(path, nil, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	got, err := uniqueCopyPath(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if filepath.Base(got) != ".env copy" {
-		t.Fatalf("uniqueCopyPath(.env) = %q, want \".env copy\"", filepath.Base(got))
 	}
 }

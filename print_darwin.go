@@ -17,6 +17,8 @@ import (
 	"unsafe"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+
+	"kaze/internal/config"
 )
 
 // printText opens the print panel for text laid out as a monospaced document.
@@ -29,7 +31,7 @@ func printText(text, fontFamily string) error {
 	defer C.free(unsafe.Pointer(cFont))
 
 	application.InvokeSync(func() {
-		C.nativePrintText(cText, cFont, C.double(defaultFontSize))
+		C.nativePrintText(cText, cFont, C.double(config.DefaultFontSize))
 	})
 	return nil
 }

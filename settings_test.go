@@ -8,154 +8,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"kaze/internal/config"
 )
-
-func TestLoadSettingsCreatesDefaultFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "app", "settings.json")
-
-	settings, err := loadSettings(path)
-	if err != nil {
-		t.Fatalf("loadSettings() error = %v", err)
-	}
-
-	want := defaultSettings()
-	if !reflect.DeepEqual(settings, want) {
-		t.Fatalf("loadSettings() = %+v, want %+v", settings, want)
-	}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("settings file was not created: %v", err)
-	}
-
-	var written map[string]map[string]any
-	if err := json.Unmarshal(data, &written); err != nil {
-		t.Fatalf("settings file is not valid JSON: %v", err)
-	}
-	editor := written["editor"]
-	if editor["font_family"] != "Menlo" {
-		t.Errorf("font_family = %v, want Menlo", editor["font_family"])
-	}
-	if editor["font_size"] != 13.0 {
-		t.Errorf("font_size = %v, want 13", editor["font_size"])
-	}
-	if editor["font_weight"] != 400.0 {
-		t.Errorf("font_weight = %v, want 400", editor["font_weight"])
-	}
-}
-
-func TestLoadSettingsReadsUserValues(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "settings.json")
-	content := `{
-		"editor": {
-			"font_family": "JetBrains Mono",
-			"font_size": 16.5,
-			"font_weight": 300
-		}
-	}`
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	settings, err := loadSettings(path)
-	if err != nil {
-		t.Fatalf("loadSettings() error = %v", err)
-	}
-
-	want := defaultSettings()
-	want.Editor.FontFamily = "JetBrains Mono"
-	want.Editor.FontSize = 16.5
-	want.Editor.FontWeight = 300
-	if !reflect.DeepEqual(settings, want) {
-		t.Fatalf("loadSettings() = %+v, want %+v", settings, want)
-	}
-}
-
-func TestLoadSettingsFillsMissingValues(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "settings.json")
-	if err := os.WriteFile(path, []byte(`{"editor":{"font_size":18}}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	settings, err := loadSettings(path)
-	if err != nil {
-		t.Fatalf("loadSettings() error = %v", err)
-	}
-
-	if settings.Editor.FontFamily != defaultFontFamily {
-		t.Errorf("font_family = %q, want %q", settings.Editor.FontFamily, defaultFontFamily)
-	}
-	if settings.Editor.FontSize != 18 {
-		t.Errorf("font_size = %v, want 18", settings.Editor.FontSize)
-	}
-	if settings.Editor.FontWeight != defaultFontWeight {
-		t.Errorf("font_weight = %v, want %v", settings.Editor.FontWeight, defaultFontWeight)
-	}
-}
-
-func TestLoadSettingsRejectsInvalidValues(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "settings.json")
-	content := `{"editor":{"font_family":"  ","font_size":-4,"font_weight":0}}`
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	settings, err := loadSettings(path)
-	if err != nil {
-		t.Fatalf("loadSettings() error = %v", err)
-	}
-
-	if !reflect.DeepEqual(settings, defaultSettings()) {
-		t.Fatalf("loadSettings() = %+v, want defaults %+v", settings, defaultSettings())
-	}
-}
-
-func TestLoadSettingsMalformedFileKeepsContent(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "settings.json")
-	content := `{"editor":`
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	settings, err := loadSettings(path)
-	if err == nil {
-		t.Fatal("loadSettings() error = nil, want parse error")
-	}
-	if !reflect.DeepEqual(settings, defaultSettings()) {
-		t.Fatalf("loadSettings() = %+v, want defaults %+v", settings, defaultSettings())
-	}
-
-	data, readErr := os.ReadFile(path)
-	if readErr != nil {
-		t.Fatal(readErr)
-	}
-	if string(data) != content {
-		t.Fatalf("malformed file was modified: %q", data)
-	}
-}
-
-func TestLoadSettingsReadsEmptyFileAsDefaultsWithoutWriting(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "settings.json")
-	if err := os.WriteFile(path, []byte(" \n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	settings, err := loadSettings(path)
-	if err != nil {
-		t.Fatalf("loadSettings() error = %v", err)
-	}
-	if settings.Editor.FontFamily != defaultSettings().Editor.FontFamily {
-		t.Fatalf("font family = %q, want the default", settings.Editor.FontFamily)
-	}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(data) != " \n" {
-		t.Fatalf("empty settings file was rewritten: %q", data)
-	}
-}
 
 func TestSettingsFilePathUsesConfigDirectory(t *testing.T) {
 	root := t.TempDir()
@@ -170,136 +25,12 @@ func TestSettingsFilePathUsesConfigDirectory(t *testing.T) {
 	}
 }
 
-func TestLoadSettingsDefaultsToAutoReveal(t *testing.T) {
-	settings, err := loadSettings(filepath.Join(t.TempDir(), "settings.json"))
-	if err != nil {
-		t.Fatalf("loadSettings() error = %v", err)
-	}
-	if !settings.Sidebar.AutoReveal {
-		t.Fatal("Sidebar.AutoReveal = false, want true by default")
-	}
-}
-
-func TestLoadSettingsReadsAutoReveal(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "settings.json")
-	content := `{"sidebar":{"auto_reveal":false}}`
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	settings, err := loadSettings(path)
-	if err != nil {
-		t.Fatalf("loadSettings() error = %v", err)
-	}
-	if settings.Sidebar.AutoReveal {
-		t.Fatal("Sidebar.AutoReveal = true, want the saved false")
-	}
-}
-
-func TestNormalizeFolderListRepairsUserContent(t *testing.T) {
-	got := normalizeFolderList([]string{" /one ", "", "/two", "/one", "   "})
-
-	want := []string{"/one", "/two"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("normalizeFolderList() = %q, want %q", got, want)
-	}
-}
-
-func TestNormalizeFolderListReturnsEmptySliceForNil(t *testing.T) {
-	got := normalizeFolderList(nil)
-
-	if got == nil {
-		t.Fatal("normalizeFolderList(nil) = nil, want an empty slice")
-	}
-	if len(got) != 0 {
-		t.Fatalf("normalizeFolderList(nil) = %q, want no folders", got)
-	}
-}
-
-func TestLoadSettingsKeepsViewOptionDefaults(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "settings.json")
-	if err := os.WriteFile(path, []byte(`{"editor":{"font_size":18}}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	settings, err := loadSettings(path)
-	if err != nil {
-		t.Fatalf("loadSettings() error = %v", err)
-	}
-
-	// Absent keys keep the defaults the editor was designed around, so an old
-	// settings file does not silently turn off word wrap or line numbers.
-	defaults := defaultSettings().Editor
-	if !settings.Editor.WordWrap || !settings.Editor.LineNumbers ||
-		!settings.Editor.IndentGuides || !settings.Editor.CodeFolding ||
-		!settings.Editor.AutoCloseBrackets || !settings.Editor.SmartIndent {
-		t.Errorf("missing view options did not keep their defaults: %+v", settings.Editor)
-	}
-	if settings.Editor.CursorBlink != defaults.CursorBlink {
-		t.Errorf("cursor_blink = %v, want %v", settings.Editor.CursorBlink, defaults.CursorBlink)
-	}
-}
-
-func TestLoadSettingsReadsEditorOptions(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "settings.json")
-	content := `{"editor":{
-		"tab_size":2,
-		"hard_tabs":true,
-		"ligatures":true,
-		"cursor_width":3,
-		"cursor_blink":false,
-		"cursor_surrounding_lines":2,
-		"scroll_beyond_last_line":true,
-		"ensure_final_newline":true,
-		"word_wrap":false,
-		"invisible_characters":true,
-		"line_numbers":false,
-		"indent_guides":false,
-		"code_folding":false,
-		"auto_close_brackets":false,
-		"smart_indent":false
-	}}`
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	settings, err := loadSettings(path)
-	if err != nil {
-		t.Fatalf("loadSettings() error = %v", err)
-	}
-
-	editor := settings.Editor
-	if editor.TabSize != 2 || !editor.HardTabs || !editor.Ligatures {
-		t.Errorf("indentation settings = %+v", editor)
-	}
-	if editor.CursorWidth != 3 || editor.CursorBlink || editor.CursorSurroundingLines != 2 {
-		t.Errorf("cursor settings = %+v", editor)
-	}
-	if !editor.ScrollBeyondLastLine || !editor.EnsureFinalNewline {
-		t.Errorf("save/scroll settings = %+v", editor)
-	}
-	if editor.WordWrap || !editor.InvisibleCharacters || editor.LineNumbers ||
-		editor.IndentGuides || editor.CodeFolding || editor.AutoCloseBrackets || editor.SmartIndent {
-		t.Errorf("view settings = %+v", editor)
-	}
-}
-
-func TestNormalizeRulers(t *testing.T) {
-	settings := defaultSettings()
-	settings.Editor.Rulers = []int{120, 0, 80, 120, -4, 100}
-	settings.normalize()
-
-	if !reflect.DeepEqual(settings.Editor.Rulers, []int{80, 100, 120}) {
-		t.Errorf("rulers = %v, want [80 100 120]", settings.Editor.Rulers)
-	}
-}
-
 func TestUpdateEditorSettingsPersistsAndRepairs(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	app := NewApp()
 
-	editor := defaultSettings().Editor
+	editor := config.Default().Editor
 	editor.TabSize = 0 // repaired to the default
 	editor.CursorWidth = -2
 	editor.CursorSurroundingLines = -1
@@ -310,11 +41,11 @@ func TestUpdateEditorSettingsPersistsAndRepairs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateEditorSettings() error = %v", err)
 	}
-	if updated.TabSize != defaultTabSize {
-		t.Errorf("tab_size = %d, want %d", updated.TabSize, defaultTabSize)
+	if updated.TabSize != config.DefaultTabSize {
+		t.Errorf("tab_size = %d, want %d", updated.TabSize, config.DefaultTabSize)
 	}
-	if updated.CursorWidth != defaultCursorWidth {
-		t.Errorf("cursor_width = %d, want %d", updated.CursorWidth, defaultCursorWidth)
+	if updated.CursorWidth != config.DefaultCursorWidth {
+		t.Errorf("cursor_width = %d, want %d", updated.CursorWidth, config.DefaultCursorWidth)
 	}
 	if updated.CursorSurroundingLines != 0 {
 		t.Errorf("cursor_surrounding_lines = %d, want 0", updated.CursorSurroundingLines)
@@ -337,7 +68,7 @@ func TestUpdateExcludeSettingsPersistAndRepair(t *testing.T) {
 
 	app := NewApp()
 
-	files, err := app.UpdateFilesSettings(FilesSettings{
+	files, err := app.UpdateFilesSettings(config.FilesSettings{
 		Exclude: []string{"  node_modules  ", "", "*.log", "*.log"},
 	})
 	if err != nil {
@@ -347,7 +78,7 @@ func TestUpdateExcludeSettingsPersistAndRepair(t *testing.T) {
 		t.Fatalf("files exclude = %q, want trimmed unique patterns", files.Exclude)
 	}
 
-	search, err := app.UpdateSearchSettings(SearchSettings{Exclude: []string{" vendor ", "vendor"}})
+	search, err := app.UpdateSearchSettings(config.SearchSettings{Exclude: []string{" vendor ", "vendor"}})
 	if err != nil {
 		t.Fatalf("UpdateSearchSettings() error = %v", err)
 	}
@@ -364,53 +95,6 @@ func TestUpdateExcludeSettingsPersistAndRepair(t *testing.T) {
 	}
 	if !reflect.DeepEqual(settings.Search.Exclude, search.Exclude) {
 		t.Fatalf("settings.Search.Exclude = %q, want %q", settings.Search.Exclude, search.Exclude)
-	}
-}
-
-func TestNormalizeThemeAndUI(t *testing.T) {
-	settings := defaultSettings()
-	settings.Theme = ThemeSettings{Mode: "LIGHT", Light: "  ", Dark: "  Custom Dark  "}
-	settings.UI = UISettings{
-		FontFamily:      "  Fira Sans  ",
-		FontSize:        0,
-		TabIcons:        false,
-		IconStyle:       "neon",
-		SidebarPosition: "RIGHT",
-	}
-	settings.normalize()
-
-	if settings.Theme.Mode != "light" {
-		t.Errorf("theme mode = %q, want light", settings.Theme.Mode)
-	}
-	if settings.Theme.Light != defaultThemeLight {
-		t.Errorf("light theme = %q, want %q", settings.Theme.Light, defaultThemeLight)
-	}
-	if settings.Theme.Dark != "Custom Dark" {
-		t.Errorf("dark theme = %q, want Custom Dark", settings.Theme.Dark)
-	}
-	if settings.UI.FontFamily != "Fira Sans" {
-		t.Errorf("ui font = %q, want Fira Sans", settings.UI.FontFamily)
-	}
-	if settings.UI.FontSize != defaultUIFontSize {
-		t.Errorf("ui font size = %v, want %v", settings.UI.FontSize, defaultUIFontSize)
-	}
-	if settings.UI.TabIcons {
-		t.Error("tab icons = true, want the explicit false")
-	}
-	if settings.UI.IconStyle != defaultUIIconStyle {
-		t.Errorf("icon style = %q, want %q", settings.UI.IconStyle, defaultUIIconStyle)
-	}
-	if settings.UI.SidebarPosition != "right" {
-		t.Errorf("sidebar position = %q, want right", settings.UI.SidebarPosition)
-	}
-}
-
-func TestNormalizeThemeModeKeepsSystem(t *testing.T) {
-	if got := normalizeThemeMode(" System "); got != "system" {
-		t.Errorf("theme mode = %q, want system", got)
-	}
-	if got := normalizeThemeMode("neon"); got != defaultThemeMode {
-		t.Errorf("theme mode = %q, want %q", got, defaultThemeMode)
 	}
 }
 
@@ -438,7 +122,7 @@ func TestUpdateSettingsKeepsUnknownKeysAndFormatting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	editor := defaultSettings().Editor
+	editor := config.Default().Editor
 	editor.FontSize = 15
 	app := NewApp()
 	if _, err := app.UpdateEditorSettings(editor); err != nil {
@@ -447,7 +131,7 @@ func TestUpdateSettingsKeepsUnknownKeysAndFormatting(t *testing.T) {
 
 	// The file has no ui section; the write must add it without disturbing the
 	// sections the user kept.
-	if _, err := app.UpdateUISettings(UISettings{
+	if _, err := app.UpdateUISettings(config.UISettings{
 		FontFamily:      "Inter",
 		FontSize:        14,
 		TabIcons:        true,
@@ -466,14 +150,14 @@ func TestUpdateSettingsKeepsUnknownKeysAndFormatting(t *testing.T) {
 	if err := json.Unmarshal(data, &document); err != nil {
 		t.Fatalf("settings file is not valid JSON: %v\n%s", err, data)
 	}
-	var stored EditorSettings
+	var stored config.EditorSettings
 	if err := json.Unmarshal(document["editor"], &stored); err != nil {
 		t.Fatal(err)
 	}
 	if stored.FontSize != 15 {
 		t.Errorf("editor font_size = %v, want 15", stored.FontSize)
 	}
-	var storedUI UISettings
+	var storedUI config.UISettings
 	if err := json.Unmarshal(document["ui"], &storedUI); err != nil {
 		t.Fatalf("ui section was not added: %v", err)
 	}
@@ -495,11 +179,11 @@ func TestUpdateThemeSettingsPersistsNormalizedValues(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	app := NewApp()
 
-	got, err := app.UpdateThemeSettings(ThemeSettings{Mode: "dark", Light: "", Dark: "  "})
+	got, err := app.UpdateThemeSettings(config.ThemeSettings{Mode: "dark", Light: "", Dark: "  "})
 	if err != nil {
 		t.Fatalf("UpdateThemeSettings() error = %v", err)
 	}
-	if got.Mode != "dark" || got.Light != defaultThemeLight || got.Dark != defaultThemeDark {
+	if got.Mode != "dark" || got.Light != config.DefaultThemeLight || got.Dark != config.DefaultThemeDark {
 		t.Fatalf("UpdateThemeSettings() = %+v, want normalized defaults", got)
 	}
 
@@ -507,7 +191,7 @@ func TestUpdateThemeSettingsPersistsNormalizedValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	settings, err := loadSettings(path)
+	settings, err := config.Load(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -520,7 +204,7 @@ func TestUpdateUISettingsPersistsNormalizedValues(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	app := NewApp()
 
-	got, err := app.UpdateUISettings(UISettings{
+	got, err := app.UpdateUISettings(config.UISettings{
 		FontFamily:      "  IBM Plex Sans ",
 		FontSize:        15,
 		TabIcons:        false,
@@ -565,7 +249,7 @@ func TestUpdateSettingsFillsEmptySection(t *testing.T) {
 	if err := json.Unmarshal(data, &document); err != nil {
 		t.Fatalf("settings file is not valid JSON: %v\n%s", err, data)
 	}
-	var sidebar SidebarSettings
+	var sidebar config.SidebarSettings
 	if err := json.Unmarshal(document["sidebar"], &sidebar); err != nil {
 		t.Fatal(err)
 	}

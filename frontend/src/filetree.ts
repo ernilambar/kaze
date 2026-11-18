@@ -1,4 +1,4 @@
-import type * as models from '../bindings/kaze/models';
+import type * as models from '../bindings/kaze/internal/fileops/models';
 import {
     CopyPath,
     CreateFile,
@@ -10,7 +10,7 @@ import {
     TrashPath,
 } from '../bindings/kaze/app';
 
-// FileTreeResult mirrors FileTreeResult in filetree.go: the path a tree command
+// FileTreeResult mirrors FileTreeResult in internal/fileops/filetree.go: the path a tree command
 // produced and the same path with symlinks resolved. A tab matches on the
 // resolved one and displays the spelling that was written.
 export interface FileTreeEntry {

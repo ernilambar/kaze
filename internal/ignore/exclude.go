@@ -1,18 +1,18 @@
-package main
+package ignore
 
 import (
 	"path"
 	"strings"
 )
 
-// excludeMatcher hides paths that match any of a list of glob patterns. It is
+// Matcher hides paths that match any of a list of glob patterns. It is
 // shared by the explorer, Quick Open and Find in Files, so all three agree on
 // what files.exclude and search.exclude mean.
 //
 // A pattern follows the shape editors use: a leading slash anchors it to the
 // root, a pattern with no slash matches a name at any depth, `**` matches any
 // number of directories, and a trailing slash applies to folders only.
-type excludeMatcher struct {
+type Matcher struct {
 	patterns []excludePattern
 }
 
@@ -26,8 +26,8 @@ type excludePattern struct {
 	dirOnly  bool
 }
 
-func newExcludeMatcher(patterns []string) excludeMatcher {
-	matcher := excludeMatcher{patterns: make([]excludePattern, 0, len(patterns))}
+func NewMatcher(patterns []string) Matcher {
+	matcher := Matcher{patterns: make([]excludePattern, 0, len(patterns))}
 	for _, raw := range patterns {
 		pattern, ok := parseExcludePattern(raw)
 		if !ok {
@@ -69,14 +69,14 @@ func parseExcludePattern(raw string) (excludePattern, bool) {
 	return pattern, true
 }
 
-// empty reports whether the matcher has nothing to hide.
-func (m excludeMatcher) empty() bool {
+// Empty reports whether the matcher has nothing to hide.
+func (m Matcher) Empty() bool {
 	return len(m.patterns) == 0
 }
 
-// matches reports whether relPath, always slash-separated and relative to a
+// Matches reports whether relPath, always slash-separated and relative to a
 // sidebar root, is excluded. isDir is needed for directory-only patterns.
-func (m excludeMatcher) matches(relPath string, isDir bool) bool {
+func (m Matcher) Matches(relPath string, isDir bool) bool {
 	if len(m.patterns) == 0 {
 		return false
 	}
@@ -139,17 +139,17 @@ func matchSegments(pattern, pathSegments []string) bool {
 	return matchSegments(pattern[1:], pathSegments[1:])
 }
 
-// splitPatternList turns the comma or whitespace separated patterns a search
+// SplitPatternList turns the comma or whitespace separated patterns a search
 // field carries into a list. A pattern itself never contains a space.
-func splitPatternList(list string) []string {
+func SplitPatternList(list string) []string {
 	return strings.FieldsFunc(list, func(r rune) bool {
 		return r == ',' || r == ' ' || r == '\t' || r == '\n'
 	})
 }
 
-// mergePatterns joins several pattern lists, keeping the first occurrence of
+// MergePatterns joins several pattern lists, keeping the first occurrence of
 // each so a default repeated by the user is only tested once.
-func mergePatterns(lists ...[]string) []string {
+func MergePatterns(lists ...[]string) []string {
 	merged := make([]string, 0)
 	seen := make(map[string]bool)
 	for _, list := range lists {
@@ -164,3 +164,7 @@ func mergePatterns(lists ...[]string) []string {
 	}
 	return merged
 }
+
+// VCSDirectories are never searched, even when the user removes them from
+// search.exclude: version control metadata is machine state, not project text.
+var VCSDirectories = map[string]bool{".git": true, ".hg": true, ".svn": true}

@@ -5,6 +5,10 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"kaze/internal/config"
+	"kaze/internal/keybindings"
+	"kaze/internal/themes"
 )
 
 // configChangedEvent tells the frontend that the themes folder,
@@ -45,9 +49,9 @@ func (a *App) configWatchLoop() {
 	}
 	// Create every input before taking the baseline, so first-run creation
 	// does not look like a user edit.
-	_ = ensureThemesDir(dir)
-	_ = ensureKeybindingsFile(keyPath)
-	_ = ensureSettingsFile(settingsPath)
+	_ = themes.EnsureDir(dir)
+	_ = keybindings.EnsureFile(keyPath)
+	_ = config.EnsureFile(settingsPath)
 
 	themes := themeSnapshot(dir)
 	keys := statWatch(keyPath)
@@ -71,7 +75,7 @@ func (a *App) configWatchLoop() {
 			// Rebuild the native menu only for a file that parses. A broken
 			// file keeps the previous menu, matching the frontend's decision to
 			// keep the previous bindings.
-			if _, _, err := readKeybindings(keyPath); err == nil {
+			if _, _, err := keybindings.Read(keyPath); err == nil {
 				a.rebuildMenu()
 			}
 		}
@@ -81,7 +85,7 @@ func (a *App) configWatchLoop() {
 			// The View and Appearance checkmarks come from settings.json. A
 			// broken file keeps the previous menu, as the frontend keeps the
 			// previous settings.
-			if _, err := loadSettings(settingsPath); err == nil {
+			if _, err := config.Load(settingsPath); err == nil {
 				a.rebuildMenu()
 			}
 		}

@@ -1,4 +1,4 @@
-import type { WorkspaceInfo } from '../../bindings/kaze/models';
+import type { WorkspaceInfo } from '../../bindings/kaze/internal/workspacefile/models';
 import { readDocument, toBufferDocument, type LaunchRequest } from '../document';
 import {
     addSidebarFolder,
