@@ -1,30 +1,52 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-	<dict>
-		<key>CFBundleExecutable</key>
-		<string>kaze</string>
-		<key>CFBundleGetInfoString</key>
-		<string>A lightweight macOS editor for code and plain text.</string>
-		<key>CFBundleIconFile</key>
-		<string>icons</string>
-		<key>CFBundleIconName</key>
-		<string>appicon</string>
-		<key>CFBundleIdentifier</key>
-		<string>net.nilambar.kaze</string>
-		<key>CFBundleName</key>
-		<string>Kaze</string>
-		<key>CFBundlePackageType</key>
-		<string>APPL</string>
-		<key>CFBundleShortVersionString</key>
-		<string>0.1.2</string>
-		<key>CFBundleVersion</key>
-		<string>0.1.2</string>
-		<key>LSMinimumSystemVersion</key>
-		<string>13.0.0</string>
-		<key>NSHighResolutionCapable</key>
-		<string>true</string>
-		<key>NSHumanReadableCopyright</key>
-		<string>Copyright © 2026 Nilambar Sharma</string>
-	</dict>
+<dict>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Text Document</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.plain-text</string>
+				<string>public.source-code</string>
+				<string>public.script</string>
+				<string>public.shell-script</string>
+				<string>public.json</string>
+				<string>public.xml</string>
+				<string>public.yaml</string>
+				<string>net.daringfireball.markdown</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleExecutable</key>
+	<string>kaze</string>
+	<key>CFBundleGetInfoString</key>
+	<string>A lightweight macOS editor for code and plain text.</string>
+	<key>CFBundleIconFile</key>
+	<string>icons</string>
+	<key>CFBundleIconName</key>
+	<string>appicon</string>
+	<key>CFBundleIdentifier</key>
+	<string>net.nilambar.kaze</string>
+	<key>CFBundleName</key>
+	<string>Kaze</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.2</string>
+	<key>CFBundleVersion</key>
+	<string>0.1.2</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>12.0.0</string>
+	<key>NSHighResolutionCapable</key>
+	<string>true</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2026 Nilambar Sharma</string>
+</dict>
 </plist>

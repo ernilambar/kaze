@@ -193,5 +193,21 @@ tasks:
   update:build-assets:
     summary: Updates the build assets
     dir: build
+    vars:
+      # Kaze's macOS document types. The Wails template only emits one
+      # extension per type, so they are applied here instead of through
+      # fileAssociations in config.yml. Alternate rank lists Kaze in Open With
+      # without claiming files from their default apps.
+      DOCUMENT_TYPES: >-
+        [{"CFBundleTypeName": "Text Document",
+        "CFBundleTypeRole": "Editor",
+        "LSHandlerRank": "Alternate",
+        "LSItemContentTypes": ["public.plain-text", "public.source-code",
+        "public.script", "public.shell-script", "public.json", "public.xml",
+        "public.yaml", "net.daringfireball.markdown"]}]
     cmds:
       - wails3 update build-assets -name "{{.APP_NAME}}" -binaryname "{{.APP_NAME}}" -config config.yml -dir .
+      - for: [darwin/Info.plist, darwin/Info.dev.plist]
+        cmd: plutil -replace CFBundleDocumentTypes -json '{{.DOCUMENT_TYPES}}' {{.ITEM}}
+      # Kaze is macOS-only; drop the other platforms' generated assets.
+      - rm -rf ios linux windows

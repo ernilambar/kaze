@@ -140,6 +140,9 @@ No frontend linter/formatter is configured; don't add one unprompted.
 - Tests are colocated. Vitest covers pure TS helpers, not Svelte/Monaco/bindings.
 - Version lives in `build/config.yml` (`info.version`); bump it, then run
   `wails3 task common:update:build-assets`.
+- macOS document types (Open With) live in `update:build-assets`
+  (`build/Taskfile.yml`), applied with `plutil`; leave `fileAssociations` in
+  `config.yml` empty.
 - Bundle ID `net.nilambar.kaze` — changing it resets macOS permissions/prefs.
 - No new dependencies or config files without explicit approval.
 
