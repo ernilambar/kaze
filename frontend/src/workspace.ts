@@ -5,6 +5,7 @@ import {
     AddRecentFile,
     ClearRecentFiles,
     GetRecentFiles,
+    GetRecentWorkspaces,
     GetSettings,
     GetWindowSession,
     LoadWorkspace,
@@ -15,6 +16,7 @@ import {
     SetSidebarVisible,
     WatchPaths,
 } from '../bindings/kaze/internal/app/app';
+import type { PaletteItem } from './palette';
 import { onWindowEvent } from './windowstate';
 
 // WorkspaceState is the state shared by every window: the sidebar's visibility
@@ -128,6 +130,30 @@ export async function saveSidebarVisible(visible: boolean): Promise<void> {
 
 export async function saveSidebarAutoReveal(autoReveal: boolean): Promise<void> {
     await SetSidebarAutoReveal(autoReveal);
+}
+
+// GetRecentWorkspaces returns the workspace files that have been opened, most
+// recently used first. Choosing one switches to it without a file picker.
+export async function getRecentWorkspaces(): Promise<string[]> {
+    return (await GetRecentWorkspaces()) ?? [];
+}
+
+// toWorkspaceItems turns workspace-file paths into palette rows. The name is
+// the file's base name without its extension; the detail is the folder holding
+// it, so two workspaces that share a name stay distinct.
+export function toWorkspaceItems(paths: readonly string[]): PaletteItem[] {
+    return paths.map((path) => ({ id: path, name: workspaceLabel(path), detail: parentDirectory(path) }));
+}
+
+function workspaceLabel(path: string): string {
+    const base = path.slice(path.lastIndexOf('/') + 1);
+    const dot = base.lastIndexOf('.');
+    return dot > 0 ? base.slice(0, dot) : base;
+}
+
+function parentDirectory(path: string): string {
+    const index = path.lastIndexOf('/');
+    return index <= 0 ? '' : path.slice(0, index);
 }
 
 // openWorkspaceDialog asks for a workspace file and returns its resolved

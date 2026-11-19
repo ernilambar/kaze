@@ -98,6 +98,7 @@ export const COMMANDS: readonly Command[] = [
     { id: 'open-recent', name: 'Open Recent…', detail: 'File' },
     { id: 'clear-recent', name: 'Clear Recent', detail: 'File' },
     { id: 'open-workspace', name: 'Open Workspace…', detail: 'File' },
+    { id: 'switch-workspace', name: 'Switch Workspace…', detail: 'File' },
     { id: 'save-workspace-as', name: 'Save Workspace As…', detail: 'File' },
     { id: 'close-workspace', name: 'Close Workspace', detail: 'File' },
     { id: 'save', name: 'Save', detail: 'File' },

@@ -60,6 +60,7 @@ export interface CommandHandlers {
     installCommandLineTool: () => void;
     setAppearanceMode: (mode: ThemeMode) => void;
     openWorkspace: () => void;
+    switchWorkspace: () => void;
     saveWorkspaceAs: () => void;
     closeWorkspace: () => void;
     refreshWorkspace: () => void;
@@ -125,6 +126,7 @@ const COMMAND_TABLE: Record<string, CommandAction> = {
     'copy-relative-path': (handlers) => handlers.copyActivePath('relative'),
     'copy-file-name': (handlers) => handlers.copyActivePath('name'),
     'open-workspace': (handlers) => handlers.openWorkspace(),
+    'switch-workspace': (handlers) => handlers.switchWorkspace(),
     'save-workspace-as': (handlers) => handlers.saveWorkspaceAs(),
     'close-workspace': (handlers) => handlers.closeWorkspace(),
     settings: (handlers) => handlers.showSettings(),

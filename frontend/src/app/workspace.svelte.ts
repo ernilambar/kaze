@@ -12,6 +12,8 @@ import { noticeFor } from '../status';
 import { findDocumentByPath } from '../tabs';
 import {
     clearRecentFiles,
+    getRecentWorkspaces,
+    loadWorkspace,
     openWorkspaceDialog,
     rememberRecentFile,
     saveSession,
@@ -43,6 +45,11 @@ export class WorkspaceController {
 
     // Open Recent outlives the window and is shared by every window.
     recentFiles = $state<string[]>([]);
+
+    // recentWorkspaces is the workspace files already opened, newest first. It
+    // is read from the parked tab sets each time the palette opens, so a switch
+    // in another window shows up here too.
+    recentWorkspaces = $state<string[]>([]);
 
     sessionReady = $state(false);
 
@@ -272,6 +279,36 @@ export class WorkspaceController {
         this.ctx.busy = true;
         try {
             const workspace = await openWorkspaceDialog();
+            if (workspace.path === '') {
+                return;
+            }
+            await this.switchWorkspace(workspace);
+        } catch (error) {
+            this.ctx.notice = errorMessage(error);
+        } finally {
+            this.ctx.busy = false;
+        }
+    };
+
+    // loadRecentWorkspaces refreshes the list the Switch Workspace palette
+    // shows. The read is cheap and every call sees other windows' switches.
+    loadRecentWorkspaces = async (): Promise<void> => {
+        try {
+            this.recentWorkspaces = await getRecentWorkspaces();
+        } catch (error) {
+            this.recentWorkspaces = [];
+            this.ctx.notice = errorMessage(error);
+        }
+    };
+
+    // switchWorkspaceTo reopens a workspace by path, without a file picker.
+    switchWorkspaceTo = async (path: string): Promise<void> => {
+        if (this.ctx.busy || this.prompts.unsaved !== null || this.prompts.confirm !== null) {
+            return;
+        }
+        this.ctx.busy = true;
+        try {
+            const workspace = await loadWorkspace(path);
             if (workspace.path === '') {
                 return;
             }

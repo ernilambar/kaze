@@ -145,6 +145,12 @@ func fileMenu(m *application.Menu, app *App, b *menuBuilder) {
 		app.emitOpenRecent()
 	})
 	m.AddSeparator()
+	// Switch Workspace lists the workspace files already opened, newest first,
+	// which is the quickest way back to one. It has no event of its own because
+	// the list is read and rendered by the frontend.
+	b.item(m, "switch-workspace", "Switch Workspace…", "CmdOrCtrl+Ctrl+p", func(*application.Context) {
+		app.emitCommand("switch-workspace")
+	})
 	b.item(m, "open-workspace", "Open Workspace…", "", func(*application.Context) {
 		app.emitOpenWorkspace()
 	})

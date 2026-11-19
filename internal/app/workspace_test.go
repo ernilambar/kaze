@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"kaze/internal/pathutil"
+	"kaze/internal/workspacefile"
 )
 
 func TestRecentFilesMoveToFrontAndDeduplicate(t *testing.T) {
@@ -251,5 +254,55 @@ func TestWatcherReportsExternalChangesOncePerBaseline(t *testing.T) {
 	}
 	if changed := watcher.poll()["main"]; len(changed) != 1 {
 		t.Fatalf("poll after delete = %q, want the file", changed)
+	}
+}
+
+func TestRecentWorkspacesAreNewestFirstAndSkipMissingFiles(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	app := NewApp()
+	folder := t.TempDir()
+	// The names sort in the opposite order to their timestamps, so the test
+	// fails if the list is ordered by path instead of by use.
+	oldest := writeWorkspaceTestFileAt(t, folder, "a-oldest"+workspacefile.Extension)
+	newest := writeWorkspaceTestFileAt(t, folder, "c-newest"+workspacefile.Extension)
+	middle := writeWorkspaceTestFileAt(t, folder, "b-middle"+workspacefile.Extension)
+
+	state := emptySession()
+	for path, updated := range map[string]int64{
+		oldest: 100,
+		middle: 200,
+		newest: 300,
+	} {
+		state.Workspaces[pathutil.CanonicalPath(path)] = workspacefile.WorkspaceSession{Updated: updated}
+	}
+	if err := writeSessionFile(state); err != nil {
+		t.Fatal(err)
+	}
+
+	// A parked workspace whose file is gone must not be offered: the row could
+	// not open.
+	if err := os.Remove(middle); err != nil {
+		t.Fatal(err)
+	}
+
+	paths, err := app.GetRecentWorkspaces()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{pathutil.CanonicalPath(newest), pathutil.CanonicalPath(oldest)}
+	if !reflect.DeepEqual(paths, want) {
+		t.Fatalf("recent workspaces = %q, want %q", paths, want)
+	}
+}
+
+func TestRecentWorkspacesAreEmptyWithoutHistory(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	paths, err := NewApp().GetRecentWorkspaces()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) != 0 {
+		t.Fatalf("recent workspaces = %q, want none", paths)
 	}
 }

@@ -11,6 +11,7 @@
 | `⌘O` | Open… |
 | `⌘P` | Quick Open… |
 | `⌃R` | Open Recent… |
+| `⌃⌘P` | Switch Workspace… |
 | `⌃⌘O` | Add Folder to Sidebar… |
 | `⌘S` / `⌘⇧S` / `⌥⌘S` | Save / Save As… / Save All |
 | `⌘W` / `⌘K ⌘W` | Close Tab / Close All Tabs |

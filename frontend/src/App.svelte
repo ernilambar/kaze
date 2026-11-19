@@ -113,6 +113,7 @@
         saveSession,
         saveSidebarAutoReveal,
         saveSidebarVisible,
+        toWorkspaceItems as toWorkspacePaletteItems,
         watchPaths,
     } from './workspace';
     import type { CopyPathKind } from './workspacecommands';
@@ -143,6 +144,10 @@
     let quickOpenTruncated = $state(false);
     let commandPalette = $state(false);
     let recentOpen = $state(false);
+    // workspaceOpen is the Switch Workspace palette: the workspace files already
+    // opened, so a switch needs no file picker.
+    let workspaceOpen = $state(false);
+    let workspaceLoading = $state(false);
 
     // Workspace state that outlives a window.
     let sidebarVisible = $state(true);
@@ -256,6 +261,14 @@
             : '',
     );
     let recentItems = $derived(toRecentPaletteItems(workspaces.recentFiles, ctx.folders));
+    let workspaceItems = $derived(toWorkspacePaletteItems(workspaces.recentWorkspaces));
+    let workspaceEmpty = $derived(
+        workspaceLoading
+            ? 'Loading workspaces…'
+            : workspaces.recentWorkspaces.length === 0
+              ? 'No recent workspaces. Open a workspace first.'
+              : 'No matching workspaces.',
+    );
     let watchedPaths = $derived(Array.from(new Set([...workspaces.sessionFiles, ...treeops.expandedPaths])));
     let quickOpenEmpty = $derived(
         quickOpenLoading
@@ -421,6 +434,7 @@
     async function showQuickOpen(): Promise<void> {
         commandPalette = false;
         recentOpen = false;
+        workspaceOpen = false;
         languagePalette = false;
         indentationPalette = false;
         quickOpen = true;
@@ -475,6 +489,7 @@
         recentOpen = false;
         commandPalette = false;
         indentationPalette = false;
+        workspaceOpen = false;
         languagePalette = true;
     }
 
@@ -504,6 +519,7 @@
         recentOpen = false;
         commandPalette = false;
         languagePalette = false;
+        workspaceOpen = false;
         indentationPalette = true;
     }
 
@@ -527,6 +543,7 @@
     function showCommandPalette(): void {
         quickOpen = false;
         recentOpen = false;
+        workspaceOpen = false;
         languagePalette = false;
         indentationPalette = false;
         commandPalette = true;
@@ -608,6 +625,7 @@
         installCommandLineTool: () => void installCommandLineTool(),
         setAppearanceMode: (mode) => void appearance.changeThemeSettings({ ...appearance.themeSettings, mode }),
         openWorkspace: () => void workspaces.openWorkspaceFromDialog(),
+        switchWorkspace: () => void showSwitchWorkspace(),
         saveWorkspaceAs: () => void workspaces.saveWorkspaceAsDialog(),
         closeWorkspace: () => void workspaces.closeWorkspace(),
         refreshWorkspace: () => void workspaces.refreshWorkspace(),
@@ -736,6 +754,7 @@
         }
         quickOpen = false;
         commandPalette = false;
+        workspaceOpen = false;
         languagePalette = false;
         indentationPalette = false;
         ctx.searchActive = false;
@@ -748,6 +767,32 @@
 
     function rankRecentFiles(query: string): PaletteItem[] {
         return rankCandidates(query, recentItems);
+    }
+
+    // showSwitchWorkspace opens the palette before the list is read, then fills
+    // it as the read lands, so a slow disk does not delay the input.
+    async function showSwitchWorkspace(): Promise<void> {
+        quickOpen = false;
+        commandPalette = false;
+        recentOpen = false;
+        languagePalette = false;
+        indentationPalette = false;
+        ctx.searchActive = false;
+        workspaceOpen = true;
+        workspaceLoading = true;
+        try {
+            await workspaces.loadRecentWorkspaces();
+        } finally {
+            workspaceLoading = false;
+        }
+    }
+
+    function closeSwitchWorkspace(): void {
+        workspaceOpen = false;
+    }
+
+    function rankWorkspaces(query: string): PaletteItem[] {
+        return rankCandidates(query, workspaceItems);
     }
 
     // revealActiveFileInTree selects and expands to the active file's row. A
@@ -790,6 +835,7 @@
         quickOpen = false;
         commandPalette = false;
         recentOpen = false;
+        workspaceOpen = false;
         languagePalette = false;
         indentationPalette = false;
         search.open = true;
@@ -1289,6 +1335,19 @@
                 void documents.openFile(path);
             }}
             onClose={closeRecentFiles}
+        />
+    {/if}
+    {#if workspaceOpen}
+        <Palette
+            title="Switch Workspace"
+            placeholder="Search recent workspaces"
+            rank={rankWorkspaces}
+            empty={workspaceEmpty}
+            onSelect={(path) => {
+                workspaceOpen = false;
+                void workspaces.switchWorkspaceTo(path);
+            }}
+            onClose={closeSwitchWorkspace}
         />
     {/if}
     {#if commandPalette}

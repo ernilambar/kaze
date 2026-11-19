@@ -244,6 +244,36 @@ func (a *App) GetRecentFiles() ([]string, error) {
 	return state.Recent.Files, nil
 }
 
+// GetRecentWorkspaces returns the workspace files that have been opened, most
+// recently used first. The parked tab sets are written whenever a workspace is
+// opened, so they double as the recent list. A workspace whose file no longer
+// exists is left out, so the palette never offers a row that cannot open.
+func (a *App) GetRecentWorkspaces() ([]string, error) {
+	a.sessionMu.Lock()
+	defer a.sessionMu.Unlock()
+
+	state, err := a.loadSessionLocked()
+	if err != nil {
+		return nil, err
+	}
+	paths := make([]string, 0, len(state.Workspaces))
+	for path := range state.Workspaces {
+		if _, err := os.Stat(path); err != nil {
+			continue
+		}
+		paths = append(paths, path)
+	}
+	sort.Slice(paths, func(i, j int) bool {
+		left := state.Workspaces[paths[i]].Updated
+		right := state.Workspaces[paths[j]].Updated
+		if left != right {
+			return left > right
+		}
+		return paths[i] < paths[j]
+	})
+	return paths, nil
+}
+
 func normalizeWindowSession(session WindowSession) WindowSession {
 	session.Workspace = strings.TrimSpace(session.Workspace)
 	if session.Workspace != "" {

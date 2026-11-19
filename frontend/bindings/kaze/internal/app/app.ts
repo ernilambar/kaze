@@ -224,6 +224,16 @@ export function GetRecentFiles(): $CancellablePromise<string[] | null> {
 }
 
 /**
+ * GetRecentWorkspaces returns the workspace files that have been opened, most
+ * recently used first. The parked tab sets are written whenever a workspace is
+ * opened, so they double as the recent list. A workspace whose file no longer
+ * exists is left out, so the palette never offers a row that cannot open.
+ */
+export function GetRecentWorkspaces(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(2520127646);
+}
+
+/**
  * GetSettings loads the user's settings.json, creating it with defaults on
  * first run. The frontend calls this once at startup and applies the values to
  * the editor.
