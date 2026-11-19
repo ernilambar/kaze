@@ -2,7 +2,7 @@
     import * as monaco from 'monaco-editor';
     import { onMount } from 'svelte';
     import { transformCase, type CaseTransform } from './case';
-    import { changedLines } from './diff';
+    import { diffLineKinds, changedLines, type DiffLineKind } from './diff';
     import { DIFF_PREFIX, normalizeEol, type DocumentEOL } from './document';
     import {
         createEditor,
@@ -144,6 +144,30 @@
         return value === '' ? fallback : value;
     }
 
+    // DIFF_LINE_CLASS names the background class for each kind of diff line.
+    const DIFF_LINE_CLASS: Record<DiffLineKind, string> = {
+        added: 'diff-line-added',
+        deleted: 'diff-line-deleted',
+        header: 'diff-line-header',
+    };
+
+    // updateDiffDecorations tints the added, deleted and hunk-header lines of a
+    // diff tab. The text is a read-only snapshot, so it only changes on reload.
+    function updateDiffDecorations(key: string, model: monaco.editor.ITextModel): void {
+        const next = diffLineKinds(model.getValue()).map<monaco.editor.IModelDeltaDecoration>(
+            (entry) => ({
+                range: {
+                    startLineNumber: entry.line,
+                    startColumn: 1,
+                    endLineNumber: entry.line,
+                    endColumn: 1,
+                },
+                options: { isWholeLine: true, className: DIFF_LINE_CLASS[entry.kind] },
+            }),
+        );
+        decorations.set(key, model.deltaDecorations(decorations.get(key) ?? [], next));
+    }
+
     // updateDecorations recomputes the changed-line bars for one model. The
     // model owns its decorations, so switching tabs keeps every buffer's marks
     // and only the visible one is painted.
@@ -152,8 +176,12 @@
         if (model === undefined) {
             return;
         }
+        if (key.startsWith(DIFF_PREFIX)) {
+            updateDiffDecorations(key, model);
+            return;
+        }
         const baseline = baselines.get(key);
-        if (baseline === undefined || key === WELCOME_KEY || key.startsWith(DIFF_PREFIX)) {
+        if (baseline === undefined || key === WELCOME_KEY) {
             clearDecorations(key);
             return;
         }

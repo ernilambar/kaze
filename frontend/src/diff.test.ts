@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { changedLines } from './diff';
+import { changedLines, diffLineKinds } from './diff';
 
 describe('changedLines', () => {
     it('reports nothing for identical text', () => {
@@ -42,5 +42,48 @@ describe('changedLines', () => {
             { line: 3, kind: 'modified' },
             { line: 5, kind: 'added' },
         ]);
+    });
+});
+
+describe('diffLineKinds', () => {
+    it('ignores the file headers before the first hunk', () => {
+        const diff = [
+            'diff --git a/file.txt b/file.txt',
+            'index 111..222 100644',
+            '--- a/file.txt',
+            '+++ b/file.txt',
+            '@@ -1,2 +1,2 @@',
+            '-one',
+            '+ONE',
+            ' two',
+        ].join('\n');
+        expect(diffLineKinds(diff)).toEqual([
+            { line: 5, kind: 'header' },
+            { line: 6, kind: 'deleted' },
+            { line: 7, kind: 'added' },
+        ]);
+    });
+
+    it('treats a body line beginning with +++ as an addition', () => {
+        expect(diffLineKinds('@@ -1 +1 @@\n+++ added marker')).toEqual([
+            { line: 1, kind: 'header' },
+            { line: 2, kind: 'added' },
+        ]);
+    });
+
+    it('finds every hunk in a multi-hunk diff', () => {
+        const diff = ['@@ -1 +1 @@', '-a', '+A', '@@ -9 +9 @@', '-b', '+B'].join('\r\n');
+        expect(diffLineKinds(diff)).toEqual([
+            { line: 1, kind: 'header' },
+            { line: 2, kind: 'deleted' },
+            { line: 3, kind: 'added' },
+            { line: 4, kind: 'header' },
+            { line: 5, kind: 'deleted' },
+            { line: 6, kind: 'added' },
+        ]);
+    });
+
+    it('tints nothing when there is no hunk', () => {
+        expect(diffLineKinds('No changes against HEAD for file.txt.\n')).toEqual([]);
     });
 });

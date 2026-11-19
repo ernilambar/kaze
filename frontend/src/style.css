@@ -53,6 +53,11 @@
     --git-deleted: #f85149;
     --git-untracked: #3fb950;
     --git-conflicted: #d29922;
+    /* Backgrounds for the read-only diff tab. theme.ts derives them from the
+       theme's git colours, so these defaults only paint the first frame. */
+    --diff-added-bg: rgba(46, 160, 67, 0.14);
+    --diff-deleted-bg: rgba(248, 81, 73, 0.14);
+    --diff-header-bg: rgba(31, 111, 235, 0.1);
 }
 
 * {
@@ -96,4 +101,18 @@ body {
 
 .monaco-editor .git-gutter-modified {
     background: var(--git-modified);
+}
+
+/* Diff tabs tint whole lines so additions and deletions separate at a glance
+   without relying on syntax colours. */
+.monaco-editor .diff-line-added {
+    background: var(--diff-added-bg);
+}
+
+.monaco-editor .diff-line-deleted {
+    background: var(--diff-deleted-bg);
+}
+
+.monaco-editor .diff-line-header {
+    background: var(--diff-header-bg);
 }

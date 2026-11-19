@@ -151,3 +151,40 @@ export function changedLines(before: string, after: string): ChangedLine[] {
 
     return changed;
 }
+
+// DiffLineKind is how one line of a unified diff is painted in the read-only
+// diff tab: an addition, a deletion, or a hunk header.
+export type DiffLineKind = 'added' | 'deleted' | 'header';
+
+export interface DiffLine {
+    // line is 1-based, matching Monaco's line numbers.
+    line: number;
+    kind: DiffLineKind;
+}
+
+// diffLineKinds walks a unified diff and reports the lines that should carry a
+// tint. Only the body of a hunk counts: the `---`/`+++` file headers before
+// the first `@@` start with the same characters as a deletion or an addition,
+// and a hunk body line beginning with `+++` is still an addition.
+export function diffLineKinds(text: string): DiffLine[] {
+    const lines: DiffLine[] = [];
+    let inHunk = false;
+    const rows = text.replace(/\r\n/g, '\n').split('\n');
+    for (let index = 0; index < rows.length; index++) {
+        const row = rows[index];
+        if (row.startsWith('@@')) {
+            inHunk = true;
+            lines.push({ line: index + 1, kind: 'header' });
+            continue;
+        }
+        if (!inHunk) {
+            continue;
+        }
+        if (row.startsWith('+')) {
+            lines.push({ line: index + 1, kind: 'added' });
+        } else if (row.startsWith('-')) {
+            lines.push({ line: index + 1, kind: 'deleted' });
+        }
+    }
+    return lines;
+}

@@ -140,6 +140,24 @@ describe('CSS application', () => {
         expect(root.style.colorScheme).toBe('light');
     });
 
+    it('derives translucent diff tints from the git colors', () => {
+        applyThemeCSS(
+            toThemePalette(
+                palette({
+                    ui: {
+                        'git-added': '#2ea043',
+                        'git-deleted': '#f85149',
+                        'git-modified': '#1f6feb',
+                    },
+                }),
+            ),
+        );
+        const root = document.documentElement;
+        expect(root.style.getPropertyValue('--diff-added-bg')).toBe('rgba(46, 160, 67, 0.14)');
+        expect(root.style.getPropertyValue('--diff-deleted-bg')).toBe('rgba(248, 81, 73, 0.14)');
+        expect(root.style.getPropertyValue('--diff-header-bg')).toBe('rgba(31, 111, 235, 0.1)');
+    });
+
     it('uses the system stack for an empty UI font and applies the size', () => {
         applyUISettings({
             fontFamily: '',

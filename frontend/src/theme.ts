@@ -231,6 +231,26 @@ export function themeData(palette: ThemePalette): monaco.editor.IStandaloneTheme
     };
 }
 
+// tintColor turns a theme colour into a translucent background. CSS classes
+// cannot mix alpha with a variable, so the tint is computed here.
+function tintColor(value: string | undefined, alpha: number): string {
+    const hex = toMonacoColor(value ?? '');
+    if (hex === '') {
+        return '';
+    }
+    const red = parseInt(hex.slice(0, 2), 16);
+    const green = parseInt(hex.slice(2, 4), 16);
+    const blue = parseInt(hex.slice(4, 6), 16);
+    return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
+// DIFF_TINTS maps each git colour onto the diff tab background it tints.
+const DIFF_TINTS: readonly (readonly [string, string, number])[] = [
+    ['git-added', 'diff-added-bg', 0.14],
+    ['git-deleted', 'diff-deleted-bg', 0.14],
+    ['git-modified', 'diff-header-bg', 0.1],
+];
+
 // applyThemeCSS writes the palette's UI colors as custom properties. The
 // appearance also drives `color-scheme`, so native scrollbars and form controls
 // follow the theme.
@@ -238,6 +258,12 @@ export function applyThemeCSS(palette: ThemePalette): void {
     const root = document.documentElement;
     for (const [name, value] of Object.entries(palette.ui)) {
         root.style.setProperty(`--${name}`, value);
+    }
+    for (const [source, target, alpha] of DIFF_TINTS) {
+        const tint = tintColor(palette.ui[source], alpha);
+        if (tint !== '') {
+            root.style.setProperty(`--${target}`, tint);
+        }
     }
     root.style.colorScheme = palette.appearance;
 }
