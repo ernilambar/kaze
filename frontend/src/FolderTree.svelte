@@ -288,10 +288,7 @@
                 <svg height="15" viewBox="0 0 16 16" width="15">
                     <path
                         d="M2 4.25A1.25 1.25 0 0 1 3.25 3h3.1c.33 0 .65.13.88.37l1.06 1.06c.23.24.55.37.88.37h4.58A1.25 1.25 0 0 1 15 6.05v6.7A1.25 1.25 0 0 1 13.75 14H3.25A1.25 1.25 0 0 1 2 12.75z"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-linejoin="round"
-                        stroke-width="1.2"
+                        fill="currentColor"
                     />
                 </svg>
             </span>
