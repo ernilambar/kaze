@@ -30,6 +30,10 @@ export const WELCOME_KEY = '';
 // PLAIN_TEXT_LANGUAGE is Monaco's id for an unstyled buffer.
 export const PLAIN_TEXT_LANGUAGE = 'plaintext';
 
+// BACKUP_SUFFIX marks editor backups. A backup keeps the bytes it copied, so
+// its language is plain text even when the original was a script with a `#!`.
+const BACKUP_SUFFIX = '.bak';
+
 const IDLE_URI = 'inmemory://model/idle.txt';
 
 // modelURI gives a buffer its Monaco identity. Files use their path, so two
@@ -171,9 +175,10 @@ function hasRegisteredName(path: string): boolean {
 }
 
 // languageForDocument resolves a buffer's language. An explicit override wins;
-// otherwise the path decides, and only when it names no language does the
-// first line get a say, so a Makefile stays a Makefile while an extensionless
-// script works out to shell or python from its `#!`.
+// a `.bak` file is always plain text; otherwise the path decides, and only
+// when it names no language does the first line get a say, so a Makefile stays
+// a Makefile while an extensionless script works out to shell or python from
+// its `#!`.
 export function languageForDocument(
     path: string,
     content: string = '',
@@ -181,6 +186,9 @@ export function languageForDocument(
 ): string {
     if (override !== '') {
         return override;
+    }
+    if (baseName(path).toLowerCase().endsWith(BACKUP_SUFFIX)) {
+        return PLAIN_TEXT_LANGUAGE;
     }
     const byPath = languageForPath(path);
     if (byPath !== PLAIN_TEXT_LANGUAGE || hasRegisteredName(path)) {

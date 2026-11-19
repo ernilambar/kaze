@@ -60,6 +60,27 @@ describe('fileIcon', () => {
         );
     });
 
+    it('gives every dotenv name the dotenv icon', () => {
+        const env = fileIcon('.env');
+
+        for (const name of [
+            '.env.local',
+            '.env.production.example',
+            '.ENV.LOCAL',
+            'prod.env',
+            'app.prod.env',
+        ]) {
+            expect(fileIcon(name)).toEqual(env);
+        }
+        expect(fileIcon('.envrc')).not.toEqual(env);
+        expect(fileIcon('config.env.example')).not.toEqual(env);
+    });
+
+    it('keeps .bak files on the backup icon', () => {
+        expect(fileIcon('.env.bak')).toEqual(fileIcon('archive.bak'));
+        expect(fileIcon('.env.local.bak')).toEqual(fileIcon('archive.bak'));
+    });
+
     it('falls back to a muted file outline for unknown types', () => {
         expect(fileIcon('archive.unknown')).toEqual({
             glyph: '\uf016',

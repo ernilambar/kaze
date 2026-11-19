@@ -11,9 +11,10 @@ export const DOTENV_LANGUAGE_ID = 'dotenv';
 export const DOTENV_EXTENSIONS = ['.env'];
 
 // DOTENV_NAME is the filename Auto Detect treats as dotenv: `.env` and any
-// `.env.<stage>`. It is checked before the registry index, matching what every
-// dotenv tool recognises.
-export const DOTENV_NAME = /^\.env(?:\..+)?$/i;
+// `.env.<stage>`. Backup suffixes are excluded, because a `.bak` file is
+// always plain text. It is checked before the registry index, matching what
+// every dotenv tool recognises.
+export const DOTENV_NAME = /^(?!.*\.bak$)\.env(?:\..+)?$/i;
 
 // dotenvConf gives Toggle Line Comment the file's own comment marker.
 export const dotenvConf: monaco.languages.LanguageConfiguration = {

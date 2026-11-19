@@ -905,6 +905,7 @@
     "zork-icon": ["ƶ", "file-icons", 15, 2, 0]
   },
   "rules": [
+    ["^(?!.*\\.bak$)(?:\\.env(?:\\..+)?|.*\\.env)$", "i", "dotenv-icon", "#ee9e2e"],
     ["\\.swp$", "i", "binary-icon", "#66783e"],
     ["(?:^|\\.)fonts\\.(?:dir|scale|alias)$", "i", "database-icon", "#ac4142"],
     ["\\.lnk$", "i", "link-icon", "#6a9fb5"],
@@ -2913,7 +2914,6 @@
     ["^paperspecs$", "i", "database-icon", "#90a959"],
     ["^papersize$", "i", "database-icon", "#ac4142"],
     ["\\.fortune$", "i", "database-icon", "#d28445"],
-    ["^\\.env(?:\\.|$)", "i", "dotenv-icon", "#ee9e2e"],
     ["\\.crdownload$", "i", "download-icon", "#46788d"],
     ["\\.git(?:config|attributes)$", "i", "git-icon", "#ac4142"],
     ["\\.jira(?:-markup)?$", "i", "jira-icon", "#46788d"],
