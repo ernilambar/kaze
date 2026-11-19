@@ -176,6 +176,7 @@ export interface FileSettings {
     exclude: string[];
     trimTrailingWhitespace: boolean;
     confirmDelete: boolean;
+    showIgnored: boolean;
 }
 
 // defaultExcludePatterns mirrors DefaultExcludePatterns in internal/config/settings.go.
@@ -193,6 +194,9 @@ export const defaultFileSettings: FileSettings = {
     // Confirmation is on by default: moving an entry to the Trash is
     // destructive, even though the Trash can undo it.
     confirmDelete: true,
+    // Gitignored entries stay visible and dimmed by default; hiding them is
+    // what files.exclude is for.
+    showIgnored: true,
 };
 
 function toFileSettings(files: models.FilesSettings | undefined): FileSettings {
@@ -200,6 +204,7 @@ function toFileSettings(files: models.FilesSettings | undefined): FileSettings {
         exclude: files?.exclude ?? [],
         trimTrailingWhitespace: files?.trim_trailing_whitespace ?? false,
         confirmDelete: files?.confirm_delete ?? defaultFileSettings.confirmDelete,
+        showIgnored: files?.show_ignored ?? defaultFileSettings.showIgnored,
     };
 }
 
@@ -209,6 +214,7 @@ export async function saveFilesSettings(files: FileSettings): Promise<FileSettin
             exclude: files.exclude.slice(),
             trim_trailing_whitespace: files.trimTrailingWhitespace,
             confirm_delete: files.confirmDelete,
+            show_ignored: files.showIgnored,
         }),
     );
 }
@@ -294,6 +300,7 @@ export async function loadPreferences(): Promise<Preferences> {
                 exclude: [...defaultFileSettings.exclude],
                 trimTrailingWhitespace: defaultFileSettings.trimTrailingWhitespace,
                 confirmDelete: defaultFileSettings.confirmDelete,
+                showIgnored: defaultFileSettings.showIgnored,
             },
             searchExclude: [...defaultExcludePatterns],
         };

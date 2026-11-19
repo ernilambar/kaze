@@ -35,9 +35,14 @@ describe('sidebarLabel', () => {
 
 describe('toFolderEntry', () => {
     it('maps the generated binding model', () => {
-        const model = { path: '/tmp/src', name: 'src', is_dir: true };
+        const model = { path: '/tmp/src', name: 'src', is_dir: true, ignored: false };
 
-        expect(toFolderEntry(model)).toEqual({ path: '/tmp/src', name: 'src', isDir: true });
+        expect(toFolderEntry(model)).toEqual({
+            path: '/tmp/src',
+            name: 'src',
+            isDir: true,
+            ignored: false,
+        });
     });
 });
 

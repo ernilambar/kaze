@@ -71,7 +71,8 @@ No frontend linter/formatter is configured; don't add one unprompted.
   `EditorPane` owns one model per id. New File creates on disk; New Buffer
   (<kbd>Cmd</kbd>+<kbd>N</kbd>) is untitled.
 - **Sidebar** is multi-root; `ReadFolder(path, root)` lists one level, filtered by
-  `files.exclude` relative to the root.
+  `files.exclude` relative to the root. `.gitignore`d entries stay, flagged
+  `Ignored` and drawn dimmed unless `files.show_ignored` is off.
 - **Excludes are globs** (`internal/ignore`): bare name at any depth, leading `/`
   anchors, `**` spans directories, trailing `/` folders only. Search also honours
   `.gitignore` (also `internal/ignore`); VCS directories are never searched.

@@ -27,6 +27,8 @@
         // folderChanges is the set of folders with changed descendants, so a
         // collapsed folder still shows that it hides work.
         folderChanges?: Set<string>;
+        // ignored marks an entry .gitignore hides, so its name is dimmed.
+        ignored?: boolean;
         expanded?: boolean;
         removable?: boolean;
         onOpenFile: (path: string) => void;
@@ -57,6 +59,7 @@
         busyPath = '',
         statuses = {},
         folderChanges = new Set(),
+        ignored = false,
         expanded = false,
         removable = false,
         onOpenFile,
@@ -292,7 +295,11 @@
                     />
                 </svg>
             </span>
-            <span class="row__name" class:row__name--changed={folderChanged}>{name}</span>
+            <span
+                class="row__name"
+                class:row__name--changed={folderChanged}
+                class:row__name--ignored={ignored}
+            >{name}</span>
             {#if folderChanged}
                 <span class="row__changed" aria-hidden="true"></span>
             {/if}
@@ -333,6 +340,7 @@
                             {busyPath}
                             {statuses}
                             {folderChanges}
+                            ignored={entry.ignored}
                             {onOpenFile}
                             {onContextMenu}
                             {onExpandedChange}
@@ -374,7 +382,10 @@
                                         style:top={`${icon.top}px`}
                                         style:left={`${icon.left}px`}
                                     >{icon.glyph}</span>
-                                    <span class="row__name">{entry.name}</span>
+                                    <span
+                                        class="row__name"
+                                        class:row__name--ignored={entry.ignored}
+                                    >{entry.name}</span>
                                     {#if status !== undefined}
                                         <span
                                             class="row__status row__status--{status}"
@@ -497,6 +508,12 @@
        warning colour, so a collapsed folder still shows where the work is. */
     .row__name--changed {
         color: var(--git-conflicted);
+    }
+
+    /* .gitignore hides this entry; it stays reachable but reads as peripheral
+       rather than part of the project. */
+    .row__name--ignored {
+        color: var(--fg-muted);
     }
 
     .row__changed {

@@ -18,9 +18,15 @@ type FolderEntry struct {
 	Path  string `json:"path"`
 	Name  string `json:"name"`
 	IsDir bool   `json:"is_dir"`
+	// Ignored marks an entry .gitignore hides. The tree draws it dimmed so it
+	// stays reachable without looking like an ordinary project file.
+	Ignored bool `json:"ignored"`
 }
 
-func ReadFolder(path, root string, excludes ignore.Matcher) ([]FolderEntry, error) {
+// ReadFolder lists one level of path. Entries matching excludes are dropped.
+// Entries .gitignore hides are marked Ignored; when showIgnored is false they
+// are dropped too, the way an explicit exclude is.
+func ReadFolder(path, root string, excludes ignore.Matcher, showIgnored bool) ([]FolderEntry, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
@@ -45,16 +51,23 @@ func ReadFolder(path, root string, excludes ignore.Matcher) ([]FolderEntry, erro
 		}
 	}
 
+	repo := ignore.RepoFor(path)
 	entries := make([]FolderEntry, 0, len(dirEntries))
 	for _, entry := range dirEntries {
 		isDir := isDirectory(path, entry)
 		if excludes.Matches(prefix+entry.Name(), isDir) {
 			continue
 		}
+		entryPath := filepath.Join(path, entry.Name())
+		ignored := repo.Ignored(entryPath, isDir)
+		if ignored && !showIgnored {
+			continue
+		}
 		entries = append(entries, FolderEntry{
-			Path:  filepath.Join(path, entry.Name()),
-			Name:  entry.Name(),
-			IsDir: isDir,
+			Path:    entryPath,
+			Name:    entry.Name(),
+			IsDir:   isDir,
+			Ignored: ignored,
 		})
 	}
 

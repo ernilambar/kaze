@@ -1068,6 +1068,7 @@
             appearance.filesExclude = preferences.files.exclude;
             appearance.filesTrimTrailingWhitespace = preferences.files.trimTrailingWhitespace;
             appearance.filesConfirmDelete = preferences.files.confirmDelete;
+            appearance.filesShowIgnored = preferences.files.showIgnored;
             appearance.searchExclude = preferences.searchExclude;
             applyUISettings(appearance.uiSettings);
             await appearance.refreshThemes();
@@ -1434,6 +1435,7 @@
             filesExclude={appearance.filesExclude}
             trimTrailingWhitespace={appearance.filesTrimTrailingWhitespace}
             confirmDelete={appearance.filesConfirmDelete}
+            showIgnored={appearance.filesShowIgnored}
             searchExclude={appearance.searchExclude}
             {sidebarVisible}
             autoReveal={sidebarAutoReveal}
@@ -1444,6 +1446,7 @@
             onFilesExclude={(next) => void appearance.changeFilesExclude(next)}
             onTrimTrailingWhitespace={(next) => void appearance.changeFilesTrimTrailingWhitespace(next)}
             onConfirmDelete={(next) => void appearance.changeFilesConfirmDelete(next)}
+            onShowIgnored={(next) => void appearance.changeFilesShowIgnored(next)}
             onSearchExclude={(next) => void appearance.changeSearchExclude(next)}
             onSidebarVisible={setSidebarVisible}
             onAutoReveal={setSidebarAutoReveal}

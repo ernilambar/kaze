@@ -66,6 +66,7 @@ export class Appearance {
     filesExclude = $state<string[]>([]);
     filesTrimTrailingWhitespace = $state(false);
     filesConfirmDelete = $state(defaultFileSettings.confirmDelete);
+    filesShowIgnored = $state(defaultFileSettings.showIgnored);
     searchExclude = $state<string[]>([]);
     themes = $state<ThemeInfo[]>([]);
     themeErrors = $state<string[]>([]);
@@ -173,6 +174,7 @@ export class Appearance {
                 exclude: next,
                 trimTrailingWhitespace: this.filesTrimTrailingWhitespace,
                 confirmDelete: this.filesConfirmDelete,
+                showIgnored: this.filesShowIgnored,
             });
             this.applyFiles(saved);
             this.host.refreshTree();
@@ -191,6 +193,7 @@ export class Appearance {
                     exclude: this.filesExclude,
                     trimTrailingWhitespace: next,
                     confirmDelete: this.filesConfirmDelete,
+                    showIgnored: this.filesShowIgnored,
                 }),
             );
         } catch (error) {
@@ -208,8 +211,28 @@ export class Appearance {
                     exclude: this.filesExclude,
                     trimTrailingWhitespace: this.filesTrimTrailingWhitespace,
                     confirmDelete: next,
+                    showIgnored: this.filesShowIgnored,
                 }),
             );
+        } catch (error) {
+            this.ctx.notice = errorMessage(error);
+        }
+    };
+
+    // changeFilesShowIgnored saves whether gitignored entries stay in the tree.
+    // The visible level was listed with the old answer, so it is reread.
+    changeFilesShowIgnored = async (next: boolean): Promise<void> => {
+        this.filesShowIgnored = next;
+        try {
+            this.applyFiles(
+                await saveFilesSettings({
+                    exclude: this.filesExclude,
+                    trimTrailingWhitespace: this.filesTrimTrailingWhitespace,
+                    confirmDelete: this.filesConfirmDelete,
+                    showIgnored: next,
+                }),
+            );
+            this.host.refreshTree();
         } catch (error) {
             this.ctx.notice = errorMessage(error);
         }
@@ -220,6 +243,7 @@ export class Appearance {
         this.filesExclude = files.exclude;
         this.filesTrimTrailingWhitespace = files.trimTrailingWhitespace;
         this.filesConfirmDelete = files.confirmDelete;
+        this.filesShowIgnored = files.showIgnored;
     };
 
     changeSearchExclude = async (next: string[]): Promise<void> => {
@@ -254,6 +278,10 @@ export class Appearance {
         // The tree on screen was listed with the old matcher.
         if (!same(next.files.exclude, this.filesExclude)) {
             this.filesExclude = next.files.exclude;
+            this.host.refreshTree();
+        }
+        if (next.files.showIgnored !== this.filesShowIgnored) {
+            this.filesShowIgnored = next.files.showIgnored;
             this.host.refreshTree();
         }
         this.filesTrimTrailingWhitespace = next.files.trimTrailingWhitespace;

@@ -51,12 +51,15 @@ Globs, relative to a sidebar root:
 - `/dist` — anchored to the root; `**` spans directories.
 - `dist/` — folders only.
 
-Find in Files also honours `.gitignore`.
+Find in Files also honours `.gitignore`. Entries `.gitignore` hides stay in the
+tree, drawn dimmed, so a local `.env` or generated output can still be opened
+from the explorer.
 
 ## Explorer
 
 | Key | Default | Description |
 | --- | --- | --- |
+| `files.show_ignored` | `true` | Keep `.gitignore`d entries in the tree, dimmed. Off hides them like excluded entries. |
 | `files.confirm_delete` | `true` | Ask before moving a tree entry to the Trash. Buffers with unsaved changes always ask. |
 
 ## Appearance

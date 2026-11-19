@@ -7,10 +7,12 @@
         filesExclude: string[];
         trimTrailingWhitespace: boolean;
         confirmDelete: boolean;
+        showIgnored: boolean;
         searchExclude: string[];
         onFilesExclude: (next: string[]) => void;
         onTrimTrailingWhitespace: (trim: boolean) => void;
         onConfirmDelete: (confirm: boolean) => void;
+        onShowIgnored: (show: boolean) => void;
         onSearchExclude: (next: string[]) => void;
     }
 
@@ -18,10 +20,12 @@
         filesExclude,
         trimTrailingWhitespace,
         confirmDelete,
+        showIgnored,
         searchExclude,
         onFilesExclude,
         onTrimTrailingWhitespace,
         onConfirmDelete,
+        onShowIgnored,
         onSearchExclude,
     }: Props = $props();
 
@@ -66,6 +70,26 @@
         ></textarea>
     </section>
 {/snippet}
+
+<section class="settings__section">
+    <h3>Explorer</h3>
+    <SettingRow
+        name="Show ignored files"
+        description="Keep entries .gitignore hides in the tree, drawn dimmed. Turn off to hide them like excluded entries."
+        modified={showIgnored !== defaultFileSettings.showIgnored}
+        onReset={() => onShowIgnored(defaultFileSettings.showIgnored)}
+    >
+        {#snippet control()}
+            <input
+                class="settings__switch"
+                type="checkbox"
+                role="switch"
+                checked={showIgnored}
+                onchange={(event) => onShowIgnored(event.currentTarget.checked)}
+            />
+        {/snippet}
+    </SettingRow>
+</section>
 
 {@render patternList(
     'Explorer excludes',

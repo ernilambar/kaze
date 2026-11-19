@@ -12,14 +12,21 @@ import { onWindowEvent } from './windowstate';
 
 // FolderEntry mirrors FolderEntry in internal/fileops/folder.go: one child of a folder. The
 // backend lists one level at a time, so the tree only reads what it expands.
+// ignored marks an entry .gitignore hides; the tree draws it dimmed.
 export interface FolderEntry {
     path: string;
     name: string;
     isDir: boolean;
+    ignored: boolean;
 }
 
 export function toFolderEntry(entry: models.FolderEntry): FolderEntry {
-    return { path: entry.path, name: entry.name, isDir: entry.is_dir };
+    return {
+        path: entry.path,
+        name: entry.name,
+        isDir: entry.is_dir,
+        ignored: entry.ignored,
+    };
 }
 
 // folderName is the label for a folder: its last path segment. The root folder

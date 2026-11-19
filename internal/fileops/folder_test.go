@@ -12,7 +12,7 @@ import (
 )
 
 func readFolder(path string) ([]FolderEntry, error) {
-	return ReadFolder(path, path, ignore.Matcher{})
+	return ReadFolder(path, path, ignore.Matcher{}, true)
 }
 
 func TestReadFolderListsDirectoriesFirstThenNames(t *testing.T) {
@@ -128,7 +128,7 @@ func TestReadFolderExcludingDropsExcludedEntries(t *testing.T) {
 	writeTempFile(t, dir, "debug.log", "noise\n")
 	writeTempFile(t, dir, "main.go", "package main\n")
 
-	entries, err := ReadFolder(dir, dir, ignore.NewMatcher([]string{"node_modules", "*.log"}))
+	entries, err := ReadFolder(dir, dir, ignore.NewMatcher([]string{"node_modules", "*.log"}), true)
 	if err != nil {
 		t.Fatalf("ReadFolder() error = %v", err)
 	}
@@ -147,7 +147,7 @@ func TestReadFolderMatchesExcludesFromRoot(t *testing.T) {
 	excludes := ignore.NewMatcher([]string{"/build", "docs/gen"})
 
 	names := func(path string) []string {
-		entries, err := ReadFolder(path, root, excludes)
+		entries, err := ReadFolder(path, root, excludes, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -165,5 +165,105 @@ func TestReadFolderMatchesExcludesFromRoot(t *testing.T) {
 	}
 	if got := names(filepath.Join(root, "docs")); slices.Contains(got, "gen") {
 		t.Fatalf("docs lists %v, want docs/gen hidden", got)
+	}
+}
+
+// makeRepo creates a bare repository marker so ignore resolution stops there.
+func makeRepo(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestReadFolderMarksGitIgnoredEntries(t *testing.T) {
+	dir := t.TempDir()
+	makeRepo(t, dir)
+	writeTempFile(t, dir, ".gitignore", "dist/\n*.log\n")
+	if err := os.MkdirAll(filepath.Join(dir, "dist"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeTempFile(t, dir, "debug.log", "noise\n")
+	writeTempFile(t, dir, "main.go", "package main\n")
+
+	entries, err := readFolder(dir)
+	if err != nil {
+		t.Fatalf("readFolder() error = %v", err)
+	}
+	byName := make(map[string]FolderEntry, len(entries))
+	for _, entry := range entries {
+		byName[entry.Name] = entry
+	}
+	if !byName["dist"].Ignored {
+		t.Error("dist/ must be marked ignored")
+	}
+	if !byName["debug.log"].Ignored {
+		t.Error("debug.log must be marked ignored")
+	}
+	if byName["main.go"].Ignored {
+		t.Error("main.go must not be marked ignored")
+	}
+}
+
+func TestReadFolderHidesIgnoredEntriesWhenDisabled(t *testing.T) {
+	dir := t.TempDir()
+	makeRepo(t, dir)
+	writeTempFile(t, dir, ".gitignore", "*.log\n")
+	writeTempFile(t, dir, "debug.log", "noise\n")
+	writeTempFile(t, dir, "main.go", "package main\n")
+
+	entries, err := ReadFolder(dir, dir, ignore.Matcher{}, false)
+	if err != nil {
+		t.Fatalf("ReadFolder() error = %v", err)
+	}
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		names = append(names, entry.Name)
+	}
+	if slices.Contains(names, "debug.log") {
+		t.Fatalf("ReadFolder() = %v, want the ignored log hidden", names)
+	}
+	if !slices.Contains(names, "main.go") {
+		t.Fatalf("ReadFolder() = %v, want main.go kept", names)
+	}
+}
+
+func TestReadFolderMarksFilesBelowAnIgnoredDirectory(t *testing.T) {
+	dir := t.TempDir()
+	makeRepo(t, dir)
+	writeTempFile(t, dir, ".gitignore", "dist/\n!dist/keep.txt\n")
+	dist := filepath.Join(dir, "dist")
+	if err := os.MkdirAll(dist, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeTempFile(t, dist, "bundle.js", "x\n")
+	writeTempFile(t, dist, "keep.txt", "x\n")
+
+	entries, err := readFolder(dist)
+	if err != nil {
+		t.Fatalf("readFolder() error = %v", err)
+	}
+	// Git cannot re-include a file whose parent directory is excluded, so the
+	// negation does not rescue keep.txt.
+	for _, entry := range entries {
+		if !entry.Ignored {
+			t.Errorf("%s must be marked ignored below an excluded folder", entry.Name)
+		}
+	}
+}
+
+func TestReadFolderIgnoresGitignoreOutsideARepository(t *testing.T) {
+	dir := t.TempDir()
+	writeTempFile(t, dir, ".gitignore", "*.log\n")
+	writeTempFile(t, dir, "debug.log", "noise\n")
+
+	entries, err := readFolder(dir)
+	if err != nil {
+		t.Fatalf("readFolder() error = %v", err)
+	}
+	for _, entry := range entries {
+		if entry.Ignored {
+			t.Fatalf("%s was marked ignored without a repository", entry.Name)
+		}
 	}
 }

@@ -100,6 +100,10 @@ type FilesSettings struct {
 	// to true because the action discards the file's location; a buffer with
 	// unsaved changes always asks regardless.
 	ConfirmDelete bool `json:"confirm_delete"`
+	// ShowIgnored keeps the entries .gitignore hides in the tree, drawn dimmed,
+	// so a local .env or generated output can still be opened from the
+	// explorer. Turning it off hides those entries, as excluded ones are.
+	ShowIgnored bool `json:"show_ignored"`
 }
 
 // SearchSettings configures what Find in Files skips. The files list applies
@@ -166,6 +170,7 @@ func Default() Settings {
 			Exclude:                DefaultExcludePatterns(),
 			TrimTrailingWhitespace: false,
 			ConfirmDelete:          true,
+			ShowIgnored:            true,
 		},
 		Search: SearchSettings{Exclude: DefaultExcludePatterns()},
 		Theme: ThemeSettings{

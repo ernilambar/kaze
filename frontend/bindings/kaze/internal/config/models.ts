@@ -70,6 +70,13 @@ export interface FilesSettings {
      * unsaved changes always asks regardless.
      */
     "confirm_delete": boolean;
+
+    /**
+     * ShowIgnored keeps the entries .gitignore hides in the tree, drawn dimmed,
+     * so a local .env or generated output can still be opened from the
+     * explorer. Turning it off hides those entries, as excluded ones are.
+     */
+    "show_ignored": boolean;
 }
 
 /**

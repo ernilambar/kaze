@@ -415,7 +415,8 @@ export function PrintDocument(request: $models.PrintRequest): $CancellablePromis
  * ReadFolder lists one level of a folder for the sidebar. The tree loads the
  * rest lazily, so only the entries the user can see are read. Entries that
  * files.exclude hides are left out, which keeps the tree and Quick Open
- * agreeing on what exists.
+ * agreeing on what exists. Entries .gitignore hides stay, marked so the tree
+ * can dim them, unless files.show_ignored is off.
  * 
  * root is the sidebar folder path belongs to. Patterns match the entry's path
  * relative to it, so an anchored `/build` hides only the top-level folder and

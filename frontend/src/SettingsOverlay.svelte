@@ -18,6 +18,7 @@
         filesExclude: string[];
         trimTrailingWhitespace: boolean;
         confirmDelete: boolean;
+        showIgnored: boolean;
         searchExclude: string[];
         sidebarVisible: boolean;
         autoReveal: boolean;
@@ -28,6 +29,7 @@
         onFilesExclude: (next: string[]) => void;
         onTrimTrailingWhitespace: (trim: boolean) => void;
         onConfirmDelete: (confirm: boolean) => void;
+        onShowIgnored: (show: boolean) => void;
         onSearchExclude: (next: string[]) => void;
         onSidebarVisible: (visible: boolean) => void;
         onAutoReveal: (autoReveal: boolean) => void;
@@ -42,6 +44,7 @@
         filesExclude,
         trimTrailingWhitespace,
         confirmDelete,
+        showIgnored,
         searchExclude,
         sidebarVisible,
         autoReveal,
@@ -52,6 +55,7 @@
         onFilesExclude,
         onTrimTrailingWhitespace,
         onConfirmDelete,
+        onShowIgnored,
         onSearchExclude,
         onSidebarVisible,
         onAutoReveal,
@@ -188,10 +192,12 @@
                         {filesExclude}
                         {trimTrailingWhitespace}
                         {confirmDelete}
+                        {showIgnored}
                         {searchExclude}
                         {onFilesExclude}
                         {onTrimTrailingWhitespace}
                         {onConfirmDelete}
+                        {onShowIgnored}
                         {onSearchExclude}
                     />
                 {:else if section === 'sidebar'}

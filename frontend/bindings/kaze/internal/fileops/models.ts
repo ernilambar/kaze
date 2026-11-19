@@ -32,4 +32,10 @@ export interface FolderEntry {
     "path": string;
     "name": string;
     "is_dir": boolean;
+
+    /**
+     * Ignored marks an entry .gitignore hides. The tree draws it dimmed so it
+     * stays reachable without looking like an ordinary project file.
+     */
+    "ignored": boolean;
 }
