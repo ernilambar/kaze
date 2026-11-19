@@ -33,6 +33,7 @@
         padding: 0 12px;
         background: var(--bg-raised);
         border-bottom: 1px solid var(--border);
+        -webkit-user-select: none;
         user-select: none;
         /* No native title bar covers this strip, so dragging it moves the
            window and a double click zooms it. */

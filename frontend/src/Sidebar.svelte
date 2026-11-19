@@ -125,6 +125,7 @@
         max-width: 40vw;
         background: var(--bg-sidebar);
         border-right: 1px solid var(--border);
+        -webkit-user-select: none;
         user-select: none;
         overflow: hidden;
     }

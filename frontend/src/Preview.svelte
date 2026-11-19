@@ -62,6 +62,7 @@
         max-width: 100%;
         max-height: 100%;
         display: block;
+        -webkit-user-select: none;
         user-select: none;
         -webkit-user-drag: none;
     }

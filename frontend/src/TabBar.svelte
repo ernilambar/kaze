@@ -257,6 +257,7 @@
         overflow-x: auto;
         overflow-y: hidden;
         scrollbar-width: none;
+        -webkit-user-select: none;
         user-select: none;
     }
 

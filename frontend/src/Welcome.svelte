@@ -36,6 +36,7 @@
         overflow-y: auto;
         background: var(--bg);
         color: var(--fg);
+        -webkit-user-select: none;
         user-select: none;
     }
 

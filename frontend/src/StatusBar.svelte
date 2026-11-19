@@ -158,6 +158,7 @@ let {
         background: var(--bg-raised);
         border-top: 1px solid var(--border);
         color: var(--fg-muted);
+        -webkit-user-select: none;
         user-select: none;
     }
 

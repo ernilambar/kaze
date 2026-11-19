@@ -186,6 +186,7 @@
     .viewer__image {
         display: block;
         visibility: hidden;
+        -webkit-user-select: none;
         user-select: none;
         -webkit-user-drag: none;
     }
