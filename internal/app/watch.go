@@ -2,6 +2,8 @@ package app
 
 import (
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -158,18 +160,96 @@ func (w *fileWatcher) rebaseline(path string) {
 }
 
 // WatchPaths replaces one window's set of files and directories whose external
-// changes it wants to hear about. Calling it the first time starts the polling
-// loop, which runs for the life of the process.
-func (a *App) WatchPaths(window string, paths []string) {
+// changes it wants to hear about. repos are the repositories behind the sidebar
+// roots: their git metadata is watched too, because a commit, checkout or stage
+// moves HEAD and the index without touching a working-tree file. Calling it the
+// first time starts the polling loop, which runs for the life of the process.
+func (a *App) WatchPaths(window string, paths []string, repos []string) {
 	// A call still in flight when its window closed would register paths
 	// after forget, and they would be polled for the rest of the process.
 	if window == "" || a.session(window) == nil {
 		return
 	}
-	a.watcher.set(window, paths)
+	a.watcher.set(window, watchable(paths, repos))
 	a.watchOnce.Do(func() {
 		go a.watchLoop()
 	})
+}
+
+// watchable is the window's own paths plus the git metadata a repository
+// rewrites when its state changes. The frontend knows the repositories from the
+// status read; their working trees stay still when HEAD moves.
+func watchable(paths, repos []string) []string {
+	seen := make(map[string]bool, len(paths))
+	all := make([]string, 0, len(paths))
+	add := func(path string) {
+		if path == "" || seen[path] {
+			return
+		}
+		seen[path] = true
+		all = append(all, path)
+	}
+	for _, path := range paths {
+		add(path)
+	}
+	for _, repo := range repos {
+		for _, path := range gitStateFiles(repo) {
+			add(path)
+		}
+	}
+	return all
+}
+
+// gitStateFiles names the files under a repository's git directory that move
+// when HEAD, the index or a conflict state changes. A path may not exist yet;
+// the watcher reports its creation like any other change.
+func gitStateFiles(repo string) []string {
+	dir := gitDir(repo)
+	if dir == "" {
+		return nil
+	}
+	names := []string{
+		"HEAD",
+		"index",
+		"COMMIT_EDITMSG",
+		"logs/HEAD",
+		"packed-refs",
+		"MERGE_HEAD",
+		"CHERRY_PICK_HEAD",
+		"REVERT_HEAD",
+	}
+	files := make([]string, 0, len(names))
+	for _, name := range names {
+		files = append(files, filepath.Join(dir, name))
+	}
+	return files
+}
+
+// gitDir is a repository's .git directory. A linked worktree or submodule
+// stores a pointer file instead, whose gitdir line names the real directory.
+func gitDir(repo string) string {
+	dotGit := filepath.Join(repo, ".git")
+	info, err := os.Stat(dotGit)
+	if err != nil {
+		return ""
+	}
+	if info.IsDir() {
+		return dotGit
+	}
+	data, err := os.ReadFile(dotGit)
+	if err != nil {
+		return ""
+	}
+	const prefix = "gitdir: "
+	line := strings.TrimSpace(string(data))
+	if !strings.HasPrefix(line, prefix) {
+		return ""
+	}
+	dir := strings.TrimSpace(strings.TrimPrefix(line, prefix))
+	if !filepath.IsAbs(dir) {
+		dir = filepath.Join(repo, dir)
+	}
+	return filepath.Clean(dir)
 }
 
 // watchLoop polls the watcher and forwards changes to the windows that asked

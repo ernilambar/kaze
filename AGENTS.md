@@ -97,7 +97,9 @@ No frontend linter/formatter is configured; don't add one unprompted.
 - **Encoding is preserved.** UTF-8 BOM stripped, LF/CRLF kept. Invalid UTF-8
   opens with U+FFFD; save refuses until `allow_invalid_utf8`. NUL byte = binary.
 - **Watching polls** (`watch.go`, `configwatch.go`) every second. Clean buffers
-  reload; dirty ones keep a notice.
+  reload; dirty ones keep a notice. Repositories add their git metadata
+  (`HEAD`, `index`, reflog, commit message) to the watch set, so a commit made
+  outside Kaze clears the sidebar marks within a poll.
 - **Git is read-only** (`internal/git`): status, `diff HEAD`,
   `show HEAD:<path>`. Never stages, commits or checks out. Diff tabs are
   read-only and not persisted.

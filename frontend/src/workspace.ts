@@ -184,9 +184,14 @@ export async function saveWorkspaceAs(folders: readonly string[]): Promise<works
 }
 
 // watchPaths tells Go which files and folders one window wants polled for
-// external changes.
-export async function watchPaths(windowName: string, paths: readonly string[]): Promise<void> {
-    await WatchPaths(windowName, paths.slice());
+// external changes. repos adds their git metadata, so a commit made in another
+// program moves the sidebar marks within one poll.
+export async function watchPaths(
+    windowName: string,
+    paths: readonly string[],
+    repos: readonly string[],
+): Promise<void> {
+    await WatchPaths(windowName, paths.slice(), repos.slice());
 }
 
 // listenForWatchedChanges runs handler with the paths that changed on disk for

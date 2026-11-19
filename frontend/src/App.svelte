@@ -985,7 +985,10 @@
             return;
         }
         const paths = watchedPaths;
-        void watchPaths(ctx.windowName, paths).catch((error) =>
+        // A repository's working tree does not change when HEAD moves, so the
+        // backend watches its git metadata alongside these paths.
+        const repos = git.repos.map((repo) => repo.root);
+        void watchPaths(ctx.windowName, paths, repos).catch((error) =>
             console.error('Failed to watch the workspace.', error),
         );
     });
@@ -1036,6 +1039,23 @@
         let unsubscribe: (() => void) | undefined;
         let systemTheme: MediaQueryList | undefined;
         let disposed = false;
+        let gitRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+
+        // An external commit moves HEAD without touching a working-tree file,
+        // so the file watcher never reports it. Reread git status when the
+        // window regains focus: coming back from the terminal is when the
+        // sidebar marks are expected to describe the new HEAD.
+        const onWindowFocus = (): void => {
+            if (ctx.windowName === '') {
+                return;
+            }
+            clearTimeout(gitRefreshTimer);
+            gitRefreshTimer = setTimeout(() => {
+                gitRefreshTimer = undefined;
+                void git.refreshGitStatus();
+            }, 150);
+        };
+        window.addEventListener('focus', onWindowFocus);
 
         // System mode follows the OS appearance without a restart.
         const onSystemTheme = (): void => {
@@ -1211,6 +1231,8 @@
         return () => {
             disposed = true;
             unsubscribe?.();
+            window.removeEventListener('focus', onWindowFocus);
+            clearTimeout(gitRefreshTimer);
             systemTheme?.removeEventListener('change', onSystemTheme);
             appearance.disposeKeybindings?.();
         };
