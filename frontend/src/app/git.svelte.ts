@@ -1,5 +1,6 @@
 import {
     branchLabel,
+    changedFolders,
     loadGitStatus,
     readGitBaseline,
     readGitDiff,
@@ -35,6 +36,10 @@ export class GitController {
         }
         return statuses;
     });
+
+    // folderChanges is the set of folders with a change beneath them, so a
+    // folder row marks itself even when it is collapsed.
+    folderChanges = $derived.by(() => changedFolders(this.changes, this.ctx.folders));
 
     // The arrow defers the read of ctx until the constructor has set it.
     activeRepo = $derived.by(() =>

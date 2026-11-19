@@ -13,7 +13,7 @@ A lightweight macOS editor for code and plain text.
 - **Monaco editor** — syntax highlighting, multi-cursor, case transforms.
 - **Markdown and SVG preview**, plus an image viewer.
 - **Live reload** — external changes reload clean tabs and refresh the tree.
-- **Git status** — tree marks and gutter diff (read-only).
+- **Git status** — file and folder marks in the tree, plus gutter diff (read-only).
 - **Zed themes** and VS Code-style keybindings.
 - **`kaze` command line tool**.
 

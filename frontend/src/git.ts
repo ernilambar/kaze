@@ -172,6 +172,41 @@ export function statusLabel(status: GitStatusKind): string {
     }
 }
 
+// parentDirectory is the folder above path. A root such as "/" or "C:\" has no
+// parent here, which ends the walk.
+function parentDirectory(path: string): string {
+    const trimmed = path.replace(/[\\/]+$/, '');
+    const cut = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
+    if (cut <= 0) {
+        return '';
+    }
+    return trimmed.slice(0, cut);
+}
+
+// changedFolders is the set of folders that contain at least one change, so a
+// folder row can mark itself and a collapsed folder still says it hides work.
+// The change's own path is included too: git reports an untracked directory as
+// one change, and that directory is itself a tree row. Paths outside every
+// sidebar root are skipped, because the tree cannot show them.
+export function changedFolders(
+    changes: readonly GitChange[],
+    roots: readonly string[],
+): Set<string> {
+    const folders = new Set<string>();
+    for (const change of changes) {
+        let path = change.path;
+        while (path !== '' && roots.some((root) => path === root || isWithin(root, path))) {
+            folders.add(path);
+            const parent = parentDirectory(path);
+            if (parent === path) {
+                break;
+            }
+            path = parent;
+        }
+    }
+    return folders;
+}
+
 // changePath is the path shown in the changes list: relative to its repository
 // root, so a deep change stays readable.
 export function changePath(change: GitChange): string {

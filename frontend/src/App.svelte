@@ -1189,6 +1189,7 @@
                     refreshToken={treeops.treeRefreshToken}
                     busyPath={treeops.busyPath}
                     statuses={git.statuses}
+                    folderChanges={git.folderChanges}
                     iconStyle={appearance.uiSettings.iconStyle}
                     onAddFolder={() => void workspaces.addFolderFromDialog()}
                     onRemoveFolder={(path) => void workspaces.removeFolder(path)}

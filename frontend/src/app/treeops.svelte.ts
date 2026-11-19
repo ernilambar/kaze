@@ -149,6 +149,9 @@ export class TreeOps {
                     const entry = await createFile(folder, name);
                     this.refreshTree();
                     await this.documents.openFile(entry.path);
+                    // A new file is untracked, so its row and every folder
+                    // above it gain a mark.
+                    void this.git.refreshGitStatus();
                     this.ctx.notice = '';
                     return '';
                 } catch (error) {

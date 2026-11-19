@@ -15,6 +15,9 @@
         busyPath?: string;
         // statuses maps a path to its git state for the row's status mark.
         statuses?: Record<string, GitStatusKind>;
+        // folderChanges is the set of folders with changed descendants, so a
+        // folder row can mark itself.
+        folderChanges?: Set<string>;
         onAddFolder: () => void;
         onRemoveFolder: (path: string) => void;
         onOpenFile: (path: string) => void;
@@ -43,6 +46,7 @@
         refreshToken = 0,
         busyPath = '',
         statuses = {},
+        folderChanges = new Set(),
         onAddFolder,
         onRemoveFolder,
         onOpenFile,
@@ -100,6 +104,7 @@
                     {refreshToken}
                     {busyPath}
                     {statuses}
+                    {folderChanges}
                     expanded={true}
                     removable={true}
                     {onOpenFile}

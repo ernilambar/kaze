@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     branchLabel,
     changePath,
+    changedFolders,
     repoForPath,
     statusLabel,
     statusMark,
@@ -77,5 +78,39 @@ describe('changePath', () => {
 
     it('is relative to the repository root', () => {
         expect(changePath(change)).toBe('src/file.ts');
+    });
+});
+
+describe('changedFolders', () => {
+    function change(path: string, status: GitChange['status'] = 'modified'): GitChange {
+        return { path, root: '/work', status };
+    }
+
+    it('marks a change on its own path and every folder above it', () => {
+        const folders = changedFolders([change('/work/src/app/file.ts')], ['/work']);
+        expect(folders.has('/work/src/app/file.ts')).toBe(true);
+        expect(folders.has('/work/src/app')).toBe(true);
+        expect(folders.has('/work/src')).toBe(true);
+        expect(folders.has('/work')).toBe(true);
+    });
+
+    it('stops at the sidebar root', () => {
+        const folders = changedFolders([change('/work/src/file.ts')], ['/work']);
+        expect(folders.has('/')).toBe(false);
+        expect(folders.size).toBe(3);
+    });
+
+    it('marks a folder once however many changes it holds', () => {
+        const folders = changedFolders(
+            [change('/work/src/a.ts'), change('/work/src/b.ts', 'untracked')],
+            ['/work'],
+        );
+        expect(folders.has('/work/src')).toBe(true);
+        expect(folders.size).toBe(4);
+    });
+
+    it('leaves paths outside every root out', () => {
+        const folders = changedFolders([change('/elsewhere/file.ts')], ['/work']);
+        expect(folders.size).toBe(0);
     });
 });

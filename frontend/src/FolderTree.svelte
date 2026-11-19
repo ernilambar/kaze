@@ -24,6 +24,9 @@
         // that the command is still working.
         busyPath?: string;
         statuses?: Record<string, GitStatusKind>;
+        // folderChanges is the set of folders with changed descendants, so a
+        // collapsed folder still shows that it hides work.
+        folderChanges?: Set<string>;
         expanded?: boolean;
         removable?: boolean;
         onOpenFile: (path: string) => void;
@@ -53,6 +56,7 @@
         refreshToken = 0,
         busyPath = '',
         statuses = {},
+        folderChanges = new Set(),
         expanded = false,
         removable = false,
         onOpenFile,
@@ -69,6 +73,9 @@
     // svelte-ignore state_referenced_locally
     let open = $state(expanded);
     let entries = $state<FolderEntry[]>([]);
+    // folderChanged marks a folder that hides a git change beneath it, so a
+    // collapsed row still says so.
+    let folderChanged = $derived(folderChanges.has(path));
     let error = $state('');
     let loaded = $state(false);
     let loading = $state(false);
@@ -269,6 +276,7 @@
             class="row__main"
             onclick={toggle}
             title={path}
+            aria-label={folderChanged ? `${name} — has git changes` : undefined}
             oncontextmenu={(event) => onContextMenu?.(event, path, { isDir: true })}
         >
             <span class="row__chevron" class:row__chevron--open={open}>
@@ -287,7 +295,10 @@
                     />
                 </svg>
             </span>
-            <span class="row__name">{name}</span>
+            <span class="row__name" class:row__name--changed={folderChanged}>{name}</span>
+            {#if folderChanged}
+                <span class="row__changed" aria-hidden="true"></span>
+            {/if}
         </button>
         {#if removable && onRemove !== undefined}
             <button class="row__remove" onclick={() => onRemove?.(path)} title={`Remove ${name}`}>
@@ -324,6 +335,7 @@
                             {refreshToken}
                             {busyPath}
                             {statuses}
+                            {folderChanges}
                             {onOpenFile}
                             {onContextMenu}
                             {onExpandedChange}
@@ -482,6 +494,21 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+
+    /* A folder with a git change beneath it: the name and a dot both take the
+       warning colour, so a collapsed folder still shows where the work is. */
+    .row__name--changed {
+        color: var(--git-conflicted);
+    }
+
+    .row__changed {
+        flex: 0 0 auto;
+        margin-left: auto;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--git-conflicted);
     }
 
     .row__status {
