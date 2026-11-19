@@ -4,6 +4,12 @@ import { LOG_EXTENSIONS, LOG_LANGUAGE_ID, logLanguage } from './logLanguage';
 import type { PaletteItem } from './palette';
 import type { EditorSettings } from './settings';
 import { shebangLanguage } from './shebang';
+import {
+    SVELTE_EXTENSIONS,
+    SVELTE_LANGUAGE_ID,
+    svelteConf,
+    svelteLanguage,
+} from './svelteLanguage';
 
 // DIFF_LANGUAGE is Monaco's built-in diff syntax, used by the read-only diff
 // tabs. It is not chosen from a file extension.
@@ -54,6 +60,16 @@ monaco.languages.register({
     aliases: ['Log', 'log'],
 });
 monaco.languages.setMonarchTokensProvider(LOG_LANGUAGE_ID, logLanguage);
+
+// Svelte registers the same way, for the same reason: the index below caches
+// the registry on first use, and Monaco bundles no Svelte grammar.
+monaco.languages.register({
+    id: SVELTE_LANGUAGE_ID,
+    extensions: SVELTE_EXTENSIONS,
+    aliases: ['Svelte'],
+});
+monaco.languages.setLanguageConfiguration(SVELTE_LANGUAGE_ID, svelteConf);
+monaco.languages.setMonarchTokensProvider(SVELTE_LANGUAGE_ID, svelteLanguage);
 
 // LanguageIndex maps what a path says about its content to the language Monaco
 // registered for it. It is built from Monaco's own registry rather than a
