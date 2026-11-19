@@ -63,6 +63,13 @@ export interface FilesSettings {
      * edits the buffer too, so the saved text and the tab still agree.
      */
     "trim_trailing_whitespace": boolean;
+
+    /**
+     * ConfirmDelete asks before moving a tree entry to the Trash. It defaults
+     * to true because the action discards the file's location; a buffer with
+     * unsaved changes always asks regardless.
+     */
+    "confirm_delete": boolean;
 }
 
 /**

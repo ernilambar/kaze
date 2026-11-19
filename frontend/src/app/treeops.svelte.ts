@@ -15,6 +15,7 @@ import {
 import { errorMessage, relativePath } from '../sidebar';
 import { findDocumentByPath, pathWithin, retargetDocumentPaths } from '../tabs';
 import type { CopyPathKind } from '../workspacecommands';
+import type { Appearance } from './appearance.svelte';
 import type { WindowContext } from './context.svelte';
 import type { Documents } from './documents.svelte';
 import type { GitController } from './git.svelte';
@@ -31,6 +32,7 @@ export class TreeOps {
     private readonly prompts: Prompts;
     private readonly git: GitController;
     private readonly documents: Documents;
+    private readonly appearance: Appearance;
 
     // clipboardPath is the tree entry Cut or Copy put aside. The operating
     // system clipboard is not used: moving a file is not the same thing as
@@ -349,10 +351,11 @@ export class TreeOps {
         });
     };
 
-    // trashEntry asks first, then moves the entry to the platform's Trash. Its
-    // tabs close with it: the files they show no longer exist, and a tab that
-    // cannot be saved is worse than no tab. A modified buffer asks about its
-    // edits before the file goes, so nothing is lost by accident.
+    // trashEntry asks first unless the user turned off confirmation, then moves
+    // the entry to the platform's Trash. Its tabs close with it: the files they
+    // show no longer exist, and a tab that cannot be saved is worse than no
+    // tab. A modified buffer always asks about its edits before the file goes,
+    // so nothing is lost by accident even with the setting off.
     trashEntry = async (path: string): Promise<void> => {
         const affected = this.ctx.tabs.filter(
             (tab) =>
@@ -360,15 +363,17 @@ export class TreeOps {
                 (tab.kind === 'diff' && pathWithin(tab.sourcePath ?? '', path)),
         );
         const dirty = affected.filter((tab) => tab.dirty);
-        const confirmed = await this.prompts.askConfirm(
-            'Delete',
-            dirty.length > 0
-                ? `Delete ${entryName(path)}? It moves to the Trash, and ${dirty.length === 1 ? 'one open buffer has' : `${dirty.length} open buffers have`} unsaved changes that will be lost.`
-                : `Delete ${entryName(path)}? It moves to the Trash, so you can put it back from there.`,
-            'Delete',
-        );
-        if (!confirmed) {
-            return;
+        if (dirty.length > 0 || this.appearance.filesConfirmDelete) {
+            const confirmed = await this.prompts.askConfirm(
+                'Delete',
+                dirty.length > 0
+                    ? `Delete ${entryName(path)}? It moves to the Trash, and ${dirty.length === 1 ? 'one open buffer has' : `${dirty.length} open buffers have`} unsaved changes that will be lost.`
+                    : `Delete ${entryName(path)}? It moves to the Trash, so you can put it back from there.`,
+                'Delete',
+            );
+            if (!confirmed) {
+                return;
+            }
         }
         this.busyPath = path;
         try {
@@ -504,10 +509,17 @@ export class TreeOps {
         this.expandedPaths = this.expandedPaths.filter((entry) => entry !== path);
     };
 
-    constructor(ctx: WindowContext, prompts: Prompts, git: GitController, documents: Documents) {
+    constructor(
+        ctx: WindowContext,
+        prompts: Prompts,
+        git: GitController,
+        documents: Documents,
+        appearance: Appearance,
+    ) {
         this.ctx = ctx;
         this.prompts = prompts;
         this.git = git;
         this.documents = documents;
+        this.appearance = appearance;
     }
 }

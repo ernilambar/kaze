@@ -53,6 +53,12 @@ Globs, relative to a sidebar root:
 
 Find in Files also honours `.gitignore`.
 
+## Explorer
+
+| Key | Default | Description |
+| --- | --- | --- |
+| `files.confirm_delete` | `true` | Ask before moving a tree entry to the Trash. Buffers with unsaved changes always ask. |
+
 ## Appearance
 
 | Key | Default | Description |

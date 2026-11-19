@@ -175,6 +175,7 @@ export const defaultUISettings: UISettings = {
 export interface FileSettings {
     exclude: string[];
     trimTrailingWhitespace: boolean;
+    confirmDelete: boolean;
 }
 
 // defaultExcludePatterns mirrors DefaultExcludePatterns in internal/config/settings.go.
@@ -189,12 +190,16 @@ export const defaultExcludePatterns: readonly string[] = [
 export const defaultFileSettings: FileSettings = {
     exclude: [...defaultExcludePatterns],
     trimTrailingWhitespace: false,
+    // Confirmation is on by default: moving an entry to the Trash is
+    // destructive, even though the Trash can undo it.
+    confirmDelete: true,
 };
 
 function toFileSettings(files: models.FilesSettings | undefined): FileSettings {
     return {
         exclude: files?.exclude ?? [],
         trimTrailingWhitespace: files?.trim_trailing_whitespace ?? false,
+        confirmDelete: files?.confirm_delete ?? defaultFileSettings.confirmDelete,
     };
 }
 
@@ -203,6 +208,7 @@ export async function saveFilesSettings(files: FileSettings): Promise<FileSettin
         await UpdateFilesSettings({
             exclude: files.exclude.slice(),
             trim_trailing_whitespace: files.trimTrailingWhitespace,
+            confirm_delete: files.confirmDelete,
         }),
     );
 }
@@ -287,6 +293,7 @@ export async function loadPreferences(): Promise<Preferences> {
             files: {
                 exclude: [...defaultFileSettings.exclude],
                 trimTrailingWhitespace: defaultFileSettings.trimTrailingWhitespace,
+                confirmDelete: defaultFileSettings.confirmDelete,
             },
             searchExclude: [...defaultExcludePatterns],
         };

@@ -10,6 +10,7 @@ import {
 } from '../keybindings';
 import {
     defaultEditorSettings,
+    defaultFileSettings,
     defaultThemeSettings,
     defaultUISettings,
     readSettings,
@@ -19,6 +20,7 @@ import {
     saveThemeSettings,
     saveUISettings,
     type EditorSettings,
+    type FileSettings,
     type ThemeSettings,
     type UISettings,
 } from '../settings';
@@ -63,6 +65,7 @@ export class Appearance {
     // Files both read them in Go; the settings overlay edits them.
     filesExclude = $state<string[]>([]);
     filesTrimTrailingWhitespace = $state(false);
+    filesConfirmDelete = $state(defaultFileSettings.confirmDelete);
     searchExclude = $state<string[]>([]);
     themes = $state<ThemeInfo[]>([]);
     themeErrors = $state<string[]>([]);
@@ -161,7 +164,7 @@ export class Appearance {
 
     // changeFilesExclude saves the explorer's glob list and rereads the tree:
     // the level already on screen was opened with the old matcher. The update
-    // endpoint replaces the whole files section, so the whitespace rule travels
+    // endpoint replaces the whole files section, so the other rules travel
     // with it.
     changeFilesExclude = async (next: string[]): Promise<void> => {
         this.filesExclude = next;
@@ -169,9 +172,9 @@ export class Appearance {
             const saved = await saveFilesSettings({
                 exclude: next,
                 trimTrailingWhitespace: this.filesTrimTrailingWhitespace,
+                confirmDelete: this.filesConfirmDelete,
             });
-            this.filesExclude = saved.exclude;
-            this.filesTrimTrailingWhitespace = saved.trimTrailingWhitespace;
+            this.applyFiles(saved);
             this.host.refreshTree();
         } catch (error) {
             this.ctx.notice = errorMessage(error);
@@ -183,15 +186,40 @@ export class Appearance {
     changeFilesTrimTrailingWhitespace = async (next: boolean): Promise<void> => {
         this.filesTrimTrailingWhitespace = next;
         try {
-            const saved = await saveFilesSettings({
-                exclude: this.filesExclude,
-                trimTrailingWhitespace: next,
-            });
-            this.filesExclude = saved.exclude;
-            this.filesTrimTrailingWhitespace = saved.trimTrailingWhitespace;
+            this.applyFiles(
+                await saveFilesSettings({
+                    exclude: this.filesExclude,
+                    trimTrailingWhitespace: next,
+                    confirmDelete: this.filesConfirmDelete,
+                }),
+            );
         } catch (error) {
             this.ctx.notice = errorMessage(error);
         }
+    };
+
+    // changeFilesConfirmDelete saves whether the tree asks before trashing an
+    // entry. Dirty buffers still ask, so unsaved work is never lost silently.
+    changeFilesConfirmDelete = async (next: boolean): Promise<void> => {
+        this.filesConfirmDelete = next;
+        try {
+            this.applyFiles(
+                await saveFilesSettings({
+                    exclude: this.filesExclude,
+                    trimTrailingWhitespace: this.filesTrimTrailingWhitespace,
+                    confirmDelete: next,
+                }),
+            );
+        } catch (error) {
+            this.ctx.notice = errorMessage(error);
+        }
+    };
+
+    // applyFiles adopts the normalized files section after a save.
+    applyFiles = (files: FileSettings): void => {
+        this.filesExclude = files.exclude;
+        this.filesTrimTrailingWhitespace = files.trimTrailingWhitespace;
+        this.filesConfirmDelete = files.confirmDelete;
     };
 
     changeSearchExclude = async (next: string[]): Promise<void> => {
@@ -229,6 +257,7 @@ export class Appearance {
             this.host.refreshTree();
         }
         this.filesTrimTrailingWhitespace = next.files.trimTrailingWhitespace;
+        this.filesConfirmDelete = next.files.confirmDelete;
         if (!same(next.searchExclude, this.searchExclude)) {
             this.searchExclude = next.searchExclude;
         }

@@ -6,18 +6,22 @@
     interface Props {
         filesExclude: string[];
         trimTrailingWhitespace: boolean;
+        confirmDelete: boolean;
         searchExclude: string[];
         onFilesExclude: (next: string[]) => void;
         onTrimTrailingWhitespace: (trim: boolean) => void;
+        onConfirmDelete: (confirm: boolean) => void;
         onSearchExclude: (next: string[]) => void;
     }
 
     let {
         filesExclude,
         trimTrailingWhitespace,
+        confirmDelete,
         searchExclude,
         onFilesExclude,
         onTrimTrailingWhitespace,
+        onConfirmDelete,
         onSearchExclude,
     }: Props = $props();
 
@@ -94,6 +98,25 @@
                 role="switch"
                 checked={trimTrailingWhitespace}
                 onchange={(event) => onTrimTrailingWhitespace(event.currentTarget.checked)}
+            />
+        {/snippet}
+    </SettingRow>
+</section>
+<section class="settings__section">
+    <h3>Deleting</h3>
+    <SettingRow
+        name="Confirm Delete"
+        description="Ask before moving a tree entry to the Trash. Buffers with unsaved changes always ask."
+        modified={confirmDelete !== defaultFileSettings.confirmDelete}
+        onReset={() => onConfirmDelete(defaultFileSettings.confirmDelete)}
+    >
+        {#snippet control()}
+            <input
+                class="settings__switch"
+                type="checkbox"
+                role="switch"
+                checked={confirmDelete}
+                onchange={(event) => onConfirmDelete(event.currentTarget.checked)}
             />
         {/snippet}
     </SettingRow>

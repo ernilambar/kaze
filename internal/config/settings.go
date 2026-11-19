@@ -96,6 +96,10 @@ type FilesSettings struct {
 	// TrimTrailingWhitespace removes spaces and tabs at line ends on save. It
 	// edits the buffer too, so the saved text and the tab still agree.
 	TrimTrailingWhitespace bool `json:"trim_trailing_whitespace"`
+	// ConfirmDelete asks before moving a tree entry to the Trash. It defaults
+	// to true because the action discards the file's location; a buffer with
+	// unsaved changes always asks regardless.
+	ConfirmDelete bool `json:"confirm_delete"`
 }
 
 // SearchSettings configures what Find in Files skips. The files list applies
@@ -161,6 +165,7 @@ func Default() Settings {
 		Files: FilesSettings{
 			Exclude:                DefaultExcludePatterns(),
 			TrimTrailingWhitespace: false,
+			ConfirmDelete:          true,
 		},
 		Search: SearchSettings{Exclude: DefaultExcludePatterns()},
 		Theme: ThemeSettings{

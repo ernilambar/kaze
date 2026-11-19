@@ -126,7 +126,11 @@ describe('loadPreferences', () => {
                 icon_style: 'monochrome',
                 sidebar_position: 'right',
             },
-            files: { exclude: ['/dist', '*.log'], trim_trailing_whitespace: true },
+            files: {
+                exclude: ['/dist', '*.log'],
+                trim_trailing_whitespace: true,
+                confirm_delete: false,
+            },
             search: { exclude: ['vendor'] },
         });
 
@@ -142,6 +146,7 @@ describe('loadPreferences', () => {
             files: {
                 exclude: ['/dist', '*.log'],
                 trimTrailingWhitespace: true,
+                confirmDelete: false,
             },
             searchExclude: ['vendor'],
         });
@@ -153,6 +158,7 @@ describe('files and search saves', () => {
         updateFilesSettings.mockResolvedValue({
             exclude: ['node_modules'],
             trim_trailing_whitespace: true,
+            confirm_delete: false,
         });
         updateSearchSettings.mockResolvedValue({ exclude: ['vendor'] });
 
@@ -160,14 +166,17 @@ describe('files and search saves', () => {
             saveFilesSettings({
                 exclude: [' node_modules ', 'node_modules'],
                 trimTrailingWhitespace: true,
+                confirmDelete: false,
             }),
         ).resolves.toEqual({
             exclude: ['node_modules'],
             trimTrailingWhitespace: true,
+            confirmDelete: false,
         });
         expect(updateFilesSettings).toHaveBeenCalledWith({
             exclude: [' node_modules ', 'node_modules'],
             trim_trailing_whitespace: true,
+            confirm_delete: false,
         });
 
         await expect(saveSearchExclude(['vendor'])).resolves.toEqual(['vendor']);

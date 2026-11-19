@@ -203,7 +203,7 @@
         recordRecent: (path): Promise<void> => workspaces.recordRecent(path),
         refreshTree: () => treeops.refreshTree(),
     });
-    const treeops = new TreeOps(ctx, prompts, git, documents);
+    const treeops = new TreeOps(ctx, prompts, git, documents, appearance);
     const workspaces = new WorkspaceController(ctx, prompts, git, search, documents, treeops);
 
     let imageActive = $derived(ctx.active?.kind === 'image');
@@ -1021,6 +1021,7 @@
             appearance.uiSettings = preferences.ui;
             appearance.filesExclude = preferences.files.exclude;
             appearance.filesTrimTrailingWhitespace = preferences.files.trimTrailingWhitespace;
+            appearance.filesConfirmDelete = preferences.files.confirmDelete;
             appearance.searchExclude = preferences.searchExclude;
             applyUISettings(appearance.uiSettings);
             await appearance.refreshThemes();
@@ -1372,6 +1373,7 @@
             themes={appearance.themes}
             filesExclude={appearance.filesExclude}
             trimTrailingWhitespace={appearance.filesTrimTrailingWhitespace}
+            confirmDelete={appearance.filesConfirmDelete}
             searchExclude={appearance.searchExclude}
             {sidebarVisible}
             autoReveal={sidebarAutoReveal}
@@ -1381,6 +1383,7 @@
             onUI={(next) => void appearance.changeUISettings(next)}
             onFilesExclude={(next) => void appearance.changeFilesExclude(next)}
             onTrimTrailingWhitespace={(next) => void appearance.changeFilesTrimTrailingWhitespace(next)}
+            onConfirmDelete={(next) => void appearance.changeFilesConfirmDelete(next)}
             onSearchExclude={(next) => void appearance.changeSearchExclude(next)}
             onSidebarVisible={setSidebarVisible}
             onAutoReveal={setSidebarAutoReveal}

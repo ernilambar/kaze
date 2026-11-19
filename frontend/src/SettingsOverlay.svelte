@@ -17,6 +17,7 @@
         themes: ThemeInfo[];
         filesExclude: string[];
         trimTrailingWhitespace: boolean;
+        confirmDelete: boolean;
         searchExclude: string[];
         sidebarVisible: boolean;
         autoReveal: boolean;
@@ -26,6 +27,7 @@
         onUI: (next: UISettings) => void;
         onFilesExclude: (next: string[]) => void;
         onTrimTrailingWhitespace: (trim: boolean) => void;
+        onConfirmDelete: (confirm: boolean) => void;
         onSearchExclude: (next: string[]) => void;
         onSidebarVisible: (visible: boolean) => void;
         onAutoReveal: (autoReveal: boolean) => void;
@@ -39,6 +41,7 @@
         themes,
         filesExclude,
         trimTrailingWhitespace,
+        confirmDelete,
         searchExclude,
         sidebarVisible,
         autoReveal,
@@ -48,6 +51,7 @@
         onUI,
         onFilesExclude,
         onTrimTrailingWhitespace,
+        onConfirmDelete,
         onSearchExclude,
         onSidebarVisible,
         onAutoReveal,
@@ -183,9 +187,11 @@
                     <FilesSection
                         {filesExclude}
                         {trimTrailingWhitespace}
+                        {confirmDelete}
                         {searchExclude}
                         {onFilesExclude}
                         {onTrimTrailingWhitespace}
+                        {onConfirmDelete}
                         {onSearchExclude}
                     />
                 {:else if section === 'sidebar'}
