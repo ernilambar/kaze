@@ -2,58 +2,53 @@ package app
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 
+	"kaze/internal/config"
 	"kaze/internal/document"
 	"kaze/internal/git"
+	"kaze/internal/ignore"
 	"kaze/internal/pathutil"
 )
 
 // GetGitStatus reports the repositories that own the sidebar roots and the
-// changed files inside them. paths are one window's open files and expanded
-// folders: they let a repository nested under a root contribute its status
-// without walking the whole tree. A root outside a repository is skipped
-// silently: a non-repository folder is normal, not a failure.
-func (a *App) GetGitStatus(folders []string, paths []string) (git.GitSnapshot, error) {
+// changed files inside them. A root outside a repository is a container of
+// repositories; discover walks it for the ones it holds, so the changes list
+// does not depend on which folders the tree has expanded. A folder with no
+// repository stays absent silently: that is normal, not a failure.
+func (a *App) GetGitStatus(folders []string) (git.GitSnapshot, error) {
 	snapshot := git.GitSnapshot{Repos: []git.GitRepo{}, Changes: []git.GitChange{}}
-	seenRoots := make(map[string]bool, len(folders)+len(paths))
+	seenRoots := make(map[string]bool, len(folders))
 	seenChanges := make(map[string]bool)
 
-	// Repositories are collected in a fixed order: the roots first, then the
-	// ones the watched paths reveal, so the branch and the changes list stay
-	// stable between reads.
-	roots := make([]string, 0, len(folders)+len(paths))
+	// Repositories are collected in a fixed order, so the branch and the
+	// changes list stay stable between reads.
+	roots := make([]string, 0, len(folders))
 	addRoot := func(root string) {
-		if root == "" || seenRoots[root] {
+		if root == "" {
+			return
+		}
+		// Git reports physical paths, so the reads and the change filter must
+		// use the canonical spelling even when the sidebar root goes through a
+		// symlink.
+		root = pathutil.CanonicalPath(root)
+		if seenRoots[root] {
 			return
 		}
 		seenRoots[root] = true
 		roots = append(roots, root)
 	}
+	excludes := fileExcludes()
 	for _, folder := range folders {
-		addRoot(git.RepoRoot(folder))
-	}
-	for _, path := range paths {
-		// Git reports physical paths, so compare against the canonical one:
-		// a sidebar rooted at /var and a repository at /private/var are the
-		// same tree. A tab can point outside the sidebar; its repository
-		// cannot describe anything the sidebar shows.
-		canonical := pathutil.CanonicalPath(path)
-		if !pathutil.WithinAny(canonical, folders) {
+		// A root inside a repository is covered by that repository, including
+		// changes below the root. Only a plain container needs a walk.
+		if root := git.RepoRoot(folder); root != "" {
+			addRoot(root)
 			continue
 		}
-		// A path already inside a known repository needs no git process.
-		known := false
-		for root := range seenRoots {
-			if pathutil.IsWithin(root, canonical) {
-				known = true
-				break
-			}
-		}
-		if !known {
-			addRoot(repoRootForPath(path))
+		for _, nested := range git.DiscoverRepos(folder, excludes) {
+			addRoot(nested)
 		}
 	}
 
@@ -87,14 +82,16 @@ func (a *App) GetGitStatus(folders []string, paths []string) (git.GitSnapshot, e
 	return snapshot, nil
 }
 
-// repoRootForPath resolves the repository owning path, whether path is a file
-// or a folder. A path that no longer exists resolves through its parent, the
-// same way a deleted tab still knows where it lived.
-func repoRootForPath(path string) string {
-	if info, err := os.Stat(path); err == nil && info.IsDir() {
-		return git.RepoRoot(path)
+// fileExcludes reads files.exclude the way the tree does, so a directory the
+// explorer hides is not walked for repositories. A missing or broken settings
+// file hides nothing: git status still works while the user repairs it.
+func fileExcludes() ignore.Matcher {
+	if path, err := settingsFilePath(); err == nil {
+		if settings, err := config.Load(path); err == nil {
+			return ignore.NewMatcher(settings.Files.Exclude)
+		}
 	}
-	return git.RepoRootForFile(path)
+	return ignore.Matcher{}
 }
 
 // gitDisplayRoot names a repository the way the sidebar spells it. A repository

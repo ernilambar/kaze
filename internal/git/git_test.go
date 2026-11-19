@@ -1,9 +1,12 @@
 package git
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"kaze/internal/ignore"
 )
 
 func TestParseGitStatus(t *testing.T) {
@@ -51,5 +54,40 @@ func TestParseGitStatus(t *testing.T) {
 		if statuses[name] != status {
 			t.Errorf("%s = %q, want %q", name, statuses[name], status)
 		}
+	}
+}
+
+func TestDiscoverRepos(t *testing.T) {
+	root := t.TempDir()
+	makeRepo := func(elem ...string) string {
+		dir := filepath.Join(append([]string{root}, elem...)...)
+		if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+
+	one := makeRepo("one")
+	two := makeRepo("nested", "two")
+	// A repository beneath another one belongs to the outer repository, so the
+	// walk stops instead of reporting it separately.
+	makeRepo("one", "vendor")
+	// files.exclude hides a directory from the tree, so it is not searched.
+	makeRepo("ignored", "three")
+
+	repos := DiscoverRepos(root, ignore.NewMatcher([]string{"ignored"}))
+	got := make(map[string]bool, len(repos))
+	for _, repo := range repos {
+		got[repo] = true
+	}
+	if len(got) != 2 || !got[one] || !got[two] {
+		t.Fatalf("repos = %+v, want %q and %q", repos, one, two)
+	}
+
+	if repos := DiscoverRepos(one, ignore.Matcher{}); len(repos) != 1 || repos[0] != one {
+		t.Fatalf("repos for a repository root = %+v, want %q", repos, one)
+	}
+	if repos := DiscoverRepos(filepath.Join(root, "missing"), ignore.Matcher{}); len(repos) != 0 {
+		t.Fatalf("repos for a missing root = %+v, want none", repos)
 	}
 }

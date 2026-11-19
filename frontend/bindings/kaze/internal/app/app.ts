@@ -182,13 +182,13 @@ export function GetGitDiff(path: string): $CancellablePromise<string> {
 
 /**
  * GetGitStatus reports the repositories that own the sidebar roots and the
- * changed files inside them. paths are one window's open files and expanded
- * folders: they let a repository nested under a root contribute its status
- * without walking the whole tree. A root outside a repository is skipped
- * silently: a non-repository folder is normal, not a failure.
+ * changed files inside them. A root outside a repository is a container of
+ * repositories; discover walks it for the ones it holds, so the changes list
+ * does not depend on which folders the tree has expanded. A folder with no
+ * repository stays absent silently: that is normal, not a failure.
  */
-export function GetGitStatus(folders: string[] | null, paths: string[] | null): $CancellablePromise<git$0.GitSnapshot> {
-    return $Call.ByID(479370367, folders, paths);
+export function GetGitStatus(folders: string[] | null): $CancellablePromise<git$0.GitSnapshot> {
+    return $Call.ByID(479370367, folders);
 }
 
 /**

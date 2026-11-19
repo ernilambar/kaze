@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"kaze/internal/ignore"
 	"kaze/internal/pathutil"
 )
 
@@ -229,6 +230,53 @@ func RepoRoot(dir string) string {
 // deleted file whose own directory may still exist.
 func RepoRootForFile(path string) string {
 	return RepoRoot(filepath.Dir(path))
+}
+
+// DiscoverRepos returns the repository roots at or below dir. A directory
+// holding a .git entry is one, and the walk stops there: the repository covers
+// everything inside it, so a container of projects costs a walk between them
+// rather than through their trees. Symlinked directories, VCS metadata and
+// excluded entries are skipped. Callers only use it for a root that is not
+// itself inside a repository; an enclosing repository already reports its
+// changes.
+func DiscoverRepos(dir string, excludes ignore.Matcher) []string {
+	dir = filepath.Clean(dir)
+	info, err := os.Stat(dir)
+	if err != nil || !info.IsDir() {
+		return nil
+	}
+
+	roots := make([]string, 0, 1)
+	var visit func(dir, rel string)
+	visit = func(dir, rel string) {
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			roots = append(roots, dir)
+			return
+		}
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			return
+		}
+		for _, entry := range entries {
+			name := entry.Name()
+			if !entry.IsDir() || entry.Type()&os.ModeSymlink != 0 {
+				continue
+			}
+			if ignore.VCSDirectories[strings.ToLower(name)] {
+				continue
+			}
+			childRel := name
+			if rel != "" {
+				childRel = rel + "/" + name
+			}
+			if excludes.Matches(childRel, true) {
+				continue
+			}
+			visit(filepath.Join(dir, name), childRel)
+		}
+	}
+	visit(dir, "")
+	return roots
 }
 
 // RelativePath is the repository-relative, slash-separated name git expects

@@ -16,10 +16,6 @@ import type { WindowContext } from './context.svelte';
 
 export interface GitHost {
     showDocument: (document: OpenDocument, record?: boolean) => void;
-    // statusPaths are the window's open files and expanded folders. They let a
-    // repository nested under a sidebar root report its status without the
-    // backend walking the whole tree.
-    statusPaths: () => string[];
 }
 
 // GitController is read-only git state. The sidebar shows the status marks
@@ -62,7 +58,7 @@ export class GitController {
     refreshGitStatus = async (): Promise<void> => {
         const request = ++this.request;
         try {
-            const state = await loadGitStatus(this.ctx.folders, this.host.statusPaths());
+            const state = await loadGitStatus(this.ctx.folders);
             if (request !== this.request) {
                 return;
             }

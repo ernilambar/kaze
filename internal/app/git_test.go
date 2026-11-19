@@ -64,7 +64,7 @@ func TestGitStatusReportsWorkingTree(t *testing.T) {
 	runGit(t, dir, "add", "added.txt")
 	writeFile(t, untracked, "untracked\n")
 
-	snapshot, err := (&App{}).GetGitStatus([]string{dir}, nil)
+	snapshot, err := (&App{}).GetGitStatus([]string{dir})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +167,7 @@ func TestGitOutsideRepository(t *testing.T) {
 	if _, err := (&App{}).GetGitDiff(path); err == nil {
 		t.Fatal("expected an error for a file outside a repository")
 	}
-	snapshot, err := (&App{}).GetGitStatus([]string{dir}, nil)
+	snapshot, err := (&App{}).GetGitStatus([]string{dir})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,10 +176,10 @@ func TestGitOutsideRepository(t *testing.T) {
 	}
 }
 
-// A sidebar root can be a container of repositories. The tree's expanded
-// folders and open files name the ones it shows, so their status arrives
-// without scanning the whole container.
-func TestGitStatusFindsRepositoryBehindWatchedPath(t *testing.T) {
+// A sidebar root can be a container of repositories. Discovery walks the
+// container, so its nested repositories report changes whether or not the tree
+// has expanded them.
+func TestGitStatusFindsRepositoryNestedUnderRoot(t *testing.T) {
 	container := t.TempDir()
 	dir := filepath.Join(container, "nested")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -193,7 +193,7 @@ func TestGitStatusFindsRepositoryBehindWatchedPath(t *testing.T) {
 	runGit(t, dir, "commit", "-qm", "init")
 	writeFile(t, path, "two\n")
 
-	snapshot, err := (&App{}).GetGitStatus([]string{container}, []string{path})
+	snapshot, err := (&App{}).GetGitStatus([]string{container})
 	if err != nil {
 		t.Fatal(err)
 	}
