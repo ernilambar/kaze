@@ -257,6 +257,9 @@ export function editorOptions(
         bracketPairColorization: { enabled: settings.bracketPairColors },
         matchBrackets: settings.bracketPairColors ? 'always' : 'never',
         scrollBeyondLastLine: settings.scrollBeyondLastLine,
+        // Monaco 0.57 turns sticky scroll on by default; Kaze has no setting
+        // for it, so keep the editor free of the floating scope header.
+        stickyScroll: { enabled: false },
         wordWrap: settings.wordWrap ? 'on' : 'off',
         renderWhitespace: settings.invisibleCharacters ? 'all' : 'none',
         lineNumbers: settings.lineNumbers ? 'on' : 'off',
