@@ -1,5 +1,12 @@
 import * as monaco from 'monaco-editor';
 import { DIFF_PREFIX, UNTITLED_PREFIX, splitTabKey } from './document';
+import {
+    DOTENV_EXTENSIONS,
+    DOTENV_LANGUAGE_ID,
+    DOTENV_NAME,
+    dotenvConf,
+    dotenvLanguage,
+} from './dotenvLanguage';
 import { LOG_EXTENSIONS, LOG_LANGUAGE_ID, logLanguage } from './logLanguage';
 import type { PaletteItem } from './palette';
 import type { EditorSettings } from './settings';
@@ -61,6 +68,16 @@ monaco.languages.register({
 });
 monaco.languages.setMonarchTokensProvider(LOG_LANGUAGE_ID, logLanguage);
 
+// Dotenv registers here too: Monaco ships no env-file grammar, and the index
+// below must see it on first use.
+monaco.languages.register({
+    id: DOTENV_LANGUAGE_ID,
+    extensions: DOTENV_EXTENSIONS,
+    aliases: ['Dotenv'],
+});
+monaco.languages.setLanguageConfiguration(DOTENV_LANGUAGE_ID, dotenvConf);
+monaco.languages.setMonarchTokensProvider(DOTENV_LANGUAGE_ID, dotenvLanguage);
+
 // Svelte registers the same way, for the same reason: the index below caches
 // the registry on first use, and Monaco bundles no Svelte grammar.
 monaco.languages.register({
@@ -120,6 +137,9 @@ export function languageForPath(path: string): string {
     const name = baseName(path).toLowerCase();
     if (name === '') {
         return PLAIN_TEXT_LANGUAGE;
+    }
+    if (DOTENV_NAME.test(name)) {
+        return DOTENV_LANGUAGE_ID;
     }
     const { byExtension, byFilename } = languages();
     const byName = byFilename.get(name);
