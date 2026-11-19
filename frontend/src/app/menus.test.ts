@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { OpenDocument } from '../document';
 import { treeMenuItems } from '../contextmenu';
-import { contextMenuItems, documentTabMenuItems, type MenuTarget } from './menus';
+import {
+    contextMenuItems,
+    contextMenuRoute,
+    documentTabMenuItems,
+    type MenuTarget,
+} from './menus';
 
 function tab(name: string, options: { path?: string; deleted?: boolean } = {}): OpenDocument {
     const path = options.path ?? `/repo/${name}`;
@@ -25,6 +30,44 @@ function tab(name: string, options: { path?: string; deleted?: boolean } = {}): 
 function item(items: ReturnType<typeof documentTabMenuItems>, id: string) {
     return items.find((entry) => entry.id === id);
 }
+
+describe('contextMenuRoute', () => {
+    const treeTarget: MenuTarget = { path: '/repo', isDir: true };
+
+    it('drops a menu whose target is gone', () => {
+        expect(contextMenuRoute('remove-folder', null, ['/repo'])).toBeNull();
+    });
+
+    it('sends Remove Folder from Sidebar for a root to the workspace', () => {
+        expect(contextMenuRoute('remove-folder', treeTarget, ['/repo'])).toEqual({
+            kind: 'remove-folder',
+            path: '/repo',
+        });
+    });
+
+    it('never removes a folder that is not a sidebar root', () => {
+        expect(contextMenuRoute('remove-folder', treeTarget, ['/other'])).toBeNull();
+    });
+
+    it('sends every other tree item to the file commands', () => {
+        expect(contextMenuRoute('trash', treeTarget, ['/repo'])).toEqual({
+            kind: 'tree',
+            id: 'trash',
+            path: '/repo',
+            isDir: true,
+        });
+    });
+
+    it('sends a tab item to the tab it was opened on', () => {
+        const target: MenuTarget = { path: '/repo/a.ts', isDir: false, tabId: 'tab-a' };
+
+        expect(contextMenuRoute('reveal', target, ['/repo'])).toEqual({
+            kind: 'tab',
+            id: 'reveal',
+            tabId: 'tab-a',
+        });
+    });
+});
 
 describe('documentTabMenuItems', () => {
     it('offers the tab commands, then the group closes, then Reveal', () => {
@@ -138,11 +181,14 @@ describe('contextMenuItems', () => {
     it('disables moving or deleting a sidebar root', () => {
         const items = contextMenuItems(treeTarget, tabs, '', false, ['/repo']);
 
-        for (const id of ['cut', 'rename', 'move', 'trash']) {
+        for (const id of ['cut', 'rename', 'duplicate', 'move', 'trash']) {
             expect(item(items, id)?.disabled).toBe(true);
         }
         expect(item(items, 'new-file')?.disabled).toBeUndefined();
-        expect(item(items, 'duplicate')?.disabled).toBeUndefined();
+        expect(item(items, 'remove-folder')).toEqual({
+            id: 'remove-folder',
+            label: 'Remove Folder from Sidebar',
+        });
     });
 
     it('treats a file with a root path spelling as a plain row', () => {

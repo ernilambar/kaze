@@ -28,7 +28,10 @@
     import { Documents } from './app/documents.svelte';
     import { subscribeAll } from './app/events';
     import { GitController } from './app/git.svelte';
-    import { contextMenuItems as buildContextMenuItems } from './app/menus';
+    import {
+        contextMenuItems as buildContextMenuItems,
+        contextMenuRoute,
+    } from './app/menus';
     import { Prompts } from './app/prompts.svelte';
     import { SearchController } from './app/search.svelte';
     import { TreeOps } from './app/treeops.svelte';
@@ -691,18 +694,23 @@
     });
 
     // runContextMenu runs the item the row menu picked against the entry it was
-    // opened on: a tab command for a tab, a file-tree command for a tree row.
+    // opened on: a tab command for a tab, a file-tree command for a tree row,
+    // and root removal for the workspace.
     function runContextMenu(id: string): void {
         const target = contextMenu;
         closeContextMenu();
-        if (target === null) {
-            return;
+        const route = contextMenuRoute(id, target, ctx.folders);
+        switch (route?.kind) {
+            case 'tab':
+                void runTabContextCommand(route.id, route.tabId);
+                break;
+            case 'remove-folder':
+                void workspaces.removeFolder(route.path);
+                break;
+            case 'tree':
+                void treeops.runTreeCommand(route.id, route.path, route.isDir);
+                break;
         }
-        if (target.tabId !== undefined) {
-            void runTabContextCommand(id, target.tabId);
-            return;
-        }
-        void treeops.runTreeCommand(id, target.path, target.isDir);
     }
 
     // runTabContextCommand runs a tab menu item against the right-clicked tab.

@@ -44,10 +44,18 @@ describe('treeMenuItems', () => {
     it('disables only the commands that move or delete a sidebar root', () => {
         const plain = treeMenuItems('', false);
         const root = treeMenuItems('', true);
-        expect(root.map((item) => item.id)).toEqual(plain.map((item) => item.id));
+        expect(root.slice(0, plain.length).map((item) => item.id)).toEqual(
+            plain.map((item) => item.id),
+        );
+        expect(root.at(-1)).toEqual({ id: 'remove-folder', label: 'Remove Folder from Sidebar' });
         for (const item of root) {
             const locked = ROOT_LOCKED_COMMANDS.includes(item.id);
             expect(item.disabled === true).toBe(locked || item.id === 'paste');
         }
+    });
+
+    it('offers Remove Folder from Sidebar only for a root', () => {
+        const ids = treeMenuItems('', false).map((item) => item.id);
+        expect(ids).not.toContain('remove-folder');
     });
 });

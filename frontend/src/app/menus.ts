@@ -33,6 +33,36 @@ export function contextMenuItems(
     return treeMenuItems(clipboardPath, target.isDir && roots.includes(target.path));
 }
 
+// ContextMenuRoute is the controller a picked menu item belongs to. A tab item
+// runs against the tab it was opened on, a sidebar root is removed by the
+// workspace, and every other tree item is a file command. null means the item
+// must not run at all.
+export type ContextMenuRoute =
+    | { kind: 'tab'; id: string; tabId: string }
+    | { kind: 'remove-folder'; path: string }
+    | { kind: 'tree'; id: string; path: string; isDir: boolean }
+    | null;
+
+// contextMenuRoute decides where a picked row menu item goes. Remove Folder
+// from Sidebar is only offered for a root and is the workspace's command, so it
+// must never fall through to the file commands that rewrite a path.
+export function contextMenuRoute(
+    id: string,
+    target: MenuTarget | null,
+    roots: readonly string[],
+): ContextMenuRoute {
+    if (target === null) {
+        return null;
+    }
+    if (target.tabId !== undefined) {
+        return { kind: 'tab', id, tabId: target.tabId };
+    }
+    if (id === 'remove-folder') {
+        return roots.includes(target.path) ? { kind: 'remove-folder', path: target.path } : null;
+    }
+    return { kind: 'tree', id, path: target.path, isDir: target.isDir };
+}
+
 // documentTabMenuItems is the menu for the tab under the pointer. The commands
 // are relative to that tab, not to whichever tab happens to be active, so the
 // target's own row decisions are made here rather than by the window. The Find
