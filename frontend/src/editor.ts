@@ -1,5 +1,6 @@
 import * as monaco from 'monaco-editor';
 import { DIFF_PREFIX, UNTITLED_PREFIX, splitTabKey } from './document';
+import { LOG_EXTENSIONS, LOG_LANGUAGE_ID, logLanguage } from './logLanguage';
 import type { PaletteItem } from './palette';
 import type { EditorSettings } from './settings';
 import { shebangLanguage } from './shebang';
@@ -43,6 +44,16 @@ function baseModelURI(key: string): monaco.Uri {
     }
     return monaco.Uri.file(key);
 }
+
+// The log language must be registered before languages() builds its index,
+// because the index caches the registry on first use. This runs at module load,
+// ahead of every model and palette lookup.
+monaco.languages.register({
+    id: LOG_LANGUAGE_ID,
+    extensions: LOG_EXTENSIONS,
+    aliases: ['Log', 'log'],
+});
+monaco.languages.setMonarchTokensProvider(LOG_LANGUAGE_ID, logLanguage);
 
 // LanguageIndex maps what a path says about its content to the language Monaco
 // registered for it. It is built from Monaco's own registry rather than a
