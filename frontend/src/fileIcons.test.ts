@@ -46,6 +46,19 @@ describe('fileIcon', () => {
         );
     });
 
+    it('gives .dist templates the icon of the name they wrap', () => {
+        expect(fileIcon('phpunit.xml.dist')).toEqual(fileIcon('phpunit.xml'));
+        expect(fileIcon('config.xml.dist')).toEqual(fileIcon('config.xml'));
+        expect(fileIcon('package.json.dist')).toEqual(fileIcon('package.json'));
+        expect(fileIcon('app.ts.dist')).toEqual(fileIcon('app.ts'));
+        expect(fileIcon('config.XML.DIST')).toEqual(fileIcon('config.xml'));
+    });
+
+    it('falls back when nothing is left to wrap', () => {
+        expect(fileIcon('config.dist')).toEqual(fileIcon('config'));
+        expect(fileIcon('.dist')).toEqual(fileIcon('unknown-file'));
+    });
+
     it('ignores case', () => {
         expect(fileIcon('MAIN.TS')).toEqual(fileIcon('main.ts'));
     });

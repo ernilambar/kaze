@@ -85,9 +85,15 @@ export function fileIcon(name: string): FileIcon {
     if (cached !== undefined) {
         return cached;
     }
+    // `.dist` marks a shipped template (`phpunit.xml.dist`,
+    // `package.json.dist`): the wrapped name picks the icon, which the
+    // extension rules would otherwise miss.
+    const iconName = name.toLowerCase().endsWith('.dist')
+        ? name.slice(0, -'.dist'.length)
+        : name;
     let icon: FileIcon | undefined;
     for (const rule of matchers) {
-        if (rule.pattern.test(name)) {
+        if (rule.pattern.test(iconName)) {
             icon = describe(rule.icon, rule.color);
             break;
         }

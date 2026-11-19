@@ -142,6 +142,12 @@ export function languageForPath(path: string): string {
     if (name === '') {
         return PLAIN_TEXT_LANGUAGE;
     }
+    // `.dist` marks a shipped template (`phpunit.xml.dist`,
+    // `package.json.dist`): the name it wraps decides the language, because
+    // Monaco indexes only the last extension, which `.dist` does not name.
+    if (name.endsWith('.dist')) {
+        return languageForPath(path.slice(0, -'.dist'.length));
+    }
     if (DOTENV_NAME.test(name)) {
         return DOTENV_LANGUAGE_ID;
     }
