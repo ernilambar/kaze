@@ -7,7 +7,7 @@
         dropSource,
         setDraggingPath,
     } from './filetree';
-    import { fileIcon } from './fileIcons';
+    import { fileIcon, folderIcon } from './fileIcons';
     import { statusLabel, statusMark, type GitStatusKind } from './git';
     import { errorMessage, isWithin, readFolder, type FolderEntry } from './sidebar';
 
@@ -79,6 +79,8 @@
     // folderChanged marks a folder that hides a git change beneath it, so a
     // collapsed row still says so.
     let folderChanged = $derived(folderChanges.has(path));
+    // folderGlyph overrides the plain folder shape for names like `.github`.
+    let folderGlyph = $derived(folderIcon(name));
     let error = $state('');
     let loaded = $state(false);
     let loading = $state(false);
@@ -287,14 +289,26 @@
                     <path d="M3 1 L7 5 L3 9" fill="none" stroke="currentColor" stroke-width="1.5" />
                 </svg>
             </span>
-            <span class="row__icon row__icon--folder" aria-hidden="true">
-                <svg height="15" viewBox="0 0 16 16" width="15">
-                    <path
-                        d="M2 4.25A1.25 1.25 0 0 1 3.25 3h3.1c.33 0 .65.13.88.37l1.06 1.06c.23.24.55.37.88.37h4.58A1.25 1.25 0 0 1 15 6.05v6.7A1.25 1.25 0 0 1 13.75 14H3.25A1.25 1.25 0 0 1 2 12.75z"
-                        fill="currentColor"
-                    />
-                </svg>
-            </span>
+            {#if folderGlyph !== undefined}
+                <span
+                    class="row__icon"
+                    aria-hidden="true"
+                    style:color={iconStyle === 'monochrome' ? 'var(--fg-muted)' : folderGlyph.color}
+                    style:font-family={folderGlyph.family}
+                    style:font-size={`${folderGlyph.size}px`}
+                    style:top={`${folderGlyph.top}px`}
+                    style:left={`${folderGlyph.left}px`}
+                >{folderGlyph.glyph}</span>
+            {:else}
+                <span class="row__icon row__icon--folder" aria-hidden="true">
+                    <svg height="15" viewBox="0 0 16 16" width="15">
+                        <path
+                            d="M2 4.25A1.25 1.25 0 0 1 3.25 3h3.1c.33 0 .65.13.88.37l1.06 1.06c.23.24.55.37.88.37h4.58A1.25 1.25 0 0 1 15 6.05v6.7A1.25 1.25 0 0 1 13.75 14H3.25A1.25 1.25 0 0 1 2 12.75z"
+                            fill="currentColor"
+                        />
+                    </svg>
+                </span>
+            {/if}
             <span
                 class="row__name"
                 class:row__name--changed={folderChanged}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import raw from './fileIcons.json';
-import { fileIcon } from './fileIcons';
+import { fileIcon, folderIcon } from './fileIcons';
 
 interface IconData {
     glyphs: Record<string, [string, string, number, number, number]>;
@@ -63,6 +63,13 @@ describe('fileIcon', () => {
         expect(fileIcon('MAIN.TS')).toEqual(fileIcon('main.ts'));
     });
 
+    it('draws markdown with the Devicons markdown glyph', () => {
+        expect([fileIcon('notes.md').glyph, fileIcon('notes.md').family]).toEqual([
+            '\ue63e',
+            'Devicons',
+        ]);
+    });
+
     it('uses a substituted glyph for icons the bundled font lacks', () => {
         const env = fileIcon('.env');
 
@@ -109,5 +116,35 @@ describe('fileIcon', () => {
         const missing = rules.filter(([, , icon]) => glyphs[icon] === undefined);
 
         expect(missing).toEqual([]);
+    });
+});
+
+describe('folderIcon', () => {
+    it('gives .github the GitHub mark', () => {
+        expect(folderIcon('.github')).toEqual({
+            glyph: '\uf09b',
+            family: 'FontAwesome',
+            size: 15,
+            top: 0,
+            left: 0,
+            color: 'var(--fg)',
+        });
+        expect(folderIcon('.GitHub')).toEqual(folderIcon('.github'));
+    });
+
+    it('gives node_modules the Node.js mark', () => {
+        expect(folderIcon('node_modules')).toEqual({
+            glyph: '\ue618',
+            family: 'Devicons',
+            size: 16,
+            top: 3,
+            left: 0,
+            color: '#90a959',
+        });
+    });
+
+    it('leaves other folders to the plain folder shape', () => {
+        expect(folderIcon('src')).toBeUndefined();
+        expect(folderIcon('.git')).toBeUndefined();
     });
 });

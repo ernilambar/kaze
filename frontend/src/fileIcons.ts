@@ -49,6 +49,19 @@ const matchers = rules.map(([source, flags, icon, color]) => ({
     color,
 }));
 
+// Glyphs the bundled fonts carry but the generated data does not name.
+// `markdown-icon` uses Devicons' markdown outline instead of the Font Awesome
+// file outline the data points at.
+const EXTRA_GLYPHS: Record<string, Glyph> = {
+    'devicons-markdown-icon': ['\ue63e', 'Devicons', 16, 3, 0],
+};
+
+// Icons whose generated data names a different mark than the one this tree
+// wants. The rule's colour is kept.
+const GLYPH_OVERRIDES: Record<string, string> = {
+    'markdown-icon': 'devicons-markdown-icon',
+};
+
 // Nine icons in the rule data were added to the File Icons project after its
 // last font build, so the bundled font has no glyph for them and would paint a
 // missing-glyph box. Each maps to the closest glyph the font does carry; the
@@ -70,7 +83,8 @@ const SUBSTITUTES: Record<string, string> = {
 const cache = new Map<string, FileIcon>();
 
 function describe(icon: string, color: string | null): FileIcon {
-    const glyph = glyphs[SUBSTITUTES[icon] ?? icon];
+    const key = GLYPH_OVERRIDES[icon] ?? SUBSTITUTES[icon] ?? icon;
+    const glyph = glyphs[key] ?? EXTRA_GLYPHS[key];
     if (glyph === undefined) {
         return FALLBACK;
     }
@@ -78,8 +92,34 @@ function describe(icon: string, color: string | null): FileIcon {
     return { glyph: character, family, size, top, left, color: color ?? 'var(--fg-muted)' };
 }
 
+// folderIcon picks the mark for a folder's basename, or nothing when the
+// tree should draw its plain folder shape. Only names whose meaning is lost as
+// a generic folder get an entry.
+const FOLDER_ICONS: Record<string, FileIcon> = {
+    '.github': {
+        glyph: '\uf09b',
+        family: 'FontAwesome',
+        size: 15,
+        top: 0,
+        left: 0,
+        color: 'var(--fg)',
+    },
+    node_modules: {
+        glyph: '\ue618',
+        family: 'Devicons',
+        size: 16,
+        top: 3,
+        left: 0,
+        color: '#90a959',
+    },
+};
+
+export function folderIcon(name: string): FileIcon | undefined {
+    return FOLDER_ICONS[name.toLowerCase()];
+}
+
 // fileIcon picks the icon for a file's basename. Directory names are not
-// resolved here: the tree draws one folder shape for all of them.
+// resolved here: see `folderIcon`.
 export function fileIcon(name: string): FileIcon {
     const cached = cache.get(name);
     if (cached !== undefined) {
