@@ -115,6 +115,15 @@ No frontend linter/formatter is configured; don't add one unprompted.
   themes in `<config>/Kaze/themes` shadow built-ins. The first frame paints a
   palette cached in `localStorage` (`kaze.theme.startup`); keep the inline
   script in `index.html` in sync with `theme.ts`.
+- **Icons.** File-type icons come from the File Icons project
+  (`file-icons/atom` rules + `file-icons/icons` fonts): `fileIcons.json` is
+  generated, and its fonts (`file-icons`, `Mfizz`, `Devicons`, `FontAwesome 4.7`)
+  live in `frontend/src/assets` with sources and licenses in `LICENSES.md`.
+  `fileIcons.ts` records the hand-edited dotenv rule and missing-glyph
+  substitutes; reapply them if the data is regenerated. Chrome icons are
+  hand-written inline SVGs in components — there is no icon library. The app
+  icon is `build/appicon.png`; `wails3 task generate:icons` builds
+  `darwin/icons.icns` (and `Assets.car` from `appicon.icon`).
 - **Keybindings are VS Code-shaped** (`keybindings.json`, JSONC). Defaults
   (`docs/keymaps.md`) live in three places: menu accelerators (`menu.go`),
   `DEFAULT_KEYBINDINGS` (`keybindings.ts`) and Monaco rules (`editor.ts`).
