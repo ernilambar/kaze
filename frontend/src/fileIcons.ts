@@ -44,12 +44,28 @@ const matchers = rules.map(([source, flags, icon, color]) => ({
     color,
 }));
 
+// Nine icons in the rule data were added to the File Icons project after its
+// last font build, so the bundled font has no glyph for them and would paint a
+// missing-glyph box. Each maps to the closest glyph the font does carry; the
+// rule's colour is kept. Remove an entry once the fonts are regenerated.
+const SUBSTITUTES: Record<string, string> = {
+    'bikeshed-icon': 'css3-icon',
+    'dotenv-icon': 'config-icon',
+    'figma-icon': 'sketch-icon',
+    'imgbot-icon': 'robot-icon',
+    'mint-icon': 'js-icon',
+    'mixin-icon': 'json-icon',
+    'photorec-icon': 'terminal-icon',
+    'shellcheck-icon': 'checklist-icon',
+    'windi-icon': 'tailwind-icon',
+};
+
 // Names repeat across rows and refreshes, so the first match is kept. The
 // rules are ordered by specificity by the generator.
 const cache = new Map<string, FileIcon>();
 
 function describe(icon: string, color: string | null): FileIcon {
-    const glyph = glyphs[icon];
+    const glyph = glyphs[SUBSTITUTES[icon] ?? icon];
     if (glyph === undefined) {
         return FALLBACK;
     }

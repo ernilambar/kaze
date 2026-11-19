@@ -50,6 +50,16 @@ describe('fileIcon', () => {
         expect(fileIcon('MAIN.TS')).toEqual(fileIcon('main.ts'));
     });
 
+    it('uses a substituted glyph for icons the bundled font lacks', () => {
+        const env = fileIcon('.env');
+
+        expect([env.glyph, env.family]).toEqual(glyphOf('config-icon'));
+        expect(env.color).toBe('#ee9e2e');
+        expect([fileIcon('windi.config.ts').glyph, fileIcon('windi.config.ts').family]).toEqual(
+            glyphOf('tailwind-icon'),
+        );
+    });
+
     it('falls back to a muted file outline for unknown types', () => {
         expect(fileIcon('archive.unknown')).toEqual({
             glyph: '\uf016',
