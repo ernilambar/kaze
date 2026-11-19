@@ -8,27 +8,34 @@ import (
 	"testing"
 )
 
-// gitRepo makes a throwaway repository with one commit. Tests skip when git is
-// not installed, so a machine without it still runs the rest of the suite.
-func gitRepo(t *testing.T) string {
+// runGit runs one git command in dir and fails the test on error.
+func runGit(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	command := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	command.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@example.com",
+		"GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@example.com",
+	)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, output)
+	}
+}
+
+// initGitRepo initializes a repository in dir. Tests skip when git is not
+// installed, so a machine without it still runs the rest of the suite.
+func initGitRepo(t *testing.T, dir string) {
 	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not installed")
 	}
+	runGit(t, dir, "init", "-q", "-b", "main", ".")
+}
 
+// gitRepo makes a throwaway repository with one commit.
+func gitRepo(t *testing.T) string {
+	t.Helper()
 	dir := t.TempDir()
-	run := func(args ...string) {
-		t.Helper()
-		command := exec.Command("git", append([]string{"-C", dir}, args...)...)
-		command.Env = append(os.Environ(),
-			"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@example.com",
-			"GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@example.com",
-		)
-		if output, err := command.CombinedOutput(); err != nil {
-			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, output)
-		}
-	}
-	run("init", "-q", "-b", "main", ".")
+	initGitRepo(t, dir)
 	return dir
 }
 
@@ -41,17 +48,6 @@ func writeFile(t *testing.T, path, content string) {
 
 func TestGitStatusReportsWorkingTree(t *testing.T) {
 	dir := gitRepo(t)
-	git := func(args ...string) {
-		t.Helper()
-		command := exec.Command("git", append([]string{"-C", dir}, args...)...)
-		command.Env = append(os.Environ(),
-			"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@example.com",
-			"GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@example.com",
-		)
-		if output, err := command.CombinedOutput(); err != nil {
-			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, output)
-		}
-	}
 
 	tracked := filepath.Join(dir, "tracked.txt")
 	deleted := filepath.Join(dir, "deleted.txt")
@@ -59,16 +55,16 @@ func TestGitStatusReportsWorkingTree(t *testing.T) {
 	untracked := filepath.Join(dir, "untracked.txt")
 	writeFile(t, tracked, "one\n")
 	writeFile(t, deleted, "gone\n")
-	git("add", ".")
-	git("commit", "-qm", "init")
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-qm", "init")
 
 	writeFile(t, tracked, "one\ntwo\n")
 	os.Remove(deleted)
 	writeFile(t, added, "added\n")
-	git("add", "added.txt")
+	runGit(t, dir, "add", "added.txt")
 	writeFile(t, untracked, "untracked\n")
 
-	snapshot, err := (&App{}).GetGitStatus([]string{dir})
+	snapshot, err := (&App{}).GetGitStatus([]string{dir}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,22 +99,11 @@ func TestGitStatusReportsWorkingTree(t *testing.T) {
 
 func TestGitBaselineAndDiff(t *testing.T) {
 	dir := gitRepo(t)
-	run := func(args ...string) {
-		t.Helper()
-		command := exec.Command("git", append([]string{"-C", dir}, args...)...)
-		command.Env = append(os.Environ(),
-			"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@example.com",
-			"GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@example.com",
-		)
-		if output, err := command.CombinedOutput(); err != nil {
-			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, output)
-		}
-	}
 
 	path := filepath.Join(dir, "file.txt")
 	writeFile(t, path, "one\n")
-	run("add", ".")
-	run("commit", "-qm", "init")
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-qm", "init")
 
 	baseline, err := (&App{}).GetGitBaseline(path)
 	if err != nil {
@@ -182,11 +167,47 @@ func TestGitOutsideRepository(t *testing.T) {
 	if _, err := (&App{}).GetGitDiff(path); err == nil {
 		t.Fatal("expected an error for a file outside a repository")
 	}
-	snapshot, err := (&App{}).GetGitStatus([]string{dir})
+	snapshot, err := (&App{}).GetGitStatus([]string{dir}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(snapshot.Repos) != 0 || len(snapshot.Changes) != 0 {
 		t.Fatalf("snapshot = %+v", snapshot)
+	}
+}
+
+// A sidebar root can be a container of repositories. The tree's expanded
+// folders and open files name the ones it shows, so their status arrives
+// without scanning the whole container.
+func TestGitStatusFindsRepositoryBehindWatchedPath(t *testing.T) {
+	container := t.TempDir()
+	dir := filepath.Join(container, "nested")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	initGitRepo(t, dir)
+
+	path := filepath.Join(dir, "notes.txt")
+	writeFile(t, path, "one\n")
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-qm", "init")
+	writeFile(t, path, "two\n")
+
+	snapshot, err := (&App{}).GetGitStatus([]string{container}, []string{path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.Repos) != 1 {
+		t.Fatalf("repos = %+v, want the nested repository", snapshot.Repos)
+	}
+	if snapshot.Repos[0].Root != dir {
+		t.Errorf("repo root = %q, want %q", snapshot.Repos[0].Root, dir)
+	}
+	if len(snapshot.Changes) != 1 {
+		t.Fatalf("changes = %+v, want the modified file", snapshot.Changes)
+	}
+	change := snapshot.Changes[0]
+	if change.Path != path || change.Root != dir || change.Status != "modified" {
+		t.Errorf("change = %+v, want %q under %q as modified", change, path, dir)
 	}
 }

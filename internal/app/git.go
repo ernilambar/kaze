@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 
@@ -10,21 +11,53 @@ import (
 	"kaze/internal/pathutil"
 )
 
-// GetGitStatus reports the repositories behind the sidebar roots and the
-// changed files inside them. A root outside a repository is skipped silently:
-// a non-repository folder is normal, not a failure.
-func (a *App) GetGitStatus(folders []string) (git.GitSnapshot, error) {
+// GetGitStatus reports the repositories that own the sidebar roots and the
+// changed files inside them. paths are one window's open files and expanded
+// folders: they let a repository nested under a root contribute its status
+// without walking the whole tree. A root outside a repository is skipped
+// silently: a non-repository folder is normal, not a failure.
+func (a *App) GetGitStatus(folders []string, paths []string) (git.GitSnapshot, error) {
 	snapshot := git.GitSnapshot{Repos: []git.GitRepo{}, Changes: []git.GitChange{}}
-	seenRoots := make(map[string]bool, len(folders))
+	seenRoots := make(map[string]bool, len(folders)+len(paths))
 	seenChanges := make(map[string]bool)
 
-	for _, folder := range folders {
-		root := git.RepoRoot(folder)
+	// Repositories are collected in a fixed order: the roots first, then the
+	// ones the watched paths reveal, so the branch and the changes list stay
+	// stable between reads.
+	roots := make([]string, 0, len(folders)+len(paths))
+	addRoot := func(root string) {
 		if root == "" || seenRoots[root] {
-			continue
+			return
 		}
 		seenRoots[root] = true
+		roots = append(roots, root)
+	}
+	for _, folder := range folders {
+		addRoot(git.RepoRoot(folder))
+	}
+	for _, path := range paths {
+		// Git reports physical paths, so compare against the canonical one:
+		// a sidebar rooted at /var and a repository at /private/var are the
+		// same tree. A tab can point outside the sidebar; its repository
+		// cannot describe anything the sidebar shows.
+		canonical := pathutil.CanonicalPath(path)
+		if !pathutil.WithinAny(canonical, folders) {
+			continue
+		}
+		// A path already inside a known repository needs no git process.
+		known := false
+		for root := range seenRoots {
+			if pathutil.IsWithin(root, canonical) {
+				known = true
+				break
+			}
+		}
+		if !known {
+			addRoot(repoRootForPath(path))
+		}
+	}
 
+	for _, root := range roots {
 		repo, changes, err := git.ReadStatus(root)
 		if err != nil {
 			continue
@@ -32,7 +65,7 @@ func (a *App) GetGitStatus(folders []string) (git.GitSnapshot, error) {
 		// The frontend knows only the roots the user added. Naming the
 		// repository by one of those keeps branch selection working when the
 		// folder path goes through a symlink.
-		repo.Root = folder
+		repo.Root = gitDisplayRoot(root, folders)
 		snapshot.Repos = append(snapshot.Repos, repo)
 		for _, change := range changes {
 			if !pathutil.WithinAny(change.Path, folders) || seenChanges[change.Path] {
@@ -42,7 +75,8 @@ func (a *App) GetGitStatus(folders []string) (git.GitSnapshot, error) {
 			// Git reports the repository's physical path. The sidebar uses
 			// whatever path the user added, so the change is expressed under
 			// that root again; on macOS /var and /private/var are one folder.
-			change.Path, change.Root = git.SidebarPath(change.Path, folders)
+			change.Path, _ = git.SidebarPath(change.Path, folders)
+			change.Root = repo.Root
 			snapshot.Changes = append(snapshot.Changes, change)
 		}
 	}
@@ -51,6 +85,31 @@ func (a *App) GetGitStatus(folders []string) (git.GitSnapshot, error) {
 		return snapshot.Changes[i].Path < snapshot.Changes[j].Path
 	})
 	return snapshot, nil
+}
+
+// repoRootForPath resolves the repository owning path, whether path is a file
+// or a folder. A path that no longer exists resolves through its parent, the
+// same way a deleted tab still knows where it lived.
+func repoRootForPath(path string) string {
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		return git.RepoRoot(path)
+	}
+	return git.RepoRootForFile(path)
+}
+
+// gitDisplayRoot names a repository the way the sidebar spells it. A repository
+// nested under a root takes the root's spelling; one wider than the root keeps
+// the folder the user added, so the status bar still finds it by prefix.
+func gitDisplayRoot(root string, folders []string) string {
+	if display, _ := git.SidebarPath(root, folders); pathutil.WithinAny(pathutil.CanonicalPath(display), folders) {
+		return display
+	}
+	for _, folder := range folders {
+		if pathutil.IsWithin(root, pathutil.CanonicalPath(folder)) {
+			return folder
+		}
+	}
+	return root
 }
 
 // GetGitBaseline returns the committed text of path. A path outside a

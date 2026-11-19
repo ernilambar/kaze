@@ -75,10 +75,15 @@ function toChange(change: models.GitChange): GitChange {
     };
 }
 
-// loadGitStatus reads every sidebar root's repository state. A folder outside a
-// repository is simply absent from the result, not an error.
-export async function loadGitStatus(folders: readonly string[]): Promise<GitState> {
-    const snapshot = await GetGitStatus(folders.slice());
+// loadGitStatus reads the repository state behind the sidebar roots. paths are
+// the window's open files and expanded folders, so a repository nested under a
+// root is found without walking the tree. A folder outside a repository is
+// simply absent from the result, not an error.
+export async function loadGitStatus(
+    folders: readonly string[],
+    paths: readonly string[],
+): Promise<GitState> {
+    const snapshot = await GetGitStatus(folders.slice(), paths.slice());
     return {
         repos: (snapshot?.repos ?? []).map(toRepo),
         changes: (snapshot?.changes ?? []).map(toChange),

@@ -197,6 +197,7 @@
     // appearance need the tree and the workspace.
     const git = new GitController(ctx, {
         showDocument: (document, record) => documents.showDocument(document, record),
+        statusPaths: () => watchedPaths,
     });
     const search = new SearchController(ctx, prompts, git, {
         openFile: (path): Promise<string> => documents.openFile(path),
@@ -305,7 +306,9 @@
               ? 'No recent workspaces. Open a workspace first.'
               : 'No matching workspaces.',
     );
-    let watchedPaths = $derived(Array.from(new Set([...workspaces.sessionFiles, ...treeops.expandedPaths])));
+    let watchedPaths: string[] = $derived(
+        Array.from(new Set([...workspaces.sessionFiles, ...treeops.expandedPaths])),
+    );
     let quickOpenEmpty = $derived(
         quickOpenLoading
             ? 'Loading files…'
@@ -986,6 +989,10 @@
         void watchPaths(ctx.windowName, paths).catch((error) =>
             console.error('Failed to watch the workspace.', error),
         );
+        // A newly opened file or expanded folder can reveal a repository
+        // nested under a root; the tree marks appear without waiting for an
+        // unrelated change.
+        void git.refreshGitStatus();
     });
 
     // The session is written whenever the file-backed tabs, active file,
