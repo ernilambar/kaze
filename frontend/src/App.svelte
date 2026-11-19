@@ -93,6 +93,7 @@
         applyUISettings,
     } from './theme';
     import {
+        clampSidebarWidth,
         errorMessage,
         loadSidebarFolders,
         relativePath,
@@ -210,6 +211,38 @@
     });
     const treeops = new TreeOps(ctx, prompts, git, documents, appearance);
     const workspaces = new WorkspaceController(ctx, prompts, git, search, documents, treeops);
+
+    // The sidebar width follows the pointer while dragging and is only stored
+    // (and so saved) on release, so session.json is not rewritten per pixel.
+    let viewportWidth = $state(window.innerWidth);
+    let sidebarDrag = $state<{ pointer: number; startX: number; startWidth: number; width: number } | null>(null);
+    let sidebarWidth = $derived(clampSidebarWidth(sidebarDrag?.width ?? treeops.sidebarWidth, viewportWidth));
+
+    function startSidebarResize(event: PointerEvent): void {
+        if (event.button !== 0) {
+            return;
+        }
+        event.preventDefault();
+        (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+        sidebarDrag = { pointer: event.pointerId, startX: event.clientX, startWidth: sidebarWidth, width: sidebarWidth };
+    }
+
+    function moveSidebarResize(event: PointerEvent): void {
+        if (sidebarDrag === null || event.pointerId !== sidebarDrag.pointer) {
+            return;
+        }
+        const delta = event.clientX - sidebarDrag.startX;
+        const direction = appearance.uiSettings.sidebarPosition === 'right' ? -1 : 1;
+        sidebarDrag.width = clampSidebarWidth(sidebarDrag.startWidth + delta * direction, viewportWidth);
+    }
+
+    function endSidebarResize(event: PointerEvent): void {
+        if (sidebarDrag === null || event.pointerId !== sidebarDrag.pointer) {
+            return;
+        }
+        treeops.sidebarWidth = sidebarDrag.width;
+        sidebarDrag = null;
+    }
 
     let imageActive = $derived(ctx.active?.kind === 'image');
     let previewActive = $derived(preview !== null && preview.id === ctx.activeId);
@@ -961,6 +994,7 @@
         const workspacePath = workspaces.activeWorkspace?.path ?? '';
         const currentFolders = ctx.folders;
         const expanded = treeops.expandedPaths;
+        const savedSidebarWidth = treeops.sidebarWidth;
         if (!workspaces.sessionOwner && workspacePath === '') {
             return;
         }
@@ -970,6 +1004,7 @@
             openFiles: files,
             active: activePath,
             expanded,
+            sidebarWidth: savedSidebarWidth,
         }).catch((error) =>
             console.error('Failed to save the session.', error),
         );
@@ -1047,6 +1082,7 @@
                     }
                 }
                 treeops.expandedPaths = saved.expanded;
+                treeops.sidebarWidth = saved.sidebarWidth;
                 await workspaces.restoreSession(saved);
             }
             // From here on tab changes are saved as the session; before this
@@ -1171,10 +1207,22 @@
     });
 </script>
 
-<div class="app" data-file-drop-target>
+<svelte:window bind:innerWidth={viewportWidth} />
+
+<div class="app" class:app--resizing={sidebarDrag !== null} data-file-drop-target>
     <TitleBar {appName} filePath={shownPath(ctx.active)} folderLabel={folderLabel} />
     <div class="app__body" class:app__body--sidebar-right={appearance.uiSettings.sidebarPosition === 'right'}>
-        <div class="app__sidebar" class:app__sidebar--hidden={!sidebarVisible}>
+        <div class="app__sidebar" class:app__sidebar--hidden={!sidebarVisible} style:width="{sidebarWidth}px">
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+                class="app__resizer"
+                title="Drag to resize, double-click to reset"
+                onpointerdown={startSidebarResize}
+                onpointermove={moveSidebarResize}
+                onpointerup={endSidebarResize}
+                onpointercancel={endSidebarResize}
+                ondblclick={() => (treeops.sidebarWidth = 0)}
+            ></div>
             {#if sidebarView === 'changes'}
                 <ChangesView
                     changes={git.changes}
@@ -1479,9 +1527,32 @@
     }
 
     .app__sidebar {
+        position: relative;
         display: flex;
         flex: 0 0 auto;
         min-height: 0;
+    }
+
+    .app__resizer {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 2;
+        width: 5px;
+        cursor: col-resize;
+        touch-action: none;
+    }
+
+    .app__body--sidebar-right .app__resizer {
+        right: auto;
+        left: 0;
+    }
+
+    .app--resizing {
+        cursor: col-resize;
+        -webkit-user-select: none;
+        user-select: none;
     }
 
     .app__sidebar--hidden {

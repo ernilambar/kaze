@@ -36,6 +36,8 @@ export interface SavedWindowSession {
     openFiles: string[];
     active: string;
     expanded: string[];
+    // sidebarWidth is in CSS pixels; 0 means the default width.
+    sidebarWidth: number;
 }
 
 // SavedWorkspaceSession is the tab set parked under one workspace file.
@@ -44,6 +46,8 @@ export interface SavedWorkspaceSession {
     openFiles: string[];
     active: string;
     expanded: string[];
+    // sidebarWidth is in CSS pixels; 0 means the default width.
+    sidebarWidth: number;
 }
 
 export function toWindowSession(session: models.WindowSession): SavedWindowSession {
@@ -53,6 +57,7 @@ export function toWindowSession(session: models.WindowSession): SavedWindowSessi
         openFiles: session.open_files ?? [],
         active: session.active ?? '',
         expanded: session.expanded ?? [],
+        sidebarWidth: session.sidebar_width ?? 0,
     };
 }
 
@@ -62,6 +67,7 @@ export function toWorkspaceSession(session: workspacefile.WorkspaceSession): Sav
         openFiles: session.open_files ?? [],
         active: session.active ?? '',
         expanded: session.expanded ?? [],
+        sidebarWidth: session.sidebar_width ?? 0,
     };
 }
 
@@ -92,7 +98,7 @@ export async function loadWindowSession(window: string): Promise<SavedWindowSess
         return toWindowSession(await GetWindowSession(window));
     } catch (error) {
         console.error('Failed to load the window session.', error);
-        return { workspace: '', folders: [], openFiles: [], active: '', expanded: [] };
+        return { workspace: '', folders: [], openFiles: [], active: '', expanded: [], sidebarWidth: 0 };
     }
 }
 
@@ -120,6 +126,7 @@ export async function saveSession(
         open_files: session.openFiles.slice(),
         active: session.active,
         expanded: session.expanded.slice(),
+        sidebar_width: session.sidebarWidth,
     };
     await SetSession(window, payload);
 }

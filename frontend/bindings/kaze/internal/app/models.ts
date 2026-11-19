@@ -32,4 +32,9 @@ export interface WindowSession {
     "open_files": string[] | null;
     "active": string;
     "expanded": string[] | null;
+
+    /**
+     * SidebarWidth is the sidebar width in CSS pixels; 0 means the default.
+     */
+    "sidebar_width"?: number;
 }

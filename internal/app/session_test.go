@@ -39,6 +39,35 @@ func TestWorkspaceSessionParksTabsUnderCanonicalPath(t *testing.T) {
 	}
 }
 
+func TestSessionKeepsSidebarWidthPerWorkspace(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	app := NewApp()
+	folder := t.TempDir()
+	workspace := writeWorkspaceTestFileAt(t, folder, "work"+workspacefile.Extension)
+
+	if err := app.SetSession("", WindowSession{Workspace: workspace, SidebarWidth: 320}); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.SetSession("", WindowSession{SidebarWidth: -5}); err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := app.LoadWorkspace(workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Session.SidebarWidth != 320 {
+		t.Fatalf("parked width = %d, want 320", info.Session.SidebarWidth)
+	}
+	window, err := app.GetWindowSession("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if window.SidebarWidth != 0 {
+		t.Fatalf("window width = %d, want 0", window.SidebarWidth)
+	}
+}
+
 func TestWorkspaceSessionFollowsRenamedWorkspaceByFolderSet(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	app := NewApp()

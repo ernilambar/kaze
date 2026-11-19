@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+    clampSidebarWidth,
     errorMessage,
     folderName,
     isWithin,
@@ -84,5 +85,19 @@ describe('relativePath', () => {
 
     it('returns a path outside every root unchanged', () => {
         expect(relativePath('/elsewhere/app.ts', ['/projects'])).toBe('/elsewhere/app.ts');
+    });
+});
+
+describe('clampSidebarWidth', () => {
+    it.each([
+        [0, 1200, 260],
+        [-10, 1200, 260],
+        [320, 1200, 320],
+        [100, 1200, 160],
+        [900, 1200, 480],
+        [300, 300, 160],
+        [250.6, 1200, 251],
+    ])('clamps %j in a %jpx window to %j', (width, viewport, expected) => {
+        expect(clampSidebarWidth(width, viewport)).toBe(expected);
     });
 });

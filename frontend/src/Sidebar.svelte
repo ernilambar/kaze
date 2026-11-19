@@ -124,10 +124,8 @@
     .sidebar {
         display: flex;
         flex-direction: column;
-        flex: 0 0 auto;
-        width: 260px;
-        min-width: 160px;
-        max-width: 40vw;
+        flex: 1 1 auto;
+        min-width: 0;
         background: var(--bg-sidebar);
         border-right: 1px solid var(--border);
         -webkit-user-select: none;

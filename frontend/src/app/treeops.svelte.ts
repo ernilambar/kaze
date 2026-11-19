@@ -51,6 +51,10 @@ export class TreeOps {
 
     expandedPaths = $state<string[]>([]);
 
+    // sidebarWidth is the width the user dragged the sidebar to, saved with
+    // the workspace (or the launch window without one); 0 is the default.
+    sidebarWidth = $state(0);
+
     treeRefreshToken = $state(0);
 
     // refreshTree rereads the tree after a command changed what is on disk.

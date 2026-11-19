@@ -142,3 +142,15 @@ export async function setSidebarFolders(
 ): Promise<string[]> {
     return (await SetSidebarFolders(window, folders.slice())) ?? [];
 }
+
+// The sidebar is 260px until the user drags it. A saved width of 0 means the
+// default; any width is held between 160px and 40% of the window, so a width
+// saved on a larger screen still leaves room for the editor.
+export const DEFAULT_SIDEBAR_WIDTH = 260;
+export const MIN_SIDEBAR_WIDTH = 160;
+
+export function clampSidebarWidth(width: number, viewportWidth: number): number {
+    const wanted = width > 0 ? width : DEFAULT_SIDEBAR_WIDTH;
+    const max = Math.max(MIN_SIDEBAR_WIDTH, Math.floor(viewportWidth * 0.4));
+    return Math.round(Math.min(Math.max(wanted, MIN_SIDEBAR_WIDTH), max));
+}

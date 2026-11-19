@@ -41,6 +41,8 @@ type WindowSession struct {
 	OpenFiles []string `json:"open_files"`
 	Active    string   `json:"active"`
 	Expanded  []string `json:"expanded"`
+	// SidebarWidth is the sidebar width in CSS pixels; 0 means the default.
+	SidebarWidth int `json:"sidebar_width,omitempty"`
 }
 
 // RecentFiles is the Open Recent history, newest first. It is state shared by
@@ -283,6 +285,7 @@ func normalizeWindowSession(session WindowSession) WindowSession {
 	session.OpenFiles = normalizeSessionFiles(session.OpenFiles)
 	session.Active = strings.TrimSpace(session.Active)
 	session.Expanded = canonicalFolderList(session.Expanded)
+	session.SidebarWidth = max(session.SidebarWidth, 0)
 	return session
 }
 
@@ -291,6 +294,7 @@ func normalizeWorkspaceSession(session workspacefile.WorkspaceSession) workspace
 	session.OpenFiles = normalizeSessionFiles(session.OpenFiles)
 	session.Active = strings.TrimSpace(session.Active)
 	session.Expanded = canonicalFolderList(session.Expanded)
+	session.SidebarWidth = max(session.SidebarWidth, 0)
 	return session
 }
 
@@ -365,11 +369,12 @@ func (a *App) SetSession(window string, session WindowSession) error {
 	if session.Workspace != "" {
 		key := pathutil.CanonicalPath(session.Workspace)
 		state.Workspaces[key] = workspacefile.WorkspaceSession{
-			Folders:   session.Folders,
-			OpenFiles: session.OpenFiles,
-			Active:    session.Active,
-			Expanded:  session.Expanded,
-			Updated:   time.Now().Unix(),
+			Folders:      session.Folders,
+			OpenFiles:    session.OpenFiles,
+			Active:       session.Active,
+			Expanded:     session.Expanded,
+			SidebarWidth: session.SidebarWidth,
+			Updated:      time.Now().Unix(),
 		}
 		pruneWorkspaceSessions(&state, key)
 	}

@@ -50,7 +50,9 @@ type WorkspaceSession struct {
 	OpenFiles []string `json:"open_files"`
 	Active    string   `json:"active"`
 	Expanded  []string `json:"expanded"`
-	Updated   int64    `json:"updated"`
+	// SidebarWidth is the sidebar width in CSS pixels; 0 means the default.
+	SidebarWidth int   `json:"sidebar_width,omitempty"`
+	Updated      int64 `json:"updated"`
 }
 
 const (

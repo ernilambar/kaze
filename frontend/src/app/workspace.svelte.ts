@@ -254,6 +254,7 @@ export class WorkspaceController {
             this.activeWorkspace = target;
             const parked = toWorkspaceSession(target.session);
             this.treeops.expandedPaths = parked.expanded;
+            this.treeops.sidebarWidth = parked.sidebarWidth;
             this.clearWorkspaceTabs();
             await this.restoreWorkspaceTabs(parked);
             switched = true;
@@ -367,6 +368,7 @@ export class WorkspaceController {
                 this.ctx.folders = await closeAllSidebarFolders(this.ctx.windowName);
                 this.activeWorkspace = null;
                 this.treeops.expandedPaths = [];
+                this.treeops.sidebarWidth = 0;
                 this.clearWorkspaceTabs();
                 this.ctx.notice = '';
             } finally {
@@ -459,6 +461,7 @@ export class WorkspaceController {
                 openFiles: [...this.sessionFiles],
                 active: this.sessionActive,
                 expanded: [...this.treeops.expandedPaths],
+                sidebarWidth: this.treeops.sidebarWidth,
             });
         } catch (error) {
             console.error('Failed to save the session.', error);
