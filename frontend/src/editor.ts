@@ -7,6 +7,12 @@ import {
     dotenvConf,
     dotenvLanguage,
 } from './dotenvLanguage';
+import {
+    IGNORE_EXTENSIONS,
+    IGNORE_LANGUAGE_ID,
+    IGNORE_NAME,
+    ignoreLanguage,
+} from './ignoreLanguage';
 import { LOG_EXTENSIONS, LOG_LANGUAGE_ID, logLanguage } from './logLanguage';
 import type { PaletteItem } from './palette';
 import type { EditorSettings } from './settings';
@@ -82,6 +88,16 @@ monaco.languages.register({
 monaco.languages.setLanguageConfiguration(DOTENV_LANGUAGE_ID, dotenvConf);
 monaco.languages.setMonarchTokensProvider(DOTENV_LANGUAGE_ID, dotenvLanguage);
 
+// Ignore files register before the index is built, for the same reason. Name
+// matching for the dotfiles is IGNORE_NAME's job, because Monaco indexes only
+// extensions and exact filenames.
+monaco.languages.register({
+    id: IGNORE_LANGUAGE_ID,
+    extensions: IGNORE_EXTENSIONS,
+    aliases: ['Ignore'],
+});
+monaco.languages.setMonarchTokensProvider(IGNORE_LANGUAGE_ID, ignoreLanguage);
+
 // Svelte registers the same way, for the same reason: the index below caches
 // the registry on first use, and Monaco bundles no Svelte grammar.
 monaco.languages.register({
@@ -150,6 +166,9 @@ export function languageForPath(path: string): string {
     }
     if (DOTENV_NAME.test(name)) {
         return DOTENV_LANGUAGE_ID;
+    }
+    if (IGNORE_NAME.test(name)) {
+        return IGNORE_LANGUAGE_ID;
     }
     const { byExtension, byFilename } = languages();
     const byName = byFilename.get(name);

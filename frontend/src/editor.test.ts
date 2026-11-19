@@ -22,4 +22,13 @@ describe('languageForPath', () => {
         expect(languageForPath('/w/.dist')).toBe('plaintext');
         expect(languageForPath('/w/notes.txt.dist')).toBe('plaintext');
     });
+
+    it('detects ignore files by name and extension', () => {
+        expect(languageForPath('/w/.gitignore')).toBe('ignore');
+        expect(languageForPath('/w/.dockerignore')).toBe('ignore');
+        expect(languageForPath('/w/.gitignore_global')).toBe('ignore');
+        expect(languageForPath('/w/.ignore')).toBe('ignore');
+        expect(languageForPath('/w/project.ignore')).toBe('ignore');
+        expect(languageForPath('/w/.gitignore.bak')).not.toBe('ignore');
+    });
 });
