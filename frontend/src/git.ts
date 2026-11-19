@@ -34,6 +34,7 @@ export interface GitState {
 export interface GitBaseline {
     inRepo: boolean;
     tracked: boolean;
+    ignored: boolean;
     content: string;
 }
 
@@ -89,6 +90,7 @@ export async function readGitBaseline(path: string): Promise<GitBaseline> {
     return {
         inRepo: baseline?.in_repo ?? false,
         tracked: baseline?.tracked ?? false,
+        ignored: baseline?.ignored ?? false,
         content: baseline?.content ?? '',
     };
 }

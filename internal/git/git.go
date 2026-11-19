@@ -48,8 +48,11 @@ type GitSnapshot struct {
 type GitBaseline struct {
 	// InRepo says whether the path belongs to a repository at all. Untracked
 	// files return InRepo=true and Tracked=false, because every line is new.
-	InRepo  bool   `json:"in_repo"`
-	Tracked bool   `json:"tracked"`
+	InRepo  bool `json:"in_repo"`
+	Tracked bool `json:"tracked"`
+	// Ignored says the repository's ignore rules exclude the path, so it is
+	// outside git's picture and the gutter shows no marks for it.
+	Ignored bool   `json:"ignored"`
 	Content string `json:"content"`
 }
 
@@ -62,6 +65,13 @@ func HasHead(root string) bool {
 // Tracked reports whether HEAD or the index knows the path.
 func Tracked(root, relative string) bool {
 	_, err := Output(root, "ls-files", "--error-unmatch", "--", gitPathspec(relative))
+	return err == nil
+}
+
+// Ignored reports whether the ignore rules exclude the path. check-ignore
+// never reports a tracked path, so a force-added file keeps its marks.
+func Ignored(root, relative string) bool {
+	_, err := Output(root, "check-ignore", "--quiet", "--", relative)
 	return err == nil
 }
 

@@ -12,6 +12,12 @@ export interface GitBaseline {
      */
     "in_repo": boolean;
     "tracked": boolean;
+
+    /**
+     * Ignored says the repository's ignore rules exclude the path, so it is
+     * outside git's picture and the gutter shows no marks for it.
+     */
+    "ignored": boolean;
     "content": string;
 }
 

@@ -78,7 +78,7 @@ export class GitController {
         }
         try {
             const baseline = await readGitBaseline(path);
-            if (!baseline.inRepo) {
+            if (!baseline.inRepo || baseline.ignored) {
                 this.ctx.editorPane?.clearBaseline(id);
                 return;
             }

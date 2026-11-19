@@ -153,6 +153,17 @@ func TestGitBaselineAndDiff(t *testing.T) {
 	if !strings.Contains(diff, "+new") {
 		t.Fatalf("untracked diff = %q", diff)
 	}
+
+	writeFile(t, filepath.Join(dir, ".gitignore"), "ignored.env\n")
+	ignored := filepath.Join(dir, "ignored.env")
+	writeFile(t, ignored, "secret\n")
+	baseline, err = (&App{}).GetGitBaseline(ignored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !baseline.InRepo || !baseline.Ignored || baseline.Tracked || baseline.Content != "" {
+		t.Fatalf("ignored baseline = %+v", baseline)
+	}
 }
 
 func TestGitOutsideRepository(t *testing.T) {

@@ -67,12 +67,13 @@ func (a *App) GetGitBaseline(path string) (git.GitBaseline, error) {
 	}
 	if _, err := git.Output(root, "rev-parse", "--verify", "HEAD"); err != nil {
 		// An unborn branch has no HEAD, so an existing file is entirely new.
-		return git.GitBaseline{InRepo: true}, nil
+		// An ignored file stays outside git's picture and gets no marks.
+		return git.GitBaseline{InRepo: true, Ignored: git.Ignored(root, relative)}, nil
 	}
 
 	content, err := git.Output(root, "show", "HEAD:"+relative)
 	if err != nil {
-		return git.GitBaseline{InRepo: true}, nil
+		return git.GitBaseline{InRepo: true, Ignored: git.Ignored(root, relative)}, nil
 	}
 	if len(content) > document.MaxSize {
 		return git.GitBaseline{}, fmt.Errorf("%s is too large to diff", filepath.Base(path))
