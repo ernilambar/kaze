@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { onDestroy } from 'svelte';
     import FolderTree from './FolderTree.svelte';
     import type { GitStatusKind } from './git';
     import { folderName } from './sidebar';
@@ -51,6 +52,22 @@
         onExpandedChange,
         iconStyle = 'colorful',
     }: Props = $props();
+
+    // The tree's scrollbar is only worth showing while the user is scrolling;
+    // a short tail keeps it from flickering between wheel ticks.
+    const SCROLLBAR_TAIL_MS = 700;
+    let scrolling = $state(false);
+    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+
+    function onRootsScroll() {
+        scrolling = true;
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => {
+            scrolling = false;
+        }, SCROLLBAR_TAIL_MS);
+    }
+
+    onDestroy(() => clearTimeout(hideTimer));
 </script>
 
 <aside class="sidebar">
@@ -74,7 +91,7 @@
             <button class="sidebar__add" disabled={busy} onclick={onAddFolder}>Add Folder…</button>
         </div>
     {:else}
-        <ul class="sidebar__roots">
+        <ul class="sidebar__roots" class:sidebar__roots--scrolling={scrolling} onscroll={onRootsScroll}>
             {#each folders as folder (folder)}
                 <FolderTree
                     path={folder}
@@ -159,6 +176,40 @@
         padding: 0 0 8px;
         list-style: none;
         overflow: auto;
+        scrollbar-width: thin;
+        scrollbar-color: transparent transparent;
+    }
+
+    /* The native scrollbar is always drawn and loud, so the tree gets a slim
+       one whose thumb only shows while the list is scrolling. The track stays
+       reserved, so rows don't shift. */
+    .sidebar__roots::-webkit-scrollbar {
+        width: 10px;
+    }
+
+    .sidebar__roots::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .sidebar__roots::-webkit-scrollbar-thumb {
+        background: transparent;
+        border: 2px solid transparent;
+        border-radius: 6px;
+        background-clip: padding-box;
+    }
+
+    .sidebar__roots--scrolling {
+        scrollbar-color: var(--border) transparent;
+    }
+
+    .sidebar__roots--scrolling::-webkit-scrollbar-thumb {
+        background: var(--border);
+        background-clip: padding-box;
+    }
+
+    .sidebar__roots--scrolling::-webkit-scrollbar-thumb:hover {
+        background: var(--fg-muted);
+        background-clip: padding-box;
     }
 
     .sidebar__empty {
