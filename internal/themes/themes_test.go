@@ -34,6 +34,39 @@ func TestEnsureThemesDirSeedsOnce(t *testing.T) {
 	}
 }
 
+func TestEnsureThemesDirRefreshesAnUntouchedSeed(t *testing.T) {
+	dir := t.TempDir()
+	if err := EnsureDir(dir); err != nil {
+		t.Fatalf("EnsureDir() error = %v", err)
+	}
+	// An older build wrote a different built-in copy and recorded its hash.
+	previous := []byte(`{"name":"Previous","themes":[]}`)
+	path := filepath.Join(dir, seedFile)
+	if err := os.WriteFile(path, previous, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, seedHashFile), []byte(seedHash(previous)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := EnsureDir(dir); err != nil {
+		t.Fatalf("EnsureDir() refresh error = %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != string(builtinThemeJSON) {
+		t.Fatalf("untouched seed was not refreshed: %s", data)
+	}
+	recorded, err := os.ReadFile(filepath.Join(dir, seedHashFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(recorded) != seedHash(builtinThemeJSON) {
+		t.Fatalf("seed hash = %q, want the current palette's", recorded)
+	}
+}
+
 func TestPartialThemeFallsBackToBuiltin(t *testing.T) {
 	dir := t.TempDir()
 	content := `{
@@ -70,6 +103,9 @@ func TestPartialThemeFallsBackToBuiltin(t *testing.T) {
 	// Missing keys come from the built-in light theme, not from an empty string.
 	if palette.UI["bg-raised"] != "#f3f3f3" {
 		t.Errorf("bg-raised = %q, want built-in light fallback", palette.UI["bg-raised"])
+	}
+	if palette.UI["editor-bg"] != "#ffffff" {
+		t.Errorf("editor-bg = %q, want built-in light editor fallback", palette.UI["editor-bg"])
 	}
 	if palette.Syntax["comment"].Color != "#008000" {
 		t.Errorf("comment = %q, want built-in light fallback", palette.Syntax["comment"].Color)

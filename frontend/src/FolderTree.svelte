@@ -11,6 +11,27 @@
     import { statusLabel, statusMark, type GitStatusKind } from './git';
     import { errorMessage, isWithin, readFolder, type FolderEntry } from './sidebar';
 
+    // folderToneFor names the CSS tone class for a status. Untracked files share
+    // the added colour, and renamed/copied changes stay neutral.
+    function folderToneFor(status: GitStatusKind | undefined): string {
+        switch (status) {
+            case 'conflicted':
+                return 'conflicted';
+            case 'deleted':
+                return 'deleted';
+            case 'modified':
+                return 'modified';
+            case 'added':
+            case 'untracked':
+                return 'added';
+            case 'renamed':
+            case 'copied':
+                return 'muted';
+            default:
+                return '';
+        }
+    }
+
     interface Props {
         path: string;
         // root is the sidebar folder this row belongs to; files.exclude
@@ -24,9 +45,9 @@
         // that the command is still working.
         busyPath?: string;
         statuses?: Record<string, GitStatusKind>;
-        // folderChanges is the set of folders with changed descendants, so a
-        // collapsed folder still shows that it hides work.
-        folderChanges?: Set<string>;
+        // folderChanges maps a folder to the most significant change beneath
+        // it, so a collapsed folder still shows what it hides.
+        folderChanges?: Map<string, GitStatusKind>;
         // ignored marks an entry .gitignore hides, so its name is dimmed.
         ignored?: boolean;
         expanded?: boolean;
@@ -58,7 +79,7 @@
         refreshToken = 0,
         busyPath = '',
         statuses = {},
-        folderChanges = new Set(),
+        folderChanges = new Map(),
         ignored = false,
         expanded = false,
         removable = false,
@@ -77,8 +98,10 @@
     let open = $state(expanded);
     let entries = $state<FolderEntry[]>([]);
     // folderChanged marks a folder that hides a git change beneath it, so a
-    // collapsed row still says so.
+    // collapsed row still says so. folderTone names the colour class for the
+    // most significant change, so the folder matches the files it holds.
     let folderChanged = $derived(folderChanges.has(path));
+    let folderTone = $derived(folderToneFor(folderChanges.get(path)));
     // folderGlyph overrides the plain folder shape for names like `.github`.
     let folderGlyph = $derived(folderIcon(name));
     let error = $state('');
@@ -310,12 +333,11 @@
                 </span>
             {/if}
             <span
-                class="row__name"
-                class:row__name--changed={folderChanged}
+                class={`row__name row__name--${folderTone}`}
                 class:row__name--ignored={ignored}
             >{name}</span>
             {#if folderChanged}
-                <span class="row__changed" aria-hidden="true"></span>
+                <span class={`row__changed row__changed--${folderTone}`} aria-hidden="true"></span>
             {/if}
         </button>
         {#if removable && onRemove !== undefined}
@@ -399,6 +421,7 @@
                                     <span
                                         class="row__name"
                                         class:row__name--ignored={entry.ignored}
+                                        class:row__name--modified={status === 'modified'}
                                     >{entry.name}</span>
                                     {#if status !== undefined}
                                         <span
@@ -518,10 +541,22 @@
         white-space: nowrap;
     }
 
-    /* A folder with a git change beneath it: the name and a dot both take the
-       warning colour, so a collapsed folder still shows where the work is. */
-    .row__name--changed {
+    /* A folder with a git change beneath it takes the colour of the most
+       significant change, so it matches the files it holds. */
+    .row__name--conflicted {
         color: var(--git-conflicted);
+    }
+
+    .row__name--deleted {
+        color: var(--git-deleted);
+    }
+
+    .row__name--added {
+        color: var(--git-added);
+    }
+
+    .row__name--muted {
+        color: var(--fg-muted);
     }
 
     /* .gitignore hides this entry; it stays reachable but reads as peripheral
@@ -530,13 +565,41 @@
         color: var(--fg-muted);
     }
 
+    /* A modified file's name takes the git colour, so it reads the same as its
+       M badge. Declared after --ignored so the status wins if both apply. */
+    .row__name--modified {
+        color: var(--git-modified);
+    }
+
     .row__changed {
         flex: 0 0 auto;
         margin-left: auto;
+        /* .row__status pads 4px on both sides, so the dot needs the same gap
+           to sit in the same column as the M marks. */
+        margin-right: 4px;
         width: 7px;
         height: 7px;
         border-radius: 50%;
+    }
+
+    .row__changed--conflicted {
         background: var(--git-conflicted);
+    }
+
+    .row__changed--deleted {
+        background: var(--git-deleted);
+    }
+
+    .row__changed--modified {
+        background: var(--git-modified);
+    }
+
+    .row__changed--added {
+        background: var(--git-added);
+    }
+
+    .row__changed--muted {
+        background: var(--fg-muted);
     }
 
     .row__status {

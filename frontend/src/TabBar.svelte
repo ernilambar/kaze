@@ -282,12 +282,12 @@
 
     .tab--active {
         color: var(--fg);
-        background: var(--bg);
+        background: var(--editor-bg);
         box-shadow: inset 0 1px 0 var(--fg-muted);
     }
 
     .tab--active:hover {
-        background: var(--bg);
+        background: var(--editor-bg);
     }
 
     .tab--deleted .tab__label {

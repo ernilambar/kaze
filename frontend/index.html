@@ -27,6 +27,12 @@
             if (cached && HEX.test(cached.background)) {
                 var root = document.documentElement;
                 root.style.setProperty('--bg', cached.background);
+                root.style.setProperty(
+                    '--editor-bg',
+                    cached.editorBackground && HEX.test(cached.editorBackground)
+                        ? cached.editorBackground
+                        : cached.background,
+                );
                 root.style.colorScheme = cached.appearance === 'light' ? 'light' : 'dark';
                 if (cached.foreground && HEX.test(cached.foreground)) {
                     root.style.setProperty('--fg', cached.foreground);

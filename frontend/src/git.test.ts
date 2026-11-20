@@ -105,8 +105,21 @@ describe('changedFolders', () => {
             [change('/work/src/a.ts'), change('/work/src/b.ts', 'untracked')],
             ['/work'],
         );
-        expect(folders.has('/work/src')).toBe(true);
+        expect(folders.get('/work/src')).toBe('modified');
         expect(folders.size).toBe(4);
+    });
+
+    it('keeps the most significant status for a folder', () => {
+        const folders = changedFolders(
+            [
+                change('/work/src/a.ts', 'added'),
+                change('/work/src/b.ts', 'modified'),
+                change('/work/src/c.ts', 'conflicted'),
+            ],
+            ['/work'],
+        );
+        expect(folders.get('/work/src')).toBe('conflicted');
+        expect(folders.get('/work')).toBe('conflicted');
     });
 
     it('leaves paths outside every root out', () => {

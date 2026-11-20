@@ -17,6 +17,7 @@ import {
 const DEFAULT_STARTUP_THEME: StartupTheme = {
     appearance: 'dark',
     background: '#1e1e1e',
+    editorBackground: '#181818',
     foreground: '#cccccc',
 };
 

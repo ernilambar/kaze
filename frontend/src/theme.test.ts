@@ -201,11 +201,13 @@ describe('startup theme cache', () => {
         expect(JSON.parse(localStorage.getItem(STARTUP_THEME_KEY) ?? 'null')).toEqual({
             appearance: 'dark',
             background: '#101010',
+            editorBackground: '#101010',
             foreground: '#eeeeee',
         });
         expect(readStartupTheme()).toEqual({
             appearance: 'dark',
             background: '#101010',
+            editorBackground: '#101010',
             foreground: '#eeeeee',
         });
     });
@@ -226,6 +228,7 @@ describe('startup theme cache', () => {
         expect(readStartupTheme()).toEqual({
             appearance: 'dark',
             background: '#123456',
+            editorBackground: '#123456',
             foreground: '',
         });
     });
@@ -236,9 +239,15 @@ describe('startup theme cache', () => {
     });
 
     it('paints the cached colours and the appearance', () => {
-        applyStartupTheme({ appearance: 'light', background: '#fafafa', foreground: '#111111' });
+        applyStartupTheme({
+            appearance: 'light',
+            background: '#fafafa',
+            editorBackground: '#ffffff',
+            foreground: '#111111',
+        });
         const root = document.documentElement;
         expect(root.style.getPropertyValue('--bg')).toBe('#fafafa');
+        expect(root.style.getPropertyValue('--editor-bg')).toBe('#ffffff');
         expect(root.style.getPropertyValue('--fg')).toBe('#111111');
         expect(root.style.colorScheme).toBe('light');
     });
@@ -247,12 +256,18 @@ describe('startup theme cache', () => {
         const dark = startupThemeData({
             appearance: 'dark',
             background: '#101010',
+            editorBackground: '#181818',
             foreground: '#eeeeee',
         });
         expect(dark.base).toBe('vs-dark');
-        expect(dark.colors['editor.background']).toBe('#101010');
+        expect(dark.colors['editor.background']).toBe('#181818');
         expect(
-            startupThemeData({ appearance: 'light', background: '#ffffff', foreground: '' }).base,
+            startupThemeData({
+                appearance: 'light',
+                background: '#ffffff',
+                editorBackground: '#ffffff',
+                foreground: '',
+            }).base,
         ).toBe('vs');
     });
 });

@@ -40,6 +40,9 @@
     --ui-font-small: calc(var(--ui-font-size) - 2px);
     --ui-font-tiny: calc(var(--ui-font-size) - 3px);
     --bg: #1e1e1e;
+    /* The canvas sits one step below the chrome, so the editor reads as the
+       recessed surface while tabs, panels and palette stay raised. */
+    --editor-bg: #181818;
     --bg-raised: #252526;
     --bg-sidebar: #1b1b1c;
     --bg-hover: #2d2d2e;

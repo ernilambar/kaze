@@ -37,8 +37,9 @@ export class GitController {
         return statuses;
     });
 
-    // folderChanges is the set of folders with a change beneath them, so a
-    // folder row marks itself even when it is collapsed.
+    // folderChanges maps folders with a change beneath them to its most
+    // significant status, so a folder row marks itself even when it is
+    // collapsed and takes the matching colour.
     folderChanges = $derived.by(() => changedFolders(this.changes, this.ctx.folders));
 
     // The arrow defers the read of ctx until the constructor has set it.

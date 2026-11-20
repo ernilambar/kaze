@@ -281,6 +281,7 @@ export function monacoThemeName(name: string): string {
 export interface StartupTheme {
     appearance: ThemeAppearance;
     background: string;
+    editorBackground: string;
     foreground: string;
 }
 
@@ -300,6 +301,7 @@ export function cacheStartupTheme(palette: ThemePalette): void {
     const theme: StartupTheme = {
         appearance: palette.appearance,
         background,
+        editorBackground: palette.ui['editor-bg'] ?? background,
         foreground: palette.ui['fg'] ?? '',
     };
     try {
@@ -340,6 +342,10 @@ export function readStartupTheme(): StartupTheme | null {
     return {
         appearance: candidate.appearance,
         background: candidate.background,
+        editorBackground:
+            typeof candidate.editorBackground === 'string' && isHexColor(candidate.editorBackground)
+                ? candidate.editorBackground
+                : candidate.background,
         foreground:
             typeof candidate.foreground === 'string' && isHexColor(candidate.foreground)
                 ? candidate.foreground
@@ -352,6 +358,7 @@ export function readStartupTheme(): StartupTheme | null {
 export function applyStartupTheme(theme: StartupTheme): void {
     const root = document.documentElement;
     root.style.setProperty('--bg', theme.background);
+    root.style.setProperty('--editor-bg', theme.editorBackground);
     if (theme.foreground !== '') {
         root.style.setProperty('--fg', theme.foreground);
     }
@@ -365,7 +372,7 @@ export function startupThemeData(theme: StartupTheme): monaco.editor.IStandalone
         base: theme.appearance === 'light' ? 'vs' : 'vs-dark',
         inherit: true,
         rules: [],
-        colors: { 'editor.background': theme.background },
+        colors: { 'editor.background': theme.editorBackground },
     };
 }
 

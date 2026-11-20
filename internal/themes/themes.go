@@ -1,7 +1,9 @@
 package themes
 
 import (
+	"crypto/sha256"
 	_ "embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +12,14 @@ import (
 	"sort"
 	"strings"
 	"sync"
+)
+
+const (
+	seedFile     = "kaze.json"
+	seedHashFile = ".kaze-seed"
+	// legacySeedHash is kaze.json as it was written before the hash record
+	// existed. An untouched copy of it is replaced by the current palette.
+	legacySeedHash = "92ffb8bcfb74bb83894ccbf341d338046ef35d6aca009c188c1a77e81ae37065"
 )
 
 // builtinThemeJSON is the pair of palettes the app ships with. It is written to
@@ -135,8 +145,10 @@ func parseThemeFamily(data []byte) (themeFamily, error) {
 	return family, nil
 }
 
-// EnsureDir creates the themes folder and seeds it with the built-in
-// family when it holds no JSON files. It never overwrites a user file.
+// EnsureDir creates the themes folder and keeps the example copy of the
+// built-in theme current. The copy exists so there is a file to edit, and it
+// shadows the embedded variant of the same name; refreshing it while the user
+// has not changed it lets a built-in palette update reach existing installs.
 func EnsureDir(dir string) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("create themes directory: %w", err)
@@ -145,16 +157,62 @@ func EnsureDir(dir string) error {
 	if err != nil {
 		return fmt.Errorf("read themes directory: %w", err)
 	}
+	hasTheme := false
 	for _, entry := range entries {
 		if !entry.IsDir() && strings.EqualFold(filepath.Ext(entry.Name()), ".json") {
-			return nil
+			hasTheme = true
+			break
 		}
 	}
-	path := filepath.Join(dir, "kaze.json")
-	if err := os.WriteFile(path, builtinThemeJSON, 0o644); err != nil {
+	if !hasTheme {
+		return writeSeed(dir)
+	}
+	return refreshSeed(dir)
+}
+
+// writeSeed writes the built-in theme and records its hash. A copy whose hash
+// still matches is the one the app wrote, so a later launch may replace it.
+func writeSeed(dir string) error {
+	if err := os.WriteFile(filepath.Join(dir, seedFile), builtinThemeJSON, 0o644); err != nil {
 		return fmt.Errorf("write built-in theme: %w", err)
 	}
+	if err := os.WriteFile(filepath.Join(dir, seedHashFile), []byte(seedHash(builtinThemeJSON)), 0o644); err != nil {
+		return fmt.Errorf("write built-in theme hash: %w", err)
+	}
 	return nil
+}
+
+// refreshSeed replaces kaze.json only when it is still the copy the app wrote.
+// An edited file belongs to the user and is left alone.
+func refreshSeed(dir string) error {
+	data, err := os.ReadFile(filepath.Join(dir, seedFile))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read theme seed: %w", err)
+	}
+	recorded, err := os.ReadFile(filepath.Join(dir, seedHashFile))
+	if err == nil {
+		if strings.TrimSpace(string(recorded)) == seedHash(data) {
+			return writeSeed(dir)
+		}
+		return nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("read theme seed hash: %w", err)
+	}
+	// Installs seeded before the hash file existed have no record. Recognise
+	// the one palette that was shipped that way.
+	if seedHash(data) == legacySeedHash {
+		return writeSeed(dir)
+	}
+	return nil
+}
+
+func seedHash(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
 func themeFiles(dir string) ([]string, error) {
@@ -392,6 +450,7 @@ func PaletteFromEntry(entry Entry) ThemePalette {
 	style := mergeStyle(builtinStyleFor(entry.Variant.Appearance), entry.Variant.Style)
 	ui := map[string]string{
 		"bg":             style.Background,
+		"editor-bg":      style.EditorBackground,
 		"bg-raised":      style.SurfaceBackground,
 		"bg-sidebar":     style.PanelBackground,
 		"bg-hover":       style.ElementHover,

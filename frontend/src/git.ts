@@ -187,20 +187,36 @@ function parentDirectory(path: string): string {
     return trimmed.slice(0, cut);
 }
 
-// changedFolders is the set of folders that contain at least one change, so a
-// folder row can mark itself and a collapsed folder still says it hides work.
-// The change's own path is included too: git reports an untracked directory as
-// one change, and that directory is itself a tree row. Paths outside every
-// sidebar root are skipped, because the tree cannot show them.
+// STATUS_RANK orders statuses when one folder holds several changes. The folder
+// takes the most significant one, so its colour points at what to review first.
+const STATUS_RANK: Record<GitStatusKind, number> = {
+    conflicted: 6,
+    deleted: 5,
+    modified: 4,
+    added: 3,
+    untracked: 2,
+    renamed: 1,
+    copied: 0,
+};
+
+// changedFolders maps every folder that contains at least one change to the
+// most significant status beneath it, so a folder row can mark itself with the
+// matching colour and a collapsed folder still says it hides work. The
+// change's own path is included too: git reports an untracked directory as one
+// change, and that directory is itself a tree row. Paths outside every sidebar
+// root are skipped, because the tree cannot show them.
 export function changedFolders(
     changes: readonly GitChange[],
     roots: readonly string[],
-): Set<string> {
-    const folders = new Set<string>();
+): Map<string, GitStatusKind> {
+    const folders = new Map<string, GitStatusKind>();
     for (const change of changes) {
         let path = change.path;
         while (path !== '' && roots.some((root) => path === root || isWithin(root, path))) {
-            folders.add(path);
+            const previous = folders.get(path);
+            if (previous === undefined || STATUS_RANK[change.status] > STATUS_RANK[previous]) {
+                folders.set(path, change.status);
+            }
             const parent = parentDirectory(path);
             if (parent === path) {
                 break;

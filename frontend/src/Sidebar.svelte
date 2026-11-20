@@ -15,9 +15,9 @@
         busyPath?: string;
         // statuses maps a path to its git state for the row's status mark.
         statuses?: Record<string, GitStatusKind>;
-        // folderChanges is the set of folders with changed descendants, so a
-        // folder row can mark itself.
-        folderChanges?: Set<string>;
+        // folderChanges maps a folder to the most significant change beneath
+        // it, so a folder row can mark itself with the matching colour.
+        folderChanges?: Map<string, GitStatusKind>;
         onAddFolder: () => void;
         onRemoveFolder: (path: string) => void;
         onOpenFile: (path: string) => void;
@@ -46,7 +46,7 @@
         refreshToken = 0,
         busyPath = '',
         statuses = {},
-        folderChanges = new Set(),
+        folderChanges = new Map(),
         onAddFolder,
         onRemoveFolder,
         onOpenFile,

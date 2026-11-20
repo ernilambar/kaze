@@ -88,6 +88,9 @@ func TestLoadThemeAgreesWithCatalog(t *testing.T) {
 	if palette.Appearance != "dark" || palette.UI["bg"] != "#1e1e1e" {
 		t.Fatalf("LoadTheme() = %+v, want %s", palette, config.DefaultThemeDark)
 	}
+	if palette.UI["editor-bg"] != "#181818" {
+		t.Errorf("editor-bg = %q, want the darker canvas", palette.UI["editor-bg"])
+	}
 	if _, err := (&App{}).LoadTheme("Missing Theme"); err == nil {
 		t.Fatal("LoadTheme() accepted a missing theme")
 	}
