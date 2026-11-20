@@ -175,6 +175,11 @@ function baseName(path: string): string {
     return path.slice(slash + 1);
 }
 
+// Monaco's XML grammar does not claim `.plist`, though a text property list is
+// XML. Binary plists are never highlighted: their NUL byte opens them as
+// binary.
+const PLIST_EXTENSION = '.plist';
+
 // languageForPath is the Monaco language id for a file path. An unknown or
 // extensionless name stays plain text instead of guessing.
 export function languageForPath(path: string): string {
@@ -193,6 +198,9 @@ export function languageForPath(path: string): string {
     }
     if (IGNORE_NAME.test(name)) {
         return IGNORE_LANGUAGE_ID;
+    }
+    if (name.endsWith(PLIST_EXTENSION)) {
+        return 'xml';
     }
     const { byExtension, byFilename } = languages();
     const byName = byFilename.get(name);

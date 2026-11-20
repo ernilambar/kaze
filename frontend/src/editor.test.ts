@@ -44,4 +44,10 @@ describe('languageForPath', () => {
         expect(languageForPath('/w/fix.diff')).toBe('diff');
         expect(languageForPath('C:\\w\\FIX.PATCH')).toBe('diff');
     });
+
+    it('highlights property lists as XML', () => {
+        expect(languageForPath('/w/Info.plist')).toBe('xml');
+        expect(languageForPath('/w/com.example.app.plist')).toBe('xml');
+        expect(languageForPath('C:\\w\\Info.PLIST')).toBe('xml');
+    });
 });
