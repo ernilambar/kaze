@@ -1,5 +1,9 @@
 <script lang="ts">
-    import { defaultEditorSettings, type EditorSettings } from '../settings';
+    import {
+        defaultEditorSettings,
+        type EditorSettings,
+        type ScrollBeyondLastLine,
+    } from '../settings';
     import SettingRow from './SettingRow.svelte';
 
     type NumericEditorKey =
@@ -10,7 +14,7 @@
         | 'cursorSurroundingLines';
     type BooleanEditorKey = Exclude<
         keyof EditorSettings,
-        'fontFamily' | NumericEditorKey | 'rulers'
+        'fontFamily' | 'scrollBeyondLastLine' | NumericEditorKey | 'rulers'
     >;
 
     interface Props {
@@ -68,6 +72,12 @@
             label: 'Smart indent',
             description: "Match the previous line's indentation.",
         },
+    ];
+
+    const SCROLL_BEYOND_MODES: readonly { id: ScrollBeyondLastLine; label: string }[] = [
+        { id: 'off', label: 'Off' },
+        { id: 'half_page', label: 'Half page' },
+        { id: 'one_page', label: 'One page' },
     ];
 
     let customFontWeight = $derived(
@@ -288,11 +298,45 @@
             {@render field('cursorSurroundingLines', 0, 30, 1, 'lines')}
         {/snippet}
     </SettingRow>
-    {@render toggle(
-        'scrollBeyondLastLine',
-        'Scroll beyond last line',
-        'Allow scrolling past the end of the file.',
-    )}
+    <SettingRow
+        name="Scroll beyond last line"
+        description="Space below the last line: none, half a page, or a full page."
+        modified={modified('scrollBeyondLastLine')}
+        onReset={() => resetEditor('scrollBeyondLastLine')}
+    >
+        {#snippet control()}
+            <span class="settings__select">
+                <select
+                    value={editor.scrollBeyondLastLine}
+                    onchange={(event) =>
+                        updateEditor(
+                            'scrollBeyondLastLine',
+                            event.currentTarget.value as ScrollBeyondLastLine,
+                        )}
+                >
+                    {#each SCROLL_BEYOND_MODES as mode (mode.id)}
+                        <option value={mode.id}>{mode.label}</option>
+                    {/each}
+                </select>
+                <svg
+                    class="settings__select-arrow"
+                    aria-hidden="true"
+                    height="10"
+                    viewBox="0 0 12 10"
+                    width="12"
+                >
+                    <path
+                        d="M2.5 3.5 6 7 9.5 3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="1.3"
+                    />
+                </svg>
+            </span>
+        {/snippet}
+    </SettingRow>
 </section>
 
 <section class="settings__section">

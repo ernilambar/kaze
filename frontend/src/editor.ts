@@ -287,6 +287,10 @@ export function createModel(
     return model;
 }
 
+// EDITOR_VERTICAL_PADDING is the breathing room above the first line and below
+// the last line.
+export const EDITOR_VERTICAL_PADDING = 12;
+
 // editorOptions translates settings.json into Monaco options. Zoom passes the
 // effective font size, because the zoom offset is a session value and never
 // reaches the settings file. tabSize, insertSpaces and detectIndentation are
@@ -309,7 +313,7 @@ export function editorOptions(
         rulers: settings.rulers,
         bracketPairColorization: { enabled: settings.bracketPairColors },
         matchBrackets: settings.bracketPairColors ? 'always' : 'never',
-        scrollBeyondLastLine: settings.scrollBeyondLastLine,
+        scrollBeyondLastLine: settings.scrollBeyondLastLine === 'one_page',
         // Monaco 0.57 turns sticky scroll on by default; Kaze has no setting
         // for it, so keep the editor free of the floating scope header.
         stickyScroll: { enabled: false },
@@ -328,7 +332,7 @@ export function editorOptions(
         detectIndentation: true,
         tabSize: settings.tabSize,
         insertSpaces: !settings.hardTabs,
-        padding: { top: 12, bottom: 12 },
+        padding: { top: EDITOR_VERTICAL_PADDING, bottom: EDITOR_VERTICAL_PADDING },
     };
 }
 

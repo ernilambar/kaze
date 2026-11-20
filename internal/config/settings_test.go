@@ -260,12 +260,48 @@ func TestLoadSettingsReadsEditorOptions(t *testing.T) {
 	if editor.CursorWidth != 3 || editor.CursorBlink || editor.CursorSurroundingLines != 2 {
 		t.Errorf("cursor settings = %+v", editor)
 	}
-	if !editor.ScrollBeyondLastLine || !editor.EnsureFinalNewline {
+	if editor.ScrollBeyondLastLine != ScrollBeyondOnePage || !editor.EnsureFinalNewline {
 		t.Errorf("save/scroll settings = %+v", editor)
 	}
 	if editor.WordWrap || !editor.InvisibleCharacters || editor.LineNumbers ||
 		editor.IndentGuides || editor.CodeFolding || editor.AutoCloseBrackets || editor.SmartIndent {
 		t.Errorf("view settings = %+v", editor)
+	}
+}
+
+func TestLoadSettingsReadsScrollBeyondModes(t *testing.T) {
+	cases := []struct {
+		name  string
+		value string
+		want  ScrollBeyondMode
+	}{
+		{name: "off", value: `"off"`, want: ScrollBeyondOff},
+		{name: "half page", value: `"half_page"`, want: ScrollBeyondHalfPage},
+		{name: "one_page", value: `"one_page"`, want: ScrollBeyondOnePage},
+		{name: "legacy true", value: `true`, want: ScrollBeyondOnePage},
+		{name: "legacy false", value: `false`, want: ScrollBeyondOff},
+		{name: "unknown", value: `"page"`, want: ScrollBeyondOnePage},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "settings.json")
+			content := `{"editor":{"scroll_beyond_last_line":` + test.value + `}}`
+			if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			settings, err := Load(path)
+			if err != nil {
+				t.Fatalf("Load() error = %v", err)
+			}
+			if settings.Editor.ScrollBeyondLastLine != test.want {
+				t.Errorf(
+					"scroll_beyond_last_line = %q, want %q",
+					settings.Editor.ScrollBeyondLastLine,
+					test.want,
+				)
+			}
+		})
 	}
 }
 

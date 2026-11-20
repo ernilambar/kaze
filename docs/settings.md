@@ -17,7 +17,7 @@ ignored. Edit it from **Settings…** (`⌘,`); hand edits need a restart.
 | `editor.cursor_width` | `1` | Cursor width in pixels. |
 | `editor.cursor_blink` | `true` | Blink the cursor. |
 | `editor.cursor_surrounding_lines` | `0` | Lines kept visible around the cursor. |
-| `editor.scroll_beyond_last_line` | `true` | Scroll past the last line. |
+| `editor.scroll_beyond_last_line` | `"one_page"` | Space below the last line: `off`, `half_page` or `one_page`. |
 | `editor.ensure_final_newline` | `false` | Add a trailing newline on save. |
 | `editor.minimap` | `false` | Show the minimap beside the scrollbar. |
 | `editor.bracket_pair_colors` | `false` | Color and highlight matching bracket pairs. |

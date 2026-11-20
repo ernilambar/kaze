@@ -21,7 +21,7 @@ export interface EditorSettings {
      * cursor while scrolling.
      */
     "cursor_surrounding_lines": number;
-    "scroll_beyond_last_line": boolean;
+    "scroll_beyond_last_line": ScrollBeyondMode;
     "ensure_final_newline": boolean;
 
     /**
@@ -78,6 +78,22 @@ export interface FilesSettings {
      */
     "show_ignored": boolean;
 }
+
+/**
+ * ScrollBeyondMode is how much empty space the editor keeps below the last
+ * line. Monaco itself only knows "one page" or none, so half_page is realised
+ * as bottom padding in the frontend.
+ */
+export enum ScrollBeyondMode {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    ScrollBeyondOff = "off",
+    ScrollBeyondHalfPage = "half_page",
+    ScrollBeyondOnePage = "one_page",
+};
 
 /**
  * SearchSettings configures what Find in Files skips. The files list applies

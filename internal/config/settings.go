@@ -28,6 +28,39 @@ const (
 	defaultSidebarPlace = "left"
 )
 
+// ScrollBeyondMode is how much empty space the editor keeps below the last
+// line. Monaco itself only knows "one page" or none, so half_page is realised
+// as bottom padding in the frontend.
+type ScrollBeyondMode string
+
+const (
+	ScrollBeyondOff      ScrollBeyondMode = "off"
+	ScrollBeyondHalfPage ScrollBeyondMode = "half_page"
+	ScrollBeyondOnePage  ScrollBeyondMode = "one_page"
+)
+
+// UnmarshalJSON accepts the pre-mode boolean so an existing settings.json keeps
+// working: true becomes one_page and false becomes off. Unknown values are
+// left for Normalize to repair.
+func (m *ScrollBeyondMode) UnmarshalJSON(data []byte) error {
+	var value string
+	if err := json.Unmarshal(data, &value); err == nil {
+		*m = ScrollBeyondMode(value)
+		return nil
+	}
+	var enabled bool
+	if err := json.Unmarshal(data, &enabled); err == nil {
+		if enabled {
+			*m = ScrollBeyondOnePage
+		} else {
+			*m = ScrollBeyondOff
+		}
+		return nil
+	}
+	*m = ScrollBeyondOnePage
+	return nil
+}
+
 // Settings is the contents of the user's settings.json file.
 type Settings struct {
 	Editor  EditorSettings  `json:"editor"`
@@ -53,9 +86,9 @@ type EditorSettings struct {
 	CursorBlink bool `json:"cursor_blink"`
 	// CursorSurroundingLines keeps this many lines visible above and below the
 	// cursor while scrolling.
-	CursorSurroundingLines int  `json:"cursor_surrounding_lines"`
-	ScrollBeyondLastLine   bool `json:"scroll_beyond_last_line"`
-	EnsureFinalNewline     bool `json:"ensure_final_newline"`
+	CursorSurroundingLines int              `json:"cursor_surrounding_lines"`
+	ScrollBeyondLastLine   ScrollBeyondMode `json:"scroll_beyond_last_line"`
+	EnsureFinalNewline     bool             `json:"ensure_final_newline"`
 
 	// These view options are edited in the settings overlay and applied to a
 	// live editor. Rulers is the list of vertical guide columns; an empty list
@@ -150,7 +183,7 @@ func Default() Settings {
 			CursorWidth:            DefaultCursorWidth,
 			CursorBlink:            true,
 			CursorSurroundingLines: 0,
-			ScrollBeyondLastLine:   true,
+			ScrollBeyondLastLine:   ScrollBeyondOnePage,
 			EnsureFinalNewline:     false,
 
 			Minimap:           false,
@@ -211,6 +244,7 @@ func (s *Settings) Normalize() {
 	if s.Editor.CursorSurroundingLines < 0 {
 		s.Editor.CursorSurroundingLines = 0
 	}
+	s.Editor.ScrollBeyondLastLine = NormalizeScrollBeyondMode(s.Editor.ScrollBeyondLastLine)
 	s.Editor.Rulers = normalizeRulers(s.Editor.Rulers)
 
 	s.Files.Exclude = normalizePatternList(s.Files.Exclude)
@@ -256,6 +290,21 @@ func NormalizeThemeMode(mode string) string {
 		return strings.ToLower(strings.TrimSpace(mode))
 	default:
 		return defaultThemeMode
+	}
+}
+
+// NormalizeScrollBeyondMode keeps the three supported values and treats a typo
+// as the default.
+func NormalizeScrollBeyondMode(mode ScrollBeyondMode) ScrollBeyondMode {
+	switch strings.ToLower(strings.TrimSpace(string(mode))) {
+	case string(ScrollBeyondOff):
+		return ScrollBeyondOff
+	case string(ScrollBeyondHalfPage):
+		return ScrollBeyondHalfPage
+	case string(ScrollBeyondOnePage):
+		return ScrollBeyondOnePage
+	default:
+		return ScrollBeyondOnePage
 	}
 }
 

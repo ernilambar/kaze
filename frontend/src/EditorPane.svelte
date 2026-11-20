@@ -7,6 +7,7 @@
     import {
         createEditor,
         createModel,
+        EDITOR_VERTICAL_PADDING,
         editorOptions,
         WELCOME_KEY,
     } from './editor';
@@ -523,6 +524,34 @@
         zoomOffset = next - settings.fontSize;
     }
 
+    // applyScrollBeyond places the empty space below the last line. Monaco only
+    // knows "one page" or none, so half_page pays for its half viewport with
+    // bottom padding, which counts toward the scroll height. The guard stops a
+    // layout change caused by the padding itself from looping.
+    let appliedScrollBeyond: EditorSettings['scrollBeyondLastLine'] | undefined;
+    let appliedPaddingBottom = 0;
+
+    function applyScrollBeyond(
+        current: monaco.editor.IStandaloneCodeEditor,
+        force = false,
+    ): void {
+        const mode = settings.scrollBeyondLastLine;
+        const height = current.getLayoutInfo().height;
+        const bottom =
+            mode === 'half_page'
+                ? Math.max(EDITOR_VERTICAL_PADDING, Math.round(height / 2))
+                : EDITOR_VERTICAL_PADDING;
+        if (!force && mode === appliedScrollBeyond && bottom === appliedPaddingBottom) {
+            return;
+        }
+        appliedScrollBeyond = mode;
+        appliedPaddingBottom = bottom;
+        current.updateOptions({
+            scrollBeyondLastLine: mode === 'one_page',
+            padding: { top: EDITOR_VERTICAL_PADDING, bottom },
+        });
+    }
+
     function modelFor(key: string, text: string, documentEol: string): monaco.editor.ITextModel {
         let model = models.get(key);
         if (model === undefined) {
@@ -668,6 +697,7 @@
             return;
         }
         current.updateOptions(editorOptions(settings, settings.fontSize + zoomOffset));
+        applyScrollBeyond(current, true);
     });
 
     // Diff tabs are snapshots: Monaco refuses edits, so the model cannot drift
@@ -679,6 +709,7 @@
     onMount(() => {
         const created = createEditor(container, settings, modelFor(modelKey, content, eol));
         editor = created;
+        applyScrollBeyond(created);
         activeKey = modelKey;
         const cursorSubscription = created.onDidChangeCursorPosition((event) => {
             onCursorMove?.(event.position.lineNumber, event.position.column);
@@ -690,6 +721,7 @@
             reportDirty(activeKey);
             scheduleDecorations(activeKey);
         });
+        const layoutSubscription = created.onDidLayoutChange(() => applyScrollBeyond(created));
         const revealAction = created.addAction({
             id: 'reveal-in-finder',
             label: 'Reveal in Finder',
@@ -716,6 +748,7 @@
             cursorSubscription.dispose();
             selectionSubscription.dispose();
             contentSubscription.dispose();
+            layoutSubscription.dispose();
             revealAction.dispose();
             copyPathAction.dispose();
             copyRelativePathAction.dispose();

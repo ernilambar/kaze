@@ -1,4 +1,4 @@
-import type * as models from '../bindings/kaze/internal/config/models';
+import * as models from '../bindings/kaze/internal/config/models';
 import {
     GetSettings,
     UpdateEditorSettings,
@@ -7,6 +7,10 @@ import {
     UpdateThemeSettings,
     UpdateUISettings,
 } from '../bindings/kaze/internal/app/app';
+
+// ScrollBeyondLastLine is the empty space kept below the last line: none, half
+// a viewport, or one viewport.
+export type ScrollBeyondLastLine = 'off' | 'half_page' | 'one_page';
 
 export interface EditorSettings {
     fontFamily: string;
@@ -18,7 +22,7 @@ export interface EditorSettings {
     cursorWidth: number;
     cursorBlink: boolean;
     cursorSurroundingLines: number;
-    scrollBeyondLastLine: boolean;
+    scrollBeyondLastLine: ScrollBeyondLastLine;
     ensureFinalNewline: boolean;
     minimap: boolean;
     bracketPairColors: boolean;
@@ -44,7 +48,7 @@ export const defaultEditorSettings: EditorSettings = {
     cursorWidth: 1,
     cursorBlink: true,
     cursorSurroundingLines: 0,
-    scrollBeyondLastLine: true,
+    scrollBeyondLastLine: 'one_page',
     ensureFinalNewline: false,
     minimap: false,
     bracketPairColors: false,
@@ -58,6 +62,28 @@ export const defaultEditorSettings: EditorSettings = {
     smartIndent: true,
 };
 
+function toScrollBeyondLastLine(mode: models.ScrollBeyondMode): ScrollBeyondLastLine {
+    switch (mode) {
+        case models.ScrollBeyondMode.ScrollBeyondOff:
+            return 'off';
+        case models.ScrollBeyondMode.ScrollBeyondHalfPage:
+            return 'half_page';
+        default:
+            return 'one_page';
+    }
+}
+
+function toBindingScrollBeyond(mode: ScrollBeyondLastLine): models.ScrollBeyondMode {
+    switch (mode) {
+        case 'off':
+            return models.ScrollBeyondMode.ScrollBeyondOff;
+        case 'half_page':
+            return models.ScrollBeyondMode.ScrollBeyondHalfPage;
+        default:
+            return models.ScrollBeyondMode.ScrollBeyondOnePage;
+    }
+}
+
 function toEditorSettings(settings: models.EditorSettings): EditorSettings {
     return {
         fontFamily: settings.font_family,
@@ -69,7 +95,7 @@ function toEditorSettings(settings: models.EditorSettings): EditorSettings {
         cursorWidth: settings.cursor_width,
         cursorBlink: settings.cursor_blink,
         cursorSurroundingLines: settings.cursor_surrounding_lines,
-        scrollBeyondLastLine: settings.scroll_beyond_last_line,
+        scrollBeyondLastLine: toScrollBeyondLastLine(settings.scroll_beyond_last_line),
         ensureFinalNewline: settings.ensure_final_newline,
         minimap: settings.minimap,
         bracketPairColors: settings.bracket_pair_colors,
@@ -95,7 +121,7 @@ function toBindingSettings(settings: EditorSettings): models.EditorSettings {
         cursor_width: settings.cursorWidth,
         cursor_blink: settings.cursorBlink,
         cursor_surrounding_lines: settings.cursorSurroundingLines,
-        scroll_beyond_last_line: settings.scrollBeyondLastLine,
+        scroll_beyond_last_line: toBindingScrollBeyond(settings.scrollBeyondLastLine),
         ensure_final_newline: settings.ensureFinalNewline,
         minimap: settings.minimap,
         bracket_pair_colors: settings.bracketPairColors,
