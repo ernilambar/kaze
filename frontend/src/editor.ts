@@ -1,4 +1,5 @@
 import * as monaco from 'monaco-editor';
+import { DIFF_EXTENSIONS, DIFF_LANGUAGE_ID, diffLanguage } from './diffLanguage';
 import { DIFF_PREFIX, UNTITLED_PREFIX, splitTabKey } from './document';
 import {
     DOTENV_EXTENSIONS,
@@ -29,10 +30,6 @@ import {
     tomlConf,
     tomlLanguage,
 } from './tomlLanguage';
-
-// DIFF_LANGUAGE is Monaco's built-in diff syntax, used by the read-only diff
-// tabs. It is not chosen from a file extension.
-const DIFF_LANGUAGE = 'diff';
 
 // WELCOME_KEY is the model key for the idle buffer shown when no file is open.
 // It is empty because an open document is identified by its tab id, and no tab
@@ -73,6 +70,17 @@ function baseModelURI(key: string): monaco.Uri {
     }
     return monaco.Uri.file(key);
 }
+
+// The diff grammar registers before languages() builds its index (which caches
+// the registry on first use). Monaco ships no diff grammar, so the read-only
+// diff tabs would otherwise fall back to plain text, and `.patch`/`.diff`
+// files would open unhighlighted.
+monaco.languages.register({
+    id: DIFF_LANGUAGE_ID,
+    extensions: DIFF_EXTENSIONS,
+    aliases: ['Diff'],
+});
+monaco.languages.setMonarchTokensProvider(DIFF_LANGUAGE_ID, diffLanguage);
 
 // The log language must be registered before languages() builds its index,
 // because the index caches the registry on first use. This runs at module load,
@@ -292,7 +300,7 @@ export function createModel(
     eol: string = 'lf',
 ): monaco.editor.ITextModel {
     const language = key.startsWith(DIFF_PREFIX)
-        ? DIFF_LANGUAGE
+        ? DIFF_LANGUAGE_ID
         : key === WELCOME_KEY
           ? PLAIN_TEXT_LANGUAGE
           : languageForDocument(splitTabKey(key).base, content);

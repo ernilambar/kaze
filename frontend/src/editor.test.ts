@@ -38,4 +38,10 @@ describe('languageForPath', () => {
         expect(languageForPath('/w/.cargo/config.toml')).toBe('toml');
         expect(languageForPath('C:\\w\\RUSTFMT.TOML')).toBe('toml');
     });
+
+    it('detects patch and diff files', () => {
+        expect(languageForPath('/w/fix.patch')).toBe('diff');
+        expect(languageForPath('/w/fix.diff')).toBe('diff');
+        expect(languageForPath('C:\\w\\FIX.PATCH')).toBe('diff');
+    });
 });
