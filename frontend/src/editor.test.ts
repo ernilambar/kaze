@@ -31,4 +31,11 @@ describe('languageForPath', () => {
         expect(languageForPath('/w/project.ignore')).toBe('ignore');
         expect(languageForPath('/w/.gitignore.bak')).not.toBe('ignore');
     });
+
+    it('detects TOML files by extension', () => {
+        expect(languageForPath('/w/Cargo.toml')).toBe('toml');
+        expect(languageForPath('/w/pyproject.toml')).toBe('toml');
+        expect(languageForPath('/w/.cargo/config.toml')).toBe('toml');
+        expect(languageForPath('C:\\w\\RUSTFMT.TOML')).toBe('toml');
+    });
 });

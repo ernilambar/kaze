@@ -23,6 +23,12 @@ import {
     svelteConf,
     svelteLanguage,
 } from './svelteLanguage';
+import {
+    TOML_EXTENSIONS,
+    TOML_LANGUAGE_ID,
+    tomlConf,
+    tomlLanguage,
+} from './tomlLanguage';
 
 // DIFF_LANGUAGE is Monaco's built-in diff syntax, used by the read-only diff
 // tabs. It is not chosen from a file extension.
@@ -107,6 +113,16 @@ monaco.languages.register({
 });
 monaco.languages.setLanguageConfiguration(SVELTE_LANGUAGE_ID, svelteConf);
 monaco.languages.setMonarchTokensProvider(SVELTE_LANGUAGE_ID, svelteLanguage);
+
+// TOML registers the same way, for the same reason: Monaco bundles no TOML
+// grammar, and a Cargo.toml or pyproject.toml otherwise opens as plain text.
+monaco.languages.register({
+    id: TOML_LANGUAGE_ID,
+    extensions: TOML_EXTENSIONS,
+    aliases: ['TOML'],
+});
+monaco.languages.setLanguageConfiguration(TOML_LANGUAGE_ID, tomlConf);
+monaco.languages.setMonarchTokensProvider(TOML_LANGUAGE_ID, tomlLanguage);
 
 // LanguageIndex maps what a path says about its content to the language Monaco
 // registered for it. It is built from Monaco's own registry rather than a
