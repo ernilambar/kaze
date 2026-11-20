@@ -132,6 +132,27 @@ monaco.languages.register({
 monaco.languages.setLanguageConfiguration(TOML_LANGUAGE_ID, tomlConf);
 monaco.languages.setMonarchTokensProvider(TOML_LANGUAGE_ID, tomlLanguage);
 
+// Monaco's TypeScript worker has no project: it never reads tsconfig.json,
+// node_modules or unopened files, so its semantic pass underlines every import
+// it cannot resolve and every Svelte rune ($state, $derived) it does not know.
+// Its suggestion pass is worse: without resolved types it guesses, and on this
+// repository alone it raises 66 "implicitly has an 'any' type, but a better
+// type may be inferred" hints. Neither is fixable by an editor setting.
+// Syntax validation stays on, because the worker can see a stray bracket
+// without project context.
+monaco.typescript.typescriptDefaults.setDiagnosticsOptions({
+    noSemanticValidation: true,
+    noSuggestionDiagnostics: true,
+});
+
+// JavaScript defaults already skip semantic validation, but setDiagnosticsOptions
+// replaces the whole object, so both flags are stated here as well. The two
+// language modes share the same project-less worker.
+monaco.typescript.javascriptDefaults.setDiagnosticsOptions({
+    noSemanticValidation: true,
+    noSuggestionDiagnostics: true,
+});
+
 // LanguageIndex maps what a path says about its content to the language Monaco
 // registered for it. It is built from Monaco's own registry rather than a
 // hand-written table, so every bundled language is recognised.
