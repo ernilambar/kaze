@@ -22,7 +22,6 @@ describe('fileIcon', () => {
         ['lib.rs', 'rust-icon'],
         ['index.html', 'html5-icon'],
         ['style.css', 'css3-icon'],
-        ['README.md', 'book-icon'],
         ['package.json', 'npm-icon'],
         ['App.svelte', 'svelte-icon'],
     ])('maps %s to the %s glyph', (name, icon) => {
@@ -64,10 +63,14 @@ describe('fileIcon', () => {
     });
 
     it('draws markdown with the Devicons markdown glyph', () => {
-        expect([fileIcon('notes.md').glyph, fileIcon('notes.md').family]).toEqual([
-            '\ue63e',
-            'Devicons',
-        ]);
+        const notes = fileIcon('notes.md');
+
+        expect([notes.glyph, notes.family]).toEqual(['\ue63e', 'Devicons']);
+        expect(fileIcon('README.md')).toEqual(notes);
+        expect(fileIcon('readme.markdown')).toEqual(notes);
+        expect([fileIcon('README').glyph, fileIcon('README').family]).toEqual(
+            glyphOf('book-icon'),
+        );
     });
 
     it('uses a substituted glyph for icons the bundled font lacks', () => {

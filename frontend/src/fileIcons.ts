@@ -5,10 +5,12 @@ import raw from './fileIcons.json';
 // Awesome 4.7), and filename patterns from file-icons/atom's `config.cson`.
 // See `assets/LICENSES.md` for sources and licensing.
 //
-// One rule is hand-edited: dotenv sits first and matches `*.env` as well as
-// `.env*`, so the icon set lines up with what editor.ts detects as dotenv.
-// `.bak` names are excluded so backups keep the backup icon. Reapply that
-// change if the data is regenerated.
+// Two rules are hand-edited. Dotenv sits first and matches `*.env` as well as
+// `.env*`, so the icon set lines up with what editor.ts detects as dotenv;
+// `.bak` names are excluded so backups keep the backup icon. A markdown rule
+// also sits ahead of the bookkeeping rule, so a Markdown README keeps the
+// markdown icon instead of the book. Reapply those changes if the data is
+// regenerated.
 
 // A glyph from one of the fonts in `assets/`. `size`, `top` and `left` are the
 // per-icon tweaks the File Icons stylesheet applies to keep mixed families
