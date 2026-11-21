@@ -5,7 +5,6 @@ import { onWindowEvent } from './windowstate';
 // so the work happens here.
 export type FileCommand =
     | 'new-file'
-    | 'new-folder'
     | 'new-buffer'
     | 'open-file'
     | 'save'
@@ -15,7 +14,6 @@ export type FileCommand =
 
 const FILE_COMMANDS: readonly FileCommand[] = [
     'new-file',
-    'new-folder',
     'new-buffer',
     'open-file',
     'save',

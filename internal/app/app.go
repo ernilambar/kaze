@@ -588,7 +588,6 @@ func (a *App) emitCommand(id string) { a.emitEventWith(runCommandEvent, id) }
 // command keeps the menu and the App listener honest about what exists.
 const (
 	newFileEvent   = "app:new-file"
-	newFolderEvent = "app:new-folder"
 	newBufferEvent = "app:new-buffer"
 	openFileEvent  = "app:open-file"
 	saveEvent      = "app:save"
@@ -601,9 +600,6 @@ const (
 // sidebar folder. The frontend picks the folder, because the sidebar roots are
 // its state.
 func (a *App) emitNewFile() { a.emitEvent(newFileEvent) }
-
-// emitNewFolder asks the tree to create a folder in the selected folder.
-func (a *App) emitNewFolder() { a.emitEvent(newFolderEvent) }
 
 // emitNewBuffer tells the frontend to open a new untitled buffer.
 func (a *App) emitNewBuffer() { a.emitEvent(newBufferEvent) }

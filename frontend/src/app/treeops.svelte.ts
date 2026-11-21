@@ -103,18 +103,18 @@ export class TreeOps {
     // newFileFromMenu is File → New File: the file is created inside a sidebar
     // folder, so it exists on disk from the start. The folder is the one the
     // selected entry lives in; with no folders there is nowhere to create one,
-    // so the menu opens a buffer instead rather than doing nothing.
+    // so the menu only says so. New Untitled File is the buffer command.
     newFileFromMenu = async (): Promise<void> => {
         const folder = this.selectedFolder();
         if (folder === '') {
             this.ctx.notice = 'Add a folder to the sidebar to create a file.';
-            this.documents.newFile();
             return;
         }
         await this.newFileInFolder(folder);
     };
 
-    // newFolderFromMenu is File → New Folder, in the selected entry's folder.
+    // newFolderFromMenu is the New Folder palette command, in the selected
+    // entry's folder.
     newFolderFromMenu = async (): Promise<void> => {
         const folder = this.selectedFolder();
         if (folder === '') {

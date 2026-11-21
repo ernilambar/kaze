@@ -6,12 +6,12 @@
 
 | Shortcut | Action |
 | --- | --- |
-| `⌘N` | New Buffer (untitled) |
+| `⌘N` | New Untitled File |
 | `⌃⌥⌘N` | New File… (on disk) |
 | `⌘O` | Open… |
 | `⌘P` | Quick Open… |
 | `⌃R` | Open Recent… |
-| `⌃⌘P` | Switch Workspace… |
+| `⌃⌘P` | Open Recent Workspace… |
 | `⌃⌘O` | Add Folder to Sidebar… |
 | `⌘S` / `⌘⇧S` / `⌥⌘S` | Save / Save As… / Save All |
 | `⌘W` / `⌘K ⌘W` | Close Tab / Close All Tabs |

@@ -291,7 +291,7 @@ export class WorkspaceController {
         }
     };
 
-    // loadRecentWorkspaces refreshes the list the Switch Workspace palette
+    // loadRecentWorkspaces refreshes the list the Open Recent Workspace palette
     // shows. The read is cheap and every call sees other windows' switches.
     loadRecentWorkspaces = async (): Promise<void> => {
         try {

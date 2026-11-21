@@ -115,28 +115,20 @@ func appMenu(m *application.Menu, name string, app *App, b *menuBuilder) {
 // their tabs live in the frontend, so every item forwards a command instead of
 // acting on the file itself.
 func fileMenu(m *application.Menu, app *App, b *menuBuilder) {
+	// New File creates a file in the sidebar and New Untitled File is the
+	// untitled buffer: creating a file needs a folder, which only the tree knows.
+	b.item(m, "new-buffer", "New Untitled File", "CmdOrCtrl+n", func(*application.Context) {
+		app.emitNewBuffer()
+	})
+	b.item(m, "new-file", "New File…", "CmdOrCtrl+Ctrl+Alt+n", func(*application.Context) {
+		app.emitNewFile()
+	})
 	b.item(m, "new-window", "New Window", "CmdOrCtrl+Shift+n", func(*application.Context) {
 		if err := app.NewWindow(); err != nil {
 			app.reportMenuError("New Window", err)
 		}
 	})
-	b.item(m, "open-folder-new-window", "Open Folder in New Window…", "", func(*application.Context) {
-		if err := app.OpenFolderInNewWindow(); err != nil {
-			app.reportMenuError("Open Folder in New Window", err)
-		}
-	})
 	m.AddSeparator()
-	// New File creates a file in the sidebar and New Buffer is the untitled
-	// buffer: creating a file needs a folder, which only the tree knows.
-	b.item(m, "new-file", "New File", "CmdOrCtrl+Ctrl+Alt+n", func(*application.Context) {
-		app.emitNewFile()
-	})
-	b.item(m, "new-folder", "New Folder…", "", func(*application.Context) {
-		app.emitNewFolder()
-	})
-	b.item(m, "new-buffer", "New Buffer", "CmdOrCtrl+n", func(*application.Context) {
-		app.emitNewBuffer()
-	})
 	b.item(m, "open-file", "Open…", "CmdOrCtrl+o", func(*application.Context) {
 		app.emitOpenFile()
 	})
@@ -145,29 +137,34 @@ func fileMenu(m *application.Menu, app *App, b *menuBuilder) {
 	b.item(m, "open-recent", "Open Recent…", "Ctrl+r", func(*application.Context) {
 		app.emitOpenRecent()
 	})
+	b.item(m, "open-folder-new-window", "Open Folder in New Window…", "", func(*application.Context) {
+		if err := app.OpenFolderInNewWindow(); err != nil {
+			app.reportMenuError("Open Folder in New Window", err)
+		}
+	})
 	m.AddSeparator()
-	// Switch Workspace lists the workspace files already opened, newest first,
-	// which is the quickest way back to one. It has no event of its own because
-	// the list is read and rendered by the frontend.
-	b.item(m, "switch-workspace", "Switch Workspace…", "CmdOrCtrl+Ctrl+p", func(*application.Context) {
-		app.emitCommand("switch-workspace")
+	b.item(m, "add-folder", "Add Folder to Sidebar…", "CmdOrCtrl+Ctrl+o", func(*application.Context) {
+		app.emitAddFolder()
+	})
+	// Remove All Folders is Cmd+K F, a chord a native accelerator cannot hold.
+	// It keeps the tabs open; Close Workspace closes them too.
+	b.item(m, "close-all-folders", "Remove All Folders from Sidebar", "", func(*application.Context) {
+		app.emitCloseAllFolders()
 	})
 	b.item(m, "open-workspace", "Open Workspace…", "", func(*application.Context) {
 		app.emitOpenWorkspace()
+	})
+	// Open Recent Workspace lists the workspace files already opened, newest
+	// first. It has no event of its own because the list is read and rendered
+	// by the frontend.
+	b.item(m, "switch-workspace", "Open Recent Workspace…", "CmdOrCtrl+Ctrl+p", func(*application.Context) {
+		app.emitCommand("switch-workspace")
 	})
 	b.item(m, "save-workspace-as", "Save Workspace As…", "", func(*application.Context) {
 		app.emitSaveWorkspaceAs()
 	})
 	b.item(m, "close-workspace", "Close Workspace", "", func(*application.Context) {
 		app.emitCloseWorkspace()
-	})
-	m.AddSeparator()
-	b.item(m, "add-folder", "Add Folder to Sidebar…", "CmdOrCtrl+Ctrl+o", func(*application.Context) {
-		app.emitAddFolder()
-	})
-	// Close All Folders is Cmd+K F, a chord a native accelerator cannot hold.
-	b.item(m, "close-all-folders", "Close All Folders", "", func(*application.Context) {
-		app.emitCloseAllFolders()
 	})
 	m.AddSeparator()
 	b.item(m, "save", "Save", "CmdOrCtrl+s", func(*application.Context) { app.emitSave() })
@@ -190,7 +187,6 @@ func fileMenu(m *application.Menu, app *App, b *menuBuilder) {
 			app.emitCopyPath(kind)
 		})
 	}
-	m.AddSeparator()
 	// Print deliberately has no shortcut: Cmd+P is Quick Open.
 	b.item(m, "print", "Print…", "", func(*application.Context) { app.emitPrint() })
 	m.AddSeparator()

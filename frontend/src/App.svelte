@@ -148,8 +148,8 @@
     let quickOpenTruncated = $state(false);
     let commandPalette = $state(false);
     let recentOpen = $state(false);
-    // workspaceOpen is the Switch Workspace palette: the workspace files already
-    // opened, so a switch needs no file picker.
+    // workspaceOpen is the Open Recent Workspace palette: the workspace files
+    // already opened, so a switch needs no file picker.
     let workspaceOpen = $state(false);
     let workspaceLoading = $state(false);
 
@@ -1156,7 +1156,6 @@
                 menuCommand: selectCommand,
                 fileCommands: {
                     'new-file': () => void treeops.newFileFromMenu(),
-                    'new-folder': () => void treeops.newFolderFromMenu(),
                     'new-buffer': documents.newFile,
                     'open-file': () => void documents.openFromDialog(),
                     'save': () => saveActive(),
@@ -1421,7 +1420,7 @@
     {/if}
     {#if workspaceOpen}
         <Palette
-            title="Switch Workspace"
+            title="Open Recent Workspace"
             placeholder="Search recent workspaces"
             rank={rankWorkspaces}
             empty={workspaceEmpty}
