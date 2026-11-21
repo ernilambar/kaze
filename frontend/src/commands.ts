@@ -134,7 +134,7 @@ export const COMMANDS: readonly Command[] = [
     { id: 'open-default-settings', name: 'Open Default Settings', detail: 'Settings' },
     { id: 'open-themes-folder', name: 'Open Themes Folder', detail: 'Settings' },
     { id: 'open-keybindings', name: 'Open Keybindings…', detail: 'Settings' },
-    { id: 'install-command-line-tool', name: 'Install Command Line Tool…', detail: 'Application' },
+    { id: 'install-command-line-tool', name: 'Install CLI…', detail: 'Application' },
 ];
 
 // rankCommands orders commands exactly like Quick Open orders files. The

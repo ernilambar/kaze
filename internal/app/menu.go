@@ -96,7 +96,8 @@ func appMenu(m *application.Menu, name string, app *App, b *menuBuilder) {
 			app.reportMenuError("Open Themes Folder", err)
 		}
 	})
-	b.item(m, "", "Install Command Line Tool…", "", func(*application.Context) {
+	m.AddSeparator()
+	b.item(m, "", "Install CLI…", "", func(*application.Context) {
 		app.InstallCommandLineTool()
 	})
 	m.AddSeparator()

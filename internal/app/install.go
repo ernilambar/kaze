@@ -32,7 +32,7 @@ func commandInstallPath() string {
 func launcherScript(binaryPath string) string {
 	var b strings.Builder
 	b.WriteString("#!/bin/sh\n")
-	b.WriteString("# Installed by " + appMeta.ProductName + "'s \"Install Command Line Tool…\" menu item. Re-run\n")
+	b.WriteString("# Installed by " + appMeta.ProductName + "'s \"Install CLI…\" menu item. Re-run\n")
 	b.WriteString("# that item after moving " + appMeta.ProductName + ".app; the path below is baked in.\n")
 	b.WriteString("app=" + shellQuote(binaryPath) + "\n")
 	// After "--" every argument is a path, even one that starts with "-".

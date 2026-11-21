@@ -34,7 +34,7 @@ Security**.
 
 ## Command line
 
-Install the tool from **Kaze → Install Command Line Tool…**, then:
+Install the tool from **Kaze → Install CLI…**, then:
 
 ```sh
 kaze notes.txt  # open a file

@@ -8,7 +8,7 @@ kaze a.txt b.txt     # open both
 
 ## Install
 
-**Kaze → Install Command Line Tool…** writes `/usr/local/bin/kaze` (asks for an
+**Kaze → Install CLI…** writes `/usr/local/bin/kaze` (asks for an
 admin password if needed). Re-run it after moving `Kaze.app`; delete the file
 to uninstall.
 
