@@ -68,7 +68,7 @@ No frontend linter/formatter is configured; don't add one unprompted.
 - **Tabs are frontend state.** `WindowContext` holds them and `Documents`
   changes them; `tabs.ts` has pure rules.
   Tabs match on symlink-resolved `realPath`; `path` keeps the opened spelling.
-  `EditorPane` owns one model per id. New File creates on disk; New Untitled File
+  `EditorPane` owns one model per id. New File creates on disk; New Text File
   (<kbd>Cmd</kbd>+<kbd>N</kbd>) has no path until saved.
 - **Sidebar** is multi-root; `ReadFolder(path, root)` lists one level, filtered by
   `files.exclude` relative to the root. `.gitignore`d entries stay, flagged

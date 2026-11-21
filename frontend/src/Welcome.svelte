@@ -8,7 +8,7 @@
     // The key labels mirror the default accelerators in menu.go; a custom
     // keybindings.json entry may override one.
     const ACTIONS: readonly Entry[] = [
-        { command: 'new-buffer', label: 'New Untitled File', keys: '⌘N' },
+        { command: 'new-buffer', label: 'New Text File', keys: '⌘N' },
         { command: 'open-file', label: 'Open File…', keys: '⌘O' },
         { command: 'add-folder', label: 'Add Folder…', keys: '⌃⌘O' },
     ];

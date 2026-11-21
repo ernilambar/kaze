@@ -116,9 +116,9 @@ func appMenu(m *application.Menu, name string, app *App, b *menuBuilder) {
 // their tabs live in the frontend, so every item forwards a command instead of
 // acting on the file itself.
 func fileMenu(m *application.Menu, app *App, b *menuBuilder) {
-	// New File creates a file in the sidebar and New Untitled File is the
+	// New File creates a file in the sidebar and New Text File is the
 	// untitled buffer: creating a file needs a folder, which only the tree knows.
-	b.item(m, "new-buffer", "New Untitled File", "CmdOrCtrl+n", func(*application.Context) {
+	b.item(m, "new-buffer", "New Text File", "CmdOrCtrl+n", func(*application.Context) {
 		app.emitNewBuffer()
 	})
 	b.item(m, "new-file", "New File…", "CmdOrCtrl+Ctrl+Alt+n", func(*application.Context) {

@@ -6,7 +6,7 @@
 
 | Shortcut | Action |
 | --- | --- |
-| `⌘N` | New Untitled File |
+| `⌘N` | New Text File |
 | `⌃⌥⌘N` | New File… (on disk) |
 | `⌘O` | Open… |
 | `⌘P` | Quick Open… |
