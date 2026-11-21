@@ -20,17 +20,12 @@ describe('rankCommands', () => {
     });
 
     it('matches a command by category', () => {
-        const matches = rankCommands('application');
+        const commands = [
+            command('open-themes-folder', 'Open Themes Folder', 'Settings'),
+            command('quick-open', 'Quick Open', 'File'),
+        ];
 
-        expect(matches.map((entry) => entry.id)).toEqual([
-            'settings',
-            'about',
-            'open-keybindings',
-            'open-settings-json',
-            'open-themes-folder',
-            'open-default-settings',
-            'install-command-line-tool',
-        ]);
+        expect(rankCommands('settings', commands)).toEqual([commands[0]]);
     });
 
     it('prefers a name match over a category match', () => {

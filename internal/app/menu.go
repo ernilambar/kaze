@@ -74,12 +74,13 @@ func (a *App) reportMenuError(title string, err error) {
 func appMenu(m *application.Menu, name string, app *App, b *menuBuilder) {
 	b.item(m, "", "About "+name, "", func(*application.Context) { showAboutPanel() })
 	m.AddSeparator()
-	b.item(m, "settings", "Settings…", "CmdOrCtrl+,", func(*application.Context) {
+	// The overlay and the files behind it share one submenu, so the
+	// application menu keeps the short shape macOS apps use.
+	files := m.AddSubmenu("Settings")
+	b.item(files, "settings", "Settings…", "CmdOrCtrl+,", func(*application.Context) {
 		app.emitSettingsOverlay()
 	})
-	// The files behind Settings… share one submenu, so the application menu
-	// keeps the short shape macOS apps use.
-	files := m.AddSubmenu("Settings Files")
+	files.AddSeparator()
 	// The files open as tabs, so the focused window's frontend runs them.
 	b.item(files, "open-settings-json", "Open Settings JSON", "", func(*application.Context) {
 		app.emitCommand("open-settings-json")

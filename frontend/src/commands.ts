@@ -128,12 +128,12 @@ export const COMMANDS: readonly Command[] = [
     { id: 'toggle-full-screen', name: 'Toggle Full Screen', detail: 'Window' },
     { id: 'move-tab-new-window', name: 'Move Tab to New Window', detail: 'Window' },
     { id: 'bring-all-to-front', name: 'Bring All to Front', detail: 'Window' },
-    { id: 'settings', name: 'Settings…', detail: 'Application' },
+    { id: 'settings', name: 'Settings…', detail: 'Settings' },
     { id: 'about', name: 'About Kaze', detail: 'Application' },
-    { id: 'open-settings-json', name: 'Open Settings JSON', detail: 'Application' },
-    { id: 'open-default-settings', name: 'Open Default Settings', detail: 'Application' },
-    { id: 'open-themes-folder', name: 'Open Themes Folder', detail: 'Application' },
-    { id: 'open-keybindings', name: 'Open Keybindings…', detail: 'Application' },
+    { id: 'open-settings-json', name: 'Open Settings JSON', detail: 'Settings' },
+    { id: 'open-default-settings', name: 'Open Default Settings', detail: 'Settings' },
+    { id: 'open-themes-folder', name: 'Open Themes Folder', detail: 'Settings' },
+    { id: 'open-keybindings', name: 'Open Keybindings…', detail: 'Settings' },
     { id: 'install-command-line-tool', name: 'Install Command Line Tool…', detail: 'Application' },
 ];
 
