@@ -464,6 +464,27 @@ func windowMenu(m *application.Menu, app *App, b *menuBuilder) {
 // menu named Help, which finds any command by name.
 func helpMenu(m *application.Menu, app *App, b *menuBuilder) {
 	b.item(m, "", "Show All Commands", "", func(*application.Context) { app.emitCommandPalette() })
+	m.AddSeparator()
+	b.item(m, "", "Documentation", "", func(*application.Context) {
+		app.openExternal("https://github.com/ernilambar/kaze/tree/main/docs")
+	})
+	b.item(m, "", "Home Page", "", func(*application.Context) {
+		app.openExternal("https://github.com/ernilambar/kaze")
+	})
+	b.item(m, "", "License", "", func(*application.Context) {
+		app.openExternal("https://github.com/ernilambar/kaze/blob/main/LICENSE")
+	})
+}
+
+// openExternal opens url in the default browser. A menu item has no caller to
+// return an error to, so failures go to the error dialog.
+func (a *App) openExternal(url string) {
+	if a.wails == nil {
+		return
+	}
+	if err := a.wails.Browser.OpenURL(url); err != nil {
+		a.reportMenuError("Open Link", err)
+	}
 }
 
 // buildMenu assembles the whole native menu. It is run at startup and again
