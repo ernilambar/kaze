@@ -30,7 +30,7 @@ wails3 task darwin:package  # -> bin/kaze.app
 Every command must exit 0:
 
 ```sh
-export MACOSX_DEPLOYMENT_TARGET=13.0 CGO_CFLAGS="-mmacosx-version-min=13.0" CGO_LDFLAGS="-mmacosx-version-min=13.0"
+export MACOSX_DEPLOYMENT_TARGET=15.0 CGO_CFLAGS="-mmacosx-version-min=15.0" CGO_LDFLAGS="-mmacosx-version-min=15.0"
 (cd frontend && pnpm run check)
 (cd frontend && pnpm test)
 (cd frontend && pnpm run build)

@@ -20,7 +20,7 @@ A lightweight macOS editor for code and plain text.
 ## Install
 
 Download `Kaze-macos-arm64.zip` from the latest release, unzip it and move
-`Kaze.app` to `/Applications`. Apple silicon and macOS 13 or later only.
+`Kaze.app` to `/Applications`. Apple silicon and macOS 15 or later only.
 
 The app is not notarized, so macOS blocks the first launch. Clear the
 quarantine flag once:

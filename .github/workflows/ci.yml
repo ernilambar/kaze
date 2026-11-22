@@ -23,9 +23,9 @@ jobs:
       CGO_ENABLED: "1"
       # Match the deployment target in build/darwin/Info.plist so cgo objects
       # are not compiled for the runner's macOS version.
-      MACOSX_DEPLOYMENT_TARGET: "13.0"
-      CGO_CFLAGS: "-mmacosx-version-min=13.0"
-      CGO_LDFLAGS: "-mmacosx-version-min=13.0"
+      MACOSX_DEPLOYMENT_TARGET: "15.0"
+      CGO_CFLAGS: "-mmacosx-version-min=15.0"
+      CGO_LDFLAGS: "-mmacosx-version-min=15.0"
     steps:
       - uses: actions/checkout@v5
 

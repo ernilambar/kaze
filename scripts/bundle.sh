@@ -17,9 +17,9 @@ cd "$root"
 # Compile and link against the deployment target declared in the bundle's
 # Info.plist. Without it, cgo compiles against the host's macOS version while
 # the linker targets an older one, and every object file warns about it.
-export MACOSX_DEPLOYMENT_TARGET=13.0
-export CGO_CFLAGS="-mmacosx-version-min=13.0"
-export CGO_LDFLAGS="-mmacosx-version-min=13.0"
+export MACOSX_DEPLOYMENT_TARGET=15.0
+export CGO_CFLAGS="-mmacosx-version-min=15.0"
+export CGO_LDFLAGS="-mmacosx-version-min=15.0"
 
 app_name="$(read_info productName)"
 version="$(read_info version)"
