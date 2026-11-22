@@ -18,6 +18,7 @@ import { LOG_EXTENSIONS, LOG_LANGUAGE_ID, logLanguage } from './logLanguage';
 import type { PaletteItem } from './palette';
 import type { EditorSettings } from './settings';
 import { shebangLanguage } from './shebang';
+import { SHELL_LANGUAGE_ID, shellLanguage } from './shellLanguage';
 import {
     SVELTE_EXTENSIONS,
     SVELTE_LANGUAGE_ID,
@@ -131,6 +132,12 @@ monaco.languages.register({
 });
 monaco.languages.setLanguageConfiguration(TOML_LANGUAGE_ID, tomlConf);
 monaco.languages.setMonarchTokensProvider(TOML_LANGUAGE_ID, tomlLanguage);
+
+// Monaco's own shell grammar ends a `$(...)` body at the first `)`, so a quoted
+// one pops the substitution early and the rest of the file is tokenized as an
+// unclosed string. `shell` needs no register call: the monaco-editor import
+// already claimed it for `.sh`, `.bash` and the shell shebangs.
+monaco.languages.setMonarchTokensProvider(SHELL_LANGUAGE_ID, shellLanguage);
 
 // Monaco's TypeScript worker has no project: it never reads tsconfig.json,
 // node_modules or unopened files, so its semantic pass underlines every import
