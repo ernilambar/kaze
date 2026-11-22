@@ -100,6 +100,26 @@ describe('changedFolders', () => {
         expect(folders.size).toBe(3);
     });
 
+    it('does not mark a folder for a deleted file', () => {
+        const folders = changedFolders(
+            [change('/work/src/deleted.ts', 'deleted')],
+            ['/work'],
+        );
+        expect(folders.size).toBe(0);
+    });
+
+    it('lets a visible change win over a deletion in the same folder', () => {
+        const folders = changedFolders(
+            [
+                change('/work/src/deleted.ts', 'deleted'),
+                change('/work/src/modified.ts', 'modified'),
+            ],
+            ['/work'],
+        );
+        expect(folders.get('/work/src')).toBe('modified');
+        expect(folders.get('/work')).toBe('modified');
+    });
+
     it('marks a folder once however many changes it holds', () => {
         const folders = changedFolders(
             [change('/work/src/a.ts'), change('/work/src/b.ts', 'untracked')],

@@ -189,6 +189,8 @@ function parentDirectory(path: string): string {
 
 // STATUS_RANK orders statuses when one folder holds several changes. The folder
 // takes the most significant one, so its colour points at what to review first.
+// `deleted` is never propagated: it has no tree row to reveal, so the changes
+// list is where it belongs. Its entry keeps the record exhaustive.
 const STATUS_RANK: Record<GitStatusKind, number> = {
     conflicted: 6,
     deleted: 5,
@@ -204,13 +206,18 @@ const STATUS_RANK: Record<GitStatusKind, number> = {
 // matching colour and a collapsed folder still says it hides work. The
 // change's own path is included too: git reports an untracked directory as one
 // change, and that directory is itself a tree row. Paths outside every sidebar
-// root are skipped, because the tree cannot show them.
+// root are skipped, because the tree cannot show them. Deletions are skipped:
+// the path is gone, so colouring its ancestors would mark nothing the tree can
+// reveal and would outrank the changes that are still visible.
 export function changedFolders(
     changes: readonly GitChange[],
     roots: readonly string[],
 ): Map<string, GitStatusKind> {
     const folders = new Map<string, GitStatusKind>();
     for (const change of changes) {
+        if (change.status === 'deleted') {
+            continue;
+        }
         let path = change.path;
         while (path !== '' && roots.some((root) => path === root || isWithin(root, path))) {
             const previous = folders.get(path);

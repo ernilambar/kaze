@@ -17,8 +17,6 @@
         switch (status) {
             case 'conflicted':
                 return 'conflicted';
-            case 'deleted':
-                return 'deleted';
             case 'modified':
                 return 'modified';
             case 'added':
@@ -45,8 +43,8 @@
         // that the command is still working.
         busyPath?: string;
         statuses?: Record<string, GitStatusKind>;
-        // folderChanges maps a folder to the most significant change beneath
-        // it, so a collapsed folder still shows what it hides.
+        // folderChanges maps a folder to the most significant visible change
+        // beneath it, so a collapsed folder still shows what it hides.
         folderChanges?: Map<string, GitStatusKind>;
         // ignored marks an entry .gitignore hides, so its name is dimmed.
         ignored?: boolean;
@@ -547,10 +545,6 @@
         color: var(--git-conflicted);
     }
 
-    .row__name--deleted {
-        color: var(--git-deleted);
-    }
-
     .row__name--added {
         color: var(--git-added);
     }
@@ -584,10 +578,6 @@
 
     .row__changed--conflicted {
         background: var(--git-conflicted);
-    }
-
-    .row__changed--deleted {
-        background: var(--git-deleted);
     }
 
     .row__changed--modified {
