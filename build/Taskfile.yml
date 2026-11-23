@@ -205,9 +205,14 @@ tasks:
         "LSItemContentTypes": ["public.plain-text", "public.source-code",
         "public.script", "public.shell-script", "public.json", "public.xml",
         "public.yaml", "net.daringfireball.markdown"]}]
+      # Keep in sync with MACOSX_DEPLOYMENT_TARGET (build/darwin/Taskfile.yml).
+      # The generator resets this to Wails' default, so reapply it every run.
+      MIN_MACOS_VERSION: "15.0.0"
     cmds:
       - wails3 update build-assets -name "{{.APP_NAME}}" -binaryname "{{.APP_NAME}}" -config config.yml -dir .
       - for: [darwin/Info.plist, darwin/Info.dev.plist]
         cmd: plutil -replace CFBundleDocumentTypes -json '{{.DOCUMENT_TYPES}}' {{.ITEM}}
+      - for: [darwin/Info.plist, darwin/Info.dev.plist]
+        cmd: plutil -replace LSMinimumSystemVersion -string {{.MIN_MACOS_VERSION}} {{.ITEM}}
       # Kaze is macOS-only; drop the other platforms' generated assets.
       - rm -rf ios linux windows
