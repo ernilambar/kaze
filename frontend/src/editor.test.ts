@@ -39,6 +39,16 @@ describe('languageForPath', () => {
         expect(languageForPath('C:\\w\\RUSTFMT.TOML')).toBe('toml');
     });
 
+    it('detects go.mod and go.work by name, not by extension', () => {
+        expect(languageForPath('/w/go.mod')).toBe('gomod');
+        expect(languageForPath('/w/go.work')).toBe('gomod');
+        expect(languageForPath('C:\\w\\GO.MOD')).toBe('gomod');
+        // The `.mod` extension belongs to other ecosystems; only the exact
+        // filenames claim the language.
+        expect(languageForPath('/w/other.mod')).not.toBe('gomod');
+        expect(languageForPath('/w/go.sum')).not.toBe('gomod');
+    });
+
     it('detects patch and diff files', () => {
         expect(languageForPath('/w/fix.patch')).toBe('diff');
         expect(languageForPath('/w/fix.diff')).toBe('diff');

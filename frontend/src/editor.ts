@@ -9,6 +9,12 @@ import {
     dotenvLanguage,
 } from './dotenvLanguage';
 import {
+    GOMOD_LANGUAGE_ID,
+    GOMOD_NAMES,
+    gomodConf,
+    gomodLanguage,
+} from './gomodLanguage';
+import {
     IGNORE_EXTENSIONS,
     IGNORE_LANGUAGE_ID,
     IGNORE_NAME,
@@ -132,6 +138,18 @@ monaco.languages.register({
 });
 monaco.languages.setLanguageConfiguration(TOML_LANGUAGE_ID, tomlConf);
 monaco.languages.setMonarchTokensProvider(TOML_LANGUAGE_ID, tomlLanguage);
+
+// Go module files register the same way, for the same reason: Monaco bundles
+// no go.mod grammar. The names are filenames rather than extensions, so the
+// index matches `go.mod` and `go.work` exactly and leaves `.mod` for whatever
+// other tooling owns it.
+monaco.languages.register({
+    id: GOMOD_LANGUAGE_ID,
+    filenames: [...GOMOD_NAMES],
+    aliases: ['Go Mod', 'go.mod'],
+});
+monaco.languages.setLanguageConfiguration(GOMOD_LANGUAGE_ID, gomodConf);
+monaco.languages.setMonarchTokensProvider(GOMOD_LANGUAGE_ID, gomodLanguage);
 
 // Monaco's own shell grammar ends a `$(...)` body at the first `)`, so a quoted
 // one pops the substitution early and the rest of the file is tokenized as an
