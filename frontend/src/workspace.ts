@@ -204,3 +204,10 @@ export function listenForWatchedChanges(handler: (paths: string[]) => void): () 
         }
     });
 }
+
+// listenForGitChanges runs handler when a watched repository's metadata moved
+// outside the app, such as a commit or checkout. Returns an unsubscribe
+// function.
+export function listenForGitChanges(handler: () => void): () => void {
+    return onWindowEvent('app:git-changed', () => handler());
+}

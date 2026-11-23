@@ -91,6 +91,25 @@ export class GitController {
         }
     };
 
+    // reloadBaselines rereads the HEAD text behind every file-backed buffer.
+    // HEAD moves without the working tree changing, so a commit made elsewhere
+    // would otherwise leave the gutter comparing against the old commit.
+    reloadBaselines = (): void => {
+        for (const tab of this.ctx.tabs) {
+            if (tab.kind === 'text' && tab.path !== '') {
+                void this.loadBaseline(tab.id, tab.path);
+            }
+        }
+    };
+
+    // refreshAfterGitChange follows a repository whose metadata moved outside
+    // the app: the sidebar marks, open diffs and gutters all describe HEAD.
+    refreshAfterGitChange = async (): Promise<void> => {
+        await this.refreshGitStatus();
+        await this.refreshDiffTabs();
+        this.reloadBaselines();
+    };
+
     // openDiff shows one file's changes against HEAD in a read-only tab. A
     // diff that is already open is focused instead of rebuilt.
     openDiff = async (path: string): Promise<void> => {

@@ -1178,6 +1178,7 @@
                     previousFindResult: () => void search.stepFindResult(-1),
                 },
                 watchedChanges: (paths) => void documents.handleWatchedChanges(paths),
+                gitChanges: () => void git.refreshAfterGitChange(),
                 workspaceCommands: {
                     openRecent: showRecentFiles,
                     openWorkspace: () => void workspaces.openWorkspaceFromDialog(),

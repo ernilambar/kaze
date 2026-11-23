@@ -12,6 +12,11 @@ import (
 // disk. The payload is a []string of absolute paths.
 const watchedChangedEvent = "app:watched-changed"
 
+// gitChangedEvent tells one window that a repository's metadata moved: a
+// commit, checkout or stage. It carries no payload; the window rereads its git
+// state, including the HEAD text behind every gutter.
+const gitChangedEvent = "app:git-changed"
+
 // watchInterval is how often the watcher compares timestamps. One second is
 // invisible to a person editing in another program, and a handful of stat
 // calls per second costs nothing.
@@ -33,14 +38,18 @@ type fileWatcher struct {
 	mu     sync.Mutex
 	paths  map[string]watchState
 	owners map[string]map[string]bool
+	// git marks the paths that are repository metadata rather than anything a
+	// window shows, so their changes refresh git state instead of the tree.
+	git map[string]bool
 }
 
-// set replaces one window's watched set. A path that was already watched keeps
+// set replaces one window's watched set. git lists the repository metadata
+// among them. A path that was already watched keeps
 // its old state, so a change that landed between two registrations is still
 // reported instead of becoming the new baseline.
-func (w *fileWatcher) set(window string, paths []string) {
-	owned := make(map[string]bool, len(paths))
-	for _, path := range paths {
+func (w *fileWatcher) set(window string, paths, git []string) {
+	owned := make(map[string]bool, len(paths)+len(git))
+	for _, path := range append(append([]string(nil), paths...), git...) {
 		if path != "" {
 			owned[path] = true
 		}
@@ -60,6 +69,9 @@ func (w *fileWatcher) set(window string, paths []string) {
 	if w.paths == nil {
 		w.paths = make(map[string]watchState)
 	}
+	if w.git == nil {
+		w.git = make(map[string]bool)
+	}
 	for path, owners := range w.owners {
 		if owned[path] {
 			continue
@@ -68,6 +80,12 @@ func (w *fileWatcher) set(window string, paths []string) {
 		if len(owners) == 0 {
 			delete(w.owners, path)
 			delete(w.paths, path)
+			delete(w.git, path)
+		}
+	}
+	for _, path := range git {
+		if path != "" {
+			w.git[path] = true
 		}
 	}
 
@@ -95,8 +113,24 @@ func (w *fileWatcher) forget(window string) {
 		if len(owners) == 0 {
 			delete(w.owners, path)
 			delete(w.paths, path)
+			delete(w.git, path)
 		}
 	}
+}
+
+// split separates changed paths into the ones a window shows and whether any
+// repository metadata moved.
+func (w *fileWatcher) split(paths []string) (files []string, git bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for _, path := range paths {
+		if w.git[path] {
+			git = true
+			continue
+		}
+		files = append(files, path)
+	}
+	return files, git
 }
 
 func statWatch(path string) watchState {
@@ -162,7 +196,8 @@ func (w *fileWatcher) rebaseline(path string) {
 // WatchPaths replaces one window's set of files and directories whose external
 // changes it wants to hear about. repos are the repositories behind the sidebar
 // roots: their git metadata is watched too, because a commit, checkout or stage
-// moves HEAD and the index without touching a working-tree file. Calling it the
+// moves HEAD and the index without touching a working-tree file. A path inside
+// a repository outside the sidebar brings that repository's metadata as well. Calling it the
 // first time starts the polling loop, which runs for the life of the process.
 func (a *App) WatchPaths(window string, paths []string, repos []string) {
 	// A call still in flight when its window closed would register paths
@@ -170,34 +205,73 @@ func (a *App) WatchPaths(window string, paths []string, repos []string) {
 	if window == "" || a.session(window) == nil {
 		return
 	}
-	a.watcher.set(window, watchable(paths, repos))
+	files, git := watchable(paths, repos)
+	a.watcher.set(window, files, git)
 	a.watchOnce.Do(func() {
 		go a.watchLoop()
 	})
 }
 
-// watchable is the window's own paths plus the git metadata a repository
-// rewrites when its state changes. The frontend knows the repositories from the
-// status read; their working trees stay still when HEAD moves.
-func watchable(paths, repos []string) []string {
+// watchable is the window's own paths, and separately the git metadata a
+// repository rewrites when its state changes. The frontend knows the sidebar
+// repositories from the status read; a file opened from anywhere else names
+// its own repository by the .git above it.
+func watchable(paths, repos []string) (files, git []string) {
 	seen := make(map[string]bool, len(paths))
-	all := make([]string, 0, len(paths))
-	add := func(path string) {
+	add := func(list *[]string, path string) {
 		if path == "" || seen[path] {
 			return
 		}
 		seen[path] = true
-		all = append(all, path)
+		*list = append(*list, path)
 	}
 	for _, path := range paths {
-		add(path)
+		add(&files, path)
 	}
+	roots := make(map[string]bool, len(repos))
 	for _, repo := range repos {
-		for _, path := range gitStateFiles(repo) {
-			add(path)
+		roots[repo] = true
+	}
+	found := make(map[string]string)
+	for _, path := range paths {
+		if repo := enclosingRepo(path, found); repo != "" {
+			roots[repo] = true
 		}
 	}
-	return all
+	for repo := range roots {
+		for _, path := range gitStateFiles(repo) {
+			add(&git, path)
+		}
+	}
+	return files, git
+}
+
+// enclosingRepo is the nearest folder at or above path that holds a .git
+// entry, or "" outside any repository. found memoizes folders already walked,
+// so the expanded folders of one tree share a single climb.
+func enclosingRepo(path string, found map[string]string) string {
+	var walked []string
+	repo := ""
+	for dir := filepath.Clean(path); ; {
+		if cached, ok := found[dir]; ok {
+			repo = cached
+			break
+		}
+		walked = append(walked, dir)
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			repo = dir
+			break
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	for _, dir := range walked {
+		found[dir] = repo
+	}
+	return repo
 }
 
 // gitStateFiles names the files under a repository's git directory that move
@@ -260,11 +334,16 @@ func (a *App) watchLoop() {
 	defer ticker.Stop()
 	for range ticker.C {
 		for window, changed := range a.watcher.poll() {
-			if len(changed) == 0 {
+			session := a.session(window)
+			if session == nil {
 				continue
 			}
-			if session := a.session(window); session != nil {
-				session.emit(watchedChangedEvent, changed)
+			files, git := a.watcher.split(changed)
+			if len(files) > 0 {
+				session.emit(watchedChangedEvent, files)
+			}
+			if git {
+				session.emit(gitChangedEvent)
 			}
 		}
 	}

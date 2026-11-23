@@ -420,11 +420,7 @@ export class WorkspaceController {
         await this.git.refreshGitStatus();
         // HEAD may have moved since the buffers were opened, so the gutter
         // baselines are reread too.
-        for (const tab of this.ctx.tabs) {
-            if (tab.kind === 'text' && tab.path !== '') {
-                void this.git.loadBaseline(tab.id, tab.path);
-            }
-        }
+        this.git.reloadBaselines();
         this.ctx.notice = '';
     };
 

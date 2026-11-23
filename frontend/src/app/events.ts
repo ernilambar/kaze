@@ -17,7 +17,7 @@ import {
     type ConfigChange,
 } from '../theme';
 import type { ThemeMode } from '../settings';
-import { listenForWatchedChanges } from '../workspace';
+import { listenForGitChanges, listenForWatchedChanges } from '../workspace';
 import { listenForWorkspaceCommands, type WorkspaceCommandHandlers } from '../workspacecommands';
 
 // AppEventHandlers is every menu and backend event a window reacts to, keyed by
@@ -33,6 +33,7 @@ export interface AppEventHandlers {
     closeRequest: (reason: CloseReason) => void;
     editorCommands: Partial<EditorCommandHandlers>;
     watchedChanges: (paths: string[]) => void;
+    gitChanges: () => void;
     workspaceCommands: Partial<WorkspaceCommandHandlers>;
     tabCommands: Parameters<typeof listenForTabCommands>[0];
     configChange: (change: ConfigChange) => void;
@@ -59,6 +60,7 @@ export async function subscribeAll(
         listenForCloseRequest(handlers.closeRequest),
         listenForEditorCommands(handlers.editorCommands),
         listenForWatchedChanges(handlers.watchedChanges),
+        listenForGitChanges(handlers.gitChanges),
         listenForWorkspaceCommands(handlers.workspaceCommands),
         listenForTabCommands(handlers.tabCommands),
         listenForConfigChanges(handlers.configChange),

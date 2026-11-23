@@ -224,7 +224,7 @@ func TestSetSidebarVisibleSurvivesFolderChanges(t *testing.T) {
 func TestWatcherReportsExternalChangesOncePerBaseline(t *testing.T) {
 	path := writeTempFile(t, t.TempDir(), "notes.txt", "one")
 	watcher := fileWatcher{}
-	watcher.set("main", []string{path})
+	watcher.set("main", []string{path}, nil)
 
 	if changed := watcher.poll()["main"]; len(changed) != 0 {
 		t.Fatalf("first poll = %q, want no changes", changed)

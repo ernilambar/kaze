@@ -28,6 +28,7 @@ function handlers(): AppEventHandlers {
         closeRequest: noop,
         editorCommands: {},
         watchedChanges: noop,
+        gitChanges: noop,
         workspaceCommands: {},
         tabCommands: {
             next: noop,
