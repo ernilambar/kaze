@@ -19,8 +19,20 @@ A lightweight macOS editor for code and plain text.
 
 ## Install
 
+The recommended way is the Homebrew tap:
+
+```sh
+brew install --cask ernilambar/tap/kaze
+```
+
+Apple silicon and macOS 15 or later only. The cask installs `Kaze.app` into
+`/Applications` and clears the quarantine flag, so the first launch works
+immediately. Upgrade with `brew upgrade --cask kaze`.
+
+### Manual download
+
 Download `Kaze-macos-arm64.zip` from the latest release, unzip it and move
-`Kaze.app` to `/Applications`. Apple silicon and macOS 15 or later only.
+`Kaze.app` to `/Applications`.
 
 The app is not notarized, so macOS blocks the first launch. Clear the
 quarantine flag once:

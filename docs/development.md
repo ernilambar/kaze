@@ -53,3 +53,12 @@ plists. Startup, Wails or packaging changes also need
 `release.sh` needs a clean tree and a tag matching `build/config.yml`; it runs
 `bundle.sh` (gate + arm64 zip + checksums), then tags and pushes. CI
 (`.github/workflows/release.yml`) builds and publishes. Signing is ad hoc.
+
+Then bump the Homebrew cask, which is the recommended install path, in
+[ernilambar/homebrew-tap](https://github.com/ernilambar/homebrew-tap):
+
+```sh
+bin/release-cask kaze X.Y.Z
+```
+
+That rewrites `Casks/kaze.rb` `version`/`sha256` to the zip published above.
