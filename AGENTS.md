@@ -153,6 +153,8 @@ No frontend linter/formatter is configured; don't add one unprompted.
 - Tests are colocated. Vitest covers pure TS helpers, not Svelte/Monaco/bindings.
 - Version lives in `build/config.yml` (`info.version`); bump it, then run
   `wails3 task common:update:build-assets`.
+- `CHANGELOG.md` is managed with `npx @nilambar/flatlog`: `bullet`, `release`
+  and `next` edit entries; run `npx @nilambar/flatlog validate` after changes.
 - macOS document types (Open With) live in `update:build-assets`
   (`build/Taskfile.yml`), applied with `plutil`; leave `fileAssociations` in
   `config.yml` empty.
