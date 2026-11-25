@@ -1,6 +1,6 @@
 # Changelog
 
-## X.X.X - YYYY-MM-DD
+## 0.1.6 - 2026-11-25
 - Added: expanded folders are restored with the tree
 
 ## 0.1.5 - 2026-11-25
