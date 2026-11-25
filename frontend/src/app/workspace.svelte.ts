@@ -170,6 +170,10 @@ export class WorkspaceController {
     removeFolder = async (path: string): Promise<void> => {
         try {
             this.ctx.folders = await removeSidebarFolder(this.ctx.windowName, path);
+            // A root added back later is new, so it starts open.
+            this.treeops.restoredExpansionRoots = this.treeops.restoredExpansionRoots.filter(
+                (root) => root !== path,
+            );
             if (this.ctx.folders.length === 0) {
                 this.activeWorkspace = null;
             }
@@ -253,7 +257,7 @@ export class WorkspaceController {
             this.ctx.folders = await setSidebarFolders(this.ctx.windowName, target.folders ?? []);
             this.activeWorkspace = target;
             const parked = toWorkspaceSession(target.session);
-            this.treeops.expandedPaths = parked.expanded;
+            this.treeops.restoreExpanded(parked.expanded, parked.folders);
             this.treeops.sidebarWidth = parked.sidebarWidth;
             this.clearWorkspaceTabs();
             await this.restoreWorkspaceTabs(parked);
@@ -367,7 +371,7 @@ export class WorkspaceController {
             try {
                 this.ctx.folders = await closeAllSidebarFolders(this.ctx.windowName);
                 this.activeWorkspace = null;
-                this.treeops.expandedPaths = [];
+                this.treeops.restoreExpanded([], []);
                 this.treeops.sidebarWidth = 0;
                 this.clearWorkspaceTabs();
                 this.ctx.notice = '';
@@ -387,7 +391,7 @@ export class WorkspaceController {
         try {
             this.ctx.folders = await closeAllSidebarFolders(this.ctx.windowName);
             this.activeWorkspace = null;
-            this.treeops.expandedPaths = [];
+            this.treeops.restoreExpanded([], []);
             void this.git.refreshGitStatus();
             this.ctx.notice = '';
         } catch (error) {

@@ -48,7 +48,8 @@
         folderChanges?: Map<string, GitStatusKind>;
         // ignored marks an entry .gitignore hides, so its name is dimmed.
         ignored?: boolean;
-        expanded?: boolean;
+        expandedPaths?: readonly string[];
+        restoredExpansionRoots?: readonly string[];
         removable?: boolean;
         onOpenFile: (path: string) => void;
         // onContextMenu opens the row menu for a file or folder.
@@ -79,7 +80,8 @@
         statuses = {},
         folderChanges = new Map(),
         ignored = false,
-        expanded = false,
+        expandedPaths = [],
+        restoredExpansionRoots = [],
         removable = false,
         onOpenFile,
         onContextMenu,
@@ -90,10 +92,12 @@
         onEmptyAreaMenu,
     }: Props = $props();
 
-    // `expanded` is only the initial state: a root starts open, and after that
-    // the user's toggles own it.
+    // A newly added root starts open. Once a root is covered by restored
+    // session state, its presence in expandedPaths determines its openness.
     // svelte-ignore state_referenced_locally
-    let open = $state(expanded);
+    let open = $state(
+        expandedPaths.includes(path) || (removable && !restoredExpansionRoots.includes(path)),
+    );
     let entries = $state<FolderEntry[]>([]);
     // folderChanged marks a folder that hides a git change beneath it, so a
     // collapsed row still says so. folderTone names the colour class for the
@@ -206,6 +210,22 @@
             await ensureLoaded(true);
         }
     }
+
+    // Session restoration can finish after a node has mounted. Follow the
+    // restored list without overriding local toggles on newly added roots.
+    $effect(() => {
+        const shouldOpen = expandedPaths.includes(path);
+        const useDefault = removable && !restoredExpansionRoots.includes(path);
+        untrack(() => {
+            if (useDefault || open === shouldOpen) {
+                return;
+            }
+            open = shouldOpen;
+            if (open) {
+                void ensureLoaded();
+            }
+        });
+    });
 
     function toggle(): void {
         open = !open;
@@ -375,6 +395,8 @@
                             {statuses}
                             {folderChanges}
                             ignored={entry.ignored}
+                            {expandedPaths}
+                            {restoredExpansionRoots}
                             {onOpenFile}
                             {onContextMenu}
                             {onExpandedChange}

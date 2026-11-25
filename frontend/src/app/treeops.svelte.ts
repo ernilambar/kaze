@@ -51,6 +51,11 @@ export class TreeOps {
 
     expandedPaths = $state<string[]>([]);
 
+    // restoredExpansionRoots identifies the roots covered by the last session
+    // restore. Roots added later default to open instead of being mistaken for
+    // folders that were saved collapsed.
+    restoredExpansionRoots = $state<string[]>([]);
+
     // sidebarWidth is the width the user dragged the sidebar to, saved with
     // the workspace (or the launch window without one); 0 is the default.
     sidebarWidth = $state(0);
@@ -502,6 +507,13 @@ export class TreeOps {
         } catch (error) {
             this.ctx.notice = errorMessage(error);
         }
+    };
+
+    // restoreExpanded replaces the live expansion set after a session or
+    // workspace load. The roots distinguish saved collapsed roots from new ones.
+    restoreExpanded = (paths: readonly string[], roots: readonly string[]): void => {
+        this.expandedPaths = [...paths];
+        this.restoredExpansionRoots = [...roots];
     };
 
     // setExpanded tracks which folders the tree has open, so their contents can

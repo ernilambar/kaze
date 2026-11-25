@@ -1111,7 +1111,7 @@
                         console.error('Failed to restore the workspace.', error);
                     }
                 }
-                treeops.expandedPaths = saved.expanded;
+                treeops.restoreExpanded(saved.expanded, saved.folders);
                 treeops.sidebarWidth = saved.sidebarWidth;
                 await workspaces.restoreSession(saved);
             }
@@ -1265,6 +1265,8 @@
             {:else}
                 <Sidebar
                     folders={ctx.folders}
+                    expandedPaths={treeops.expandedPaths}
+                    restoredExpansionRoots={treeops.restoredExpansionRoots}
                     selectedPath={treeops.revealedPath}
                     busy={ctx.busy}
                     refreshToken={treeops.treeRefreshToken}

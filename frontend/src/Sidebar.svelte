@@ -6,6 +6,8 @@
 
     interface Props {
         folders: string[];
+        expandedPaths: readonly string[];
+        restoredExpansionRoots: readonly string[];
         selectedPath?: string;
         busy?: boolean;
         // refreshToken changes when the tree should reread what is on disk.
@@ -41,6 +43,8 @@
 
     let {
         folders,
+        expandedPaths,
+        restoredExpansionRoots,
         selectedPath = '',
         busy = false,
         refreshToken = 0,
@@ -105,7 +109,8 @@
                     {busyPath}
                     {statuses}
                     {folderChanges}
-                    expanded={true}
+                    {expandedPaths}
+                    {restoredExpansionRoots}
                     removable={true}
                     {onOpenFile}
                     {onContextMenu}
