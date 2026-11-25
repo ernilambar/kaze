@@ -678,7 +678,8 @@ export function WatchConfig(): $CancellablePromise<void> {
  * WatchPaths replaces one window's set of files and directories whose external
  * changes it wants to hear about. repos are the repositories behind the sidebar
  * roots: their git metadata is watched too, because a commit, checkout or stage
- * moves HEAD and the index without touching a working-tree file. Calling it the
+ * moves HEAD and the index without touching a working-tree file. A path inside
+ * a repository outside the sidebar brings that repository's metadata as well. Calling it the
  * first time starts the polling loop, which runs for the life of the process.
  */
 export function WatchPaths(window: string, paths: string[] | null, repos: string[] | null): $CancellablePromise<void> {
