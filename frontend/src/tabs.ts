@@ -321,6 +321,17 @@ export function retargetDocumentPaths(
     return changed ? next : (tabs as OpenDocument[]);
 }
 
+// retargetPaths rewrites the paths a move from `from` to `to` carried along,
+// dropping any that land on an entry already in the list. The list comes back
+// with the same identity when nothing moved.
+export function retargetPaths(paths: readonly string[], from: string, to: string): string[] {
+    if (from === '' || to === '' || from === to || !paths.some((path) => pathWithin(path, from))) {
+        return paths as string[];
+    }
+    const moved = paths.map((path) => remapPath(path, from, to) || path);
+    return [...new Set(moved)];
+}
+
 // pathWithin reports whether path is base itself or sits inside it, so a
 // rename of a folder retargets the tabs of the files under it.
 export function pathWithin(path: string, base: string): boolean {

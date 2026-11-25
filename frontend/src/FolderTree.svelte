@@ -299,7 +299,6 @@
         if (open) {
             void ensureLoaded();
         }
-        return () => onExpandedChange?.(path, false);
     });
 </script>
 

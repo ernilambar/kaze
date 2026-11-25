@@ -174,6 +174,7 @@ export class WorkspaceController {
             this.treeops.restoredExpansionRoots = this.treeops.restoredExpansionRoots.filter(
                 (root) => root !== path,
             );
+            this.treeops.forgetExpandedUnder(path);
             if (this.ctx.folders.length === 0) {
                 this.activeWorkspace = null;
             }

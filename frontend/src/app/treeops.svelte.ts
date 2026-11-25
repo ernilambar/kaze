@@ -13,7 +13,7 @@ import {
     trashPath,
 } from '../filetree';
 import { errorMessage, relativePath } from '../sidebar';
-import { findDocumentByPath, pathWithin, retargetDocumentPaths } from '../tabs';
+import { findDocumentByPath, pathWithin, retargetDocumentPaths, retargetPaths } from '../tabs';
 import type { CopyPathKind } from '../workspacecommands';
 import type { Appearance } from './appearance.svelte';
 import type { WindowContext } from './context.svelte';
@@ -75,6 +75,8 @@ export class TreeOps {
         if (from === '' || to === '' || from === to) {
             return;
         }
+        // A moved folder and its open descendants stay open at the new path.
+        this.expandedPaths = retargetPaths(this.expandedPaths, from, to);
         const previous = this.ctx.tabs;
         const next = retargetDocumentPaths(this.ctx.tabs, [{ from, to }]);
         if (next === previous) {
@@ -397,6 +399,7 @@ export class TreeOps {
                 this.clipboardPath = '';
                 this.clipboardCut = false;
             }
+            this.forgetExpandedUnder(path);
             this.refreshTree();
             await this.git.refreshGitStatus();
             this.ctx.notice = `Moved ${entryName(path)} to the Trash`;
@@ -511,9 +514,16 @@ export class TreeOps {
 
     // restoreExpanded replaces the live expansion set after a session or
     // workspace load. The roots distinguish saved collapsed roots from new ones.
+    // Paths outside every root are stale and dropped.
     restoreExpanded = (paths: readonly string[], roots: readonly string[]): void => {
-        this.expandedPaths = [...paths];
+        this.expandedPaths = paths.filter((path) => roots.some((root) => pathWithin(path, root)));
         this.restoredExpansionRoots = [...roots];
+    };
+
+    // forgetExpandedUnder drops a removed root or trashed folder and everything
+    // below it.
+    forgetExpandedUnder = (root: string): void => {
+        this.expandedPaths = this.expandedPaths.filter((path) => !pathWithin(path, root));
     };
 
     // setExpanded tracks which folders the tree has open, so their contents can

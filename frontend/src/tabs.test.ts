@@ -7,6 +7,7 @@ import {
     pathWithin,
     retargetDocumentPath,
     retargetDocumentPaths,
+    retargetPaths,
     setDocumentDirty,
     stepTabId,
     tabIdAt,
@@ -292,6 +293,23 @@ describe('tabIdAt', () => {
 
     it('maps 9 to the last tab', () => {
         expect(tabIdAt(tabs, 9)).toBe(todo.id);
+    });
+});
+
+describe('retargetPaths', () => {
+    it('moves a folder and its descendants', () => {
+        expect(
+            retargetPaths(['/w/src', '/w/src/lib', '/w/srcx', '/w/docs'], '/w/src', '/w/app'),
+        ).toEqual(['/w/app', '/w/app/lib', '/w/srcx', '/w/docs']);
+    });
+
+    it('drops duplicates the move creates', () => {
+        expect(retargetPaths(['/w/a', '/w/b'], '/w/a', '/w/b')).toEqual(['/w/b']);
+    });
+
+    it('returns the same list when nothing moved', () => {
+        const paths = ['/w/docs'];
+        expect(retargetPaths(paths, '/w/src', '/w/app')).toBe(paths);
     });
 });
 
