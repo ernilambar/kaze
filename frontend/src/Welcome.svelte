@@ -34,7 +34,7 @@
         inset: 0;
         display: flex;
         overflow-y: auto;
-        background: var(--bg);
+        background: var(--editor-bg);
         color: var(--fg);
         -webkit-user-select: none;
         user-select: none;
