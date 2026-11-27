@@ -23,13 +23,18 @@ export const ROOT_LOCKED_COMMANDS: readonly string[] = [
 // opener and the Finder hand-off first, then creating beside it, then the
 // clipboard, then the three plain-text spellings of its path, then the commands
 // that rewrite the entry itself. Creating comes before the clipboard because
-// New File is the tree's most used action. A sidebar root keeps every item but
-// the ones that would move or delete it, and gains the command that drops it
-// from the sidebar.
-export function treeMenuItems(clipboardPath: string, isRoot: boolean): ContextMenuItem[] {
+// New File is the tree's most used action. A folder also offers Find in Folder
+// beside the Finder hand-off. A sidebar root keeps every item but the ones that
+// would move or delete it, and gains the command that drops it from the sidebar.
+export function treeMenuItems(
+    clipboardPath: string,
+    isRoot: boolean,
+    isDir: boolean,
+): ContextMenuItem[] {
     const items: ContextMenuItem[] = [
         { id: 'open', label: 'Open' },
         { id: 'reveal', label: 'Reveal in Finder' },
+        ...(isDir ? [{ id: 'find-in-folder', label: 'Find in Folder…' }] : []),
         { id: '', label: '' },
         { id: 'new-file', label: 'New File…' },
         { id: 'new-folder', label: 'New Folder…' },

@@ -174,7 +174,7 @@ describe('contextMenuItems', () => {
 
     it('offers the tree menu for a tree row', () => {
         expect(contextMenuItems(treeTarget, tabs, '', false, [])).toEqual(
-            treeMenuItems('', false),
+            treeMenuItems('', false, true),
         );
     });
 

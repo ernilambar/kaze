@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { SearchMatch } from '../bindings/kaze/internal/find/models';
 import {
     expectedModified,
+    folderSearchInclude,
     groupSearchMatches,
     replaceConfirmMessage,
     replaceNotice,
@@ -129,5 +130,17 @@ describe('replaceText matches the backend', () => {
     ];
     it.each(cases)('replaces %j', (text, pattern, replacement, want) => {
         expect(replaceText(text, new RegExp(pattern, 'g'), replacement, true)).toBe(want);
+    });
+});
+
+describe('folderSearchInclude', () => {
+    it('scopes a subfolder relative to its innermost root', () => {
+        expect(folderSearchInclude('/repo/src/app', ['/repo'])).toBe('src/app/**');
+        expect(folderSearchInclude('/repo/pkg/web', ['/repo', '/repo/pkg'])).toBe('web/**');
+    });
+
+    it('needs no glob for a sidebar root or a folder outside every root', () => {
+        expect(folderSearchInclude('/repo', ['/repo'])).toBe('');
+        expect(folderSearchInclude('/elsewhere', ['/repo'])).toBe('');
     });
 });

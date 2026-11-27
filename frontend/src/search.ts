@@ -1,4 +1,5 @@
 import type { SearchMatch } from '../bindings/kaze/internal/find/models';
+import { relativePath } from './sidebar';
 
 // SearchFileGroup is the results list's unit: one file and every match in it.
 // Grouping happens here so the panel and its tests share one shape.
@@ -119,4 +120,12 @@ export function replaceNotice(
         text += ` Could not write ${failed.length} ${failed.length === 1 ? 'file' : 'files'}: ${failed.join(', ')}.`;
     }
     return text;
+}
+
+// folderSearchInclude is the files-to-include glob that scopes Find in Files to
+// one tree folder. Search matches includes relative to each root, so a sidebar
+// root itself needs no glob, and a subfolder becomes `<relative>/**`.
+export function folderSearchInclude(folder: string, roots: readonly string[]): string {
+    const relative = relativePath(folder, roots);
+    return relative === '' || relative === folder ? '' : `${relative}/**`;
 }

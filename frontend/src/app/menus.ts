@@ -12,8 +12,8 @@ export interface MenuTarget {
 
 // contextMenuItems builds the row menu for one right-click. A tab row offers the
 // tab commands; a tree row creates in the folder it lives in, which is why it
-// offers the same items whether it is a file or a folder; a sidebar root (one
-// of roots) cannot be moved or deleted from it. An unknown tab means nothing to
+// offers the same items whether it is a file or a folder, apart from Find in
+// Folder; a sidebar root (one of roots) cannot be moved or deleted from it. An unknown tab means nothing to
 // show. A separator is an item with an empty id, which the menu draws
 // as a line.
 export function contextMenuItems(
@@ -30,7 +30,11 @@ export function contextMenuItems(
         const tab = tabs.find((entry) => entry.id === target.tabId);
         return tab === undefined ? [] : documentTabMenuItems(tab, tabs, searchOpen);
     }
-    return treeMenuItems(clipboardPath, target.isDir && roots.includes(target.path));
+    return treeMenuItems(
+        clipboardPath,
+        target.isDir && roots.includes(target.path),
+        target.isDir,
+    );
 }
 
 // ContextMenuRoute is the controller a picked menu item belongs to. A tab item

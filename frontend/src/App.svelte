@@ -79,6 +79,7 @@
     } from './git';
     import type { PaletteItem } from './palette';
     import { previewKindFor, type PreviewKind } from './preview';
+    import { folderSearchInclude } from './search';
     import {
         listFiles,
         rankAll,
@@ -710,6 +711,10 @@
                 void workspaces.removeFolder(route.path);
                 break;
             case 'tree':
+                if (route.id === 'find-in-folder') {
+                    findInFolder(route.path);
+                    break;
+                }
                 void treeops.runTreeCommand(route.id, route.path, route.isDir);
                 break;
         }
@@ -884,6 +889,13 @@
         search.open = true;
         ctx.searchActive = true;
         search.focusToken++;
+    }
+
+    // findInFolder opens Find in Files scoped to one tree folder through the
+    // files-to-include field, which stays editable.
+    function findInFolder(folder: string): void {
+        search.include = folderSearchInclude(folder, ctx.folders);
+        showFindInFiles();
     }
 
     async function revealActiveFile(): Promise<void> {
