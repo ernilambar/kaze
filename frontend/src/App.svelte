@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { Browser } from '@wailsio/runtime';
     import {
         BringAllToFront,
         CloseWindow,
@@ -61,6 +62,7 @@
     import {
         AUTO_LANGUAGE_ID,
         installEditorKeybindings,
+        installLinkOpener,
         languageChoices,
         languageForDocument,
         languageLabel,
@@ -1233,6 +1235,7 @@
             }
             unsubscribe = off;
             installEditorKeybindings(appearance.runKeybindingCommand);
+            installLinkOpener((url) => void Browser.OpenURL(url));
             await appearance.refreshKeybindings();
             void WatchConfig();
 

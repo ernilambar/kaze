@@ -479,6 +479,20 @@ export function installEditorKeybindings(run: (command: string) => void): void {
     ]);
 }
 
+// installLinkOpener sends Cmd+clicked web and mail links to openURL. Monaco's
+// default opener calls window.open, which the webview ignores; other schemes
+// are swallowed so a link can never navigate the webview. It runs once.
+export function installLinkOpener(openURL: (url: string) => void): void {
+    monaco.editor.registerLinkOpener({
+        open(resource) {
+            if (/^(https?|mailto)$/i.test(resource.scheme)) {
+                openURL(resource.toString(true));
+            }
+            return true;
+        },
+    });
+}
+
 export function createEditor(
     container: HTMLElement,
     settings: EditorSettings,
