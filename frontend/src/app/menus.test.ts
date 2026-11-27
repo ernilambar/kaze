@@ -70,7 +70,7 @@ describe('contextMenuRoute', () => {
 });
 
 describe('documentTabMenuItems', () => {
-    it('offers the tab commands, then the group closes, then Reveal', () => {
+    it('offers the tab commands, then the group closes, then Reveal, then Move', () => {
         const tabs = [tab('a.ts'), tab('b.ts')];
         const ids = documentTabMenuItems(tabs[0], tabs, false)
             .map((entry) => entry.id)
@@ -78,12 +78,12 @@ describe('documentTabMenuItems', () => {
 
         expect(ids).toEqual([
             'close-tab',
-            'move-tab-new-window',
             'close-other-tabs',
             'close-right-tabs',
             'close-deleted-tabs',
             'close-all-tabs',
             'reveal',
+            'move-tab-new-window',
         ]);
     });
 

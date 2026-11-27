@@ -82,7 +82,6 @@ export function documentTabMenuItems(
     const index = tabs.findIndex((entry) => entry.id === tab.id);
     const items: ContextMenuItem[] = [
         { id: 'close-tab', label: 'Close Tab' },
-        { id: 'move-tab-new-window', label: 'Move to New Window' },
         { id: '', label: '' },
         {
             id: 'close-other-tabs',
@@ -112,5 +111,9 @@ export function documentTabMenuItems(
             { id: 'reveal', label: 'Reveal in Finder' },
         );
     }
+    items.push(
+        { id: '', label: '' },
+        { id: 'move-tab-new-window', label: 'Move to New Window' },
+    );
     return items;
 }
