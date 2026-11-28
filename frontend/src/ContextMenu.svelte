@@ -103,6 +103,7 @@
 
     .menu__shortcut {
         color: var(--fg-muted);
+        font-size: var(--ui-font-small);
     }
 
     .menu__separator {
