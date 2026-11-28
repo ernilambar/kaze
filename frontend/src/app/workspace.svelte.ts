@@ -71,6 +71,15 @@ export class WorkspaceController {
         this.ctx.tabs.filter((tab) => tab.kind === 'text' && tab.path !== '').map((tab) => tab.path),
     );
 
+    // sessionPinned is the sublist of sessionFiles whose tabs are pinned. The
+    // session writes it beside the tab list, so the pinned prefix survives a
+    // relaunch without a new session schema.
+    sessionPinned = $derived.by(() =>
+        this.ctx.tabs
+            .filter((tab) => tab.pinned && tab.kind === 'text' && tab.path !== '')
+            .map((tab) => tab.path),
+    );
+
     // A diff tab records the file it shows, so a relaunch restores the file
     // itself as the active tab.
     sessionActive = $derived.by(() => this.ctx.active?.path || this.ctx.active?.sourcePath || '');
@@ -116,13 +125,24 @@ export class WorkspaceController {
         for (const buffer of request.buffers) {
             if (buffer.kind === 'image' && buffer.path !== '') {
                 await this.documents.openFile(buffer.path);
+                if (buffer.pinned && this.ctx.activeId !== '') {
+                    this.documents.setPinned(this.ctx.activeId, true);
+                }
                 continue;
             }
             if (buffer.kind === 'diff' && buffer.source_path !== '') {
                 await this.git.openDiff(buffer.source_path);
+                if (buffer.pinned && this.ctx.activeId !== '') {
+                    this.documents.setPinned(this.ctx.activeId, true);
+                }
                 continue;
             }
-            this.documents.showDocument(toBufferDocument(buffer), false);
+            // The tab is appended unpinned, then moved into the pinned group,
+            // because openDocumentTab always appends.
+            this.documents.showDocument({ ...toBufferDocument(buffer), pinned: false }, false);
+            if (buffer.pinned) {
+                this.documents.setPinned(this.ctx.activeId, true);
+            }
         }
 
         for (const path of request.files) {
@@ -198,6 +218,7 @@ export class WorkspaceController {
             }
             this.documents.showDocument(opened, false);
         }
+        this.restorePinned(session.pinned);
         const restoredActive = findDocumentByPath(this.ctx.tabs, session.active);
         if (restoredActive !== undefined) {
             this.ctx.activeId = restoredActive.id;
@@ -442,9 +463,21 @@ export class WorkspaceController {
             }
             this.documents.showDocument(opened, false);
         }
+        this.restorePinned(session.pinned);
         const restoredActive = findDocumentByPath(this.ctx.tabs, session.active);
         if (restoredActive !== undefined) {
             this.ctx.activeId = restoredActive.id;
+        }
+    };
+
+    // restorePinned marks the restored tabs a parked session pinned. The saved
+    // list is in tab order, so applying it in order rebuilds the same prefix.
+    restorePinned = (paths: readonly string[]): void => {
+        for (const path of paths) {
+            const tab = findDocumentByPath(this.ctx.tabs, path);
+            if (tab !== undefined) {
+                this.documents.setPinned(tab.id, true);
+            }
         }
     };
 
@@ -460,6 +493,7 @@ export class WorkspaceController {
                 workspace: this.activeWorkspace?.path ?? '',
                 folders: [...this.ctx.folders],
                 openFiles: [...this.sessionFiles],
+                pinned: [...this.sessionPinned],
                 active: this.sessionActive,
                 expanded: [...this.treeops.expandedPaths],
                 sidebarWidth: this.treeops.sidebarWidth,

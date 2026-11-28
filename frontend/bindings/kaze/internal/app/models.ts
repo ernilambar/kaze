@@ -30,6 +30,13 @@ export interface WindowSession {
     "workspace": string;
     "folders": string[] | null;
     "open_files": string[] | null;
+
+    /**
+     * Pinned names the tabs in OpenFiles that stay at the left of the strip and
+     * out of the bulk close commands. It is a parallel list so an older build
+     * reads the tab list unchanged.
+     */
+    "pinned"?: string[] | null;
     "active": string;
     "expanded": string[] | null;
 

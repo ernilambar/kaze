@@ -16,6 +16,7 @@
 | `⌘S` / `⌘⇧S` / `⌥⌘S` | Save / Save As… / Save All |
 | `⌘W` / `⌘K ⌘W` | Close Tab / Close All Tabs |
 | `⌘⇧T` | Reopen Closed Tab |
+| `⌘K ⇧↩` | Pin / Unpin Tab |
 | `⌃⇥` / `⌃⇧⇥` | Next / Previous Tab |
 | `⌘1` … `⌘9` | Jump to Tab (`⌘9` = last) |
 | `⌥⌘R` | Reveal in Finder |

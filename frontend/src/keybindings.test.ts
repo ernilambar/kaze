@@ -2,11 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Keybinding } from '../bindings/kaze/internal/keybindings/models';
 import {
     chordFromEvent,
+    formatKeySequence,
     installKeybindings,
     isUsableBinding,
     matchesWhen,
     normalizeChord,
     normalizeSequence,
+    shortcutFor,
     withDefaultKeybindings,
     type KeyContext,
 } from './keybindings';
@@ -184,6 +186,46 @@ describe('installKeybindings', () => {
         dispose();
         press({ metaKey: true, key: 'b', code: 'KeyB' });
         expect(run).not.toHaveBeenCalled();
+    });
+});
+
+describe('formatKeySequence', () => {
+    it('draws chords with macOS menu symbols in menu order', () => {
+        expect(formatKeySequence('cmd+k shift+enter')).toBe('⌘K ⇧↩');
+        expect(formatKeySequence('shift+cmd+alt+g')).toBe('⌥⇧⌘G');
+        expect(formatKeySequence('ctrl+tab')).toBe('⌃⇥');
+        expect(formatKeySequence('f1')).toBe('F1');
+    });
+
+    it('gives nothing for a key it cannot parse', () => {
+        expect(formatKeySequence('')).toBe('');
+        expect(formatKeySequence('cmd+a+b')).toBe('');
+    });
+});
+
+describe('shortcutFor', () => {
+    it('prefers a user binding over the default', () => {
+        const bindings = withDefaultKeybindings([{ key: 'cmd+alt+p', command: 'toggle-pin-tab' }]);
+
+        expect(shortcutFor(bindings, {}, 'toggle-pin-tab')).toBe('⌥⌘P');
+    });
+
+    it('falls back to the default binding', () => {
+        expect(shortcutFor(withDefaultKeybindings([]), {}, 'toggle-pin-tab')).toBe('⌘K ⇧↩');
+    });
+
+    it('gives nothing once the default is removed', () => {
+        const bindings = withDefaultKeybindings([{ key: '', command: '-toggle-pin-tab' }]);
+
+        expect(shortcutFor(bindings, {}, 'toggle-pin-tab')).toBe('');
+    });
+
+    it('falls back to the native menu accelerator', () => {
+        const accelerators = { 'reveal-file': 'CmdOrCtrl+Alt+r', 'next-tab': 'Ctrl+Tab' };
+
+        expect(shortcutFor([], accelerators, 'reveal-file')).toBe('⌥⌘R');
+        expect(shortcutFor([], accelerators, 'next-tab')).toBe('⌃⇥');
+        expect(shortcutFor([], accelerators, 'copy-file-name')).toBe('');
     });
 });
 

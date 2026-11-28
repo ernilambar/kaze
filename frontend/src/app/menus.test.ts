@@ -8,7 +8,10 @@ import {
     type MenuTarget,
 } from './menus';
 
-function tab(name: string, options: { path?: string; deleted?: boolean } = {}): OpenDocument {
+function tab(
+    name: string,
+    options: { path?: string; deleted?: boolean; pinned?: boolean } = {},
+): OpenDocument {
     const path = options.path ?? `/repo/${name}`;
     return {
         id: path,
@@ -24,6 +27,7 @@ function tab(name: string, options: { path?: string; deleted?: boolean } = {}): 
         eol: 'lf',
         invalidUTF8: false,
         deleted: options.deleted ?? false,
+        pinned: options.pinned,
     };
 }
 
@@ -70,7 +74,7 @@ describe('contextMenuRoute', () => {
 });
 
 describe('documentTabMenuItems', () => {
-    it('offers the tab commands, then the group closes, then Reveal, then the file commands, then Move', () => {
+    it('offers the tab commands, then the group closes, then Reveal and Pin, then the file commands, then Move', () => {
         const tabs = [tab('a.ts'), tab('b.ts')];
         const ids = documentTabMenuItems(tabs[0], tabs, false)
             .map((entry) => entry.id)
@@ -83,6 +87,7 @@ describe('documentTabMenuItems', () => {
             'close-deleted-tabs',
             'close-all-tabs',
             'reveal',
+            'pin-tab',
             'rename',
             'move',
             'duplicate',
@@ -143,6 +148,66 @@ describe('documentTabMenuItems', () => {
         const items = documentTabMenuItems(tabs[0], tabs, false);
 
         expect(item(items, 'close-other-tabs')?.disabled).toBe(true);
+        expect(item(items, 'close-all-tabs')?.disabled).toBe(false);
+    });
+
+    it('labels the pin command for its state and shows a shortcut only when given', () => {
+        const keys = (command: string) => (command === 'toggle-pin-tab' ? '⌘K ⇧↩' : '');
+        const unpinned = tab('a.ts');
+        const pinned = tab('a.ts', { pinned: true });
+
+        expect(item(documentTabMenuItems(unpinned, [unpinned], false, [], keys), 'pin-tab')).toEqual({
+            id: 'pin-tab',
+            label: 'Pin',
+            shortcut: '⌘K ⇧↩',
+        });
+        expect(item(documentTabMenuItems(pinned, [pinned], false), 'pin-tab')).toEqual({
+            id: 'pin-tab',
+            label: 'Unpin',
+        });
+    });
+
+    it('shows the keys of the commands behind the tab items', () => {
+        const keys: Record<string, string> = {
+            'close-tab': '⌘W',
+            'close-all-tabs': '⌘K ⌘W',
+            'reveal-file': '⌥⌘R',
+            'toggle-pin-tab': '⌘K ⇧↩',
+        };
+        const lookup = (command: string) => keys[command] ?? '';
+        const shortcuts = (entry: OpenDocument) =>
+            Object.fromEntries(
+                documentTabMenuItems(entry, [entry], false, [], lookup)
+                    .filter((menuItem) => menuItem.shortcut !== undefined)
+                    .map((menuItem) => [menuItem.id, menuItem.shortcut]),
+            );
+
+        expect(shortcuts(tab('a.ts'))).toEqual({
+            'close-tab': '⌘W',
+            'close-all-tabs': '⌘K ⌘W',
+            reveal: '⌥⌘R',
+            'pin-tab': '⌘K ⇧↩',
+        });
+        // Cmd+W leaves a pinned tab open, so its Close Tab shows no key.
+        expect(shortcuts(tab('a.ts', { pinned: true }))['close-tab']).toBeUndefined();
+    });
+
+    it('disables the bulk closes when only pinned tabs would be closed', () => {
+        const pinned = tab('a.ts', { pinned: true });
+        const items = documentTabMenuItems(pinned, [pinned], false);
+
+        for (const id of ['close-other-tabs', 'close-right-tabs', 'close-deleted-tabs', 'close-all-tabs']) {
+            expect(item(items, id)?.disabled).toBe(true);
+        }
+    });
+
+    it('counts only unpinned tabs for the bulk close decisions', () => {
+        const pinned = tab('a.ts', { pinned: true });
+        const other = tab('b.ts');
+        const items = documentTabMenuItems(pinned, [pinned, other], false);
+
+        expect(item(items, 'close-other-tabs')?.disabled).toBe(false);
+        expect(item(items, 'close-right-tabs')?.disabled).toBe(false);
         expect(item(items, 'close-all-tabs')?.disabled).toBe(false);
     });
 
@@ -227,6 +292,15 @@ describe('contextMenuItems', () => {
         expect(contextMenuItems(treeTarget, tabs, '', false, [])).toEqual(
             treeMenuItems('', false, true),
         );
+    });
+
+    it('shows the keys of the commands behind the tree items', () => {
+        const keys: Record<string, string> = { 'reveal-file': '⌥⌘R', 'copy-file-path': '⌥⌘C' };
+        const items = contextMenuItems(treeTarget, tabs, '', false, [], [], (command) => keys[command] ?? '');
+
+        expect(item(items, 'reveal')?.shortcut).toBe('⌥⌘R');
+        expect(item(items, 'copy-path')?.shortcut).toBe('⌥⌘C');
+        expect(item(items, 'copy')?.shortcut).toBeUndefined();
     });
 
     it('disables moving or deleting a sidebar root', () => {

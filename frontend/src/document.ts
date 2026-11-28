@@ -18,6 +18,7 @@ export interface LaunchBuffer {
     bom: boolean;
     eol: string;
     invalid_utf8: boolean;
+    pinned: boolean;
 }
 
 // Mirrors LaunchRequest in internal/cli/cli.go. The backend resolves paths; the frontend only
@@ -61,6 +62,7 @@ export function toLaunchRequest(request: cli.LaunchRequest): LaunchRequest {
             bom: buffer.bom ?? false,
             eol: buffer.eol === 'crlf' ? 'crlf' : 'lf',
             invalid_utf8: buffer.invalid_utf8 ?? false,
+            pinned: buffer.pinned ?? false,
         })),
         replace_folders: request.replace_folders ?? false,
         restore_session: request.restore_session ?? false,
@@ -135,6 +137,9 @@ export interface OpenDocument {
     // stays open, and saving writes it back; the flag clears on save or when
     // the file reappears.
     deleted: boolean;
+    // pinned keeps the tab at the left of the strip and out of the bulk close
+    // commands. It is window state, persisted with the tab's path.
+    pinned?: boolean;
 }
 
 // UNTITLED_PREFIX starts the id of a buffer that has no file yet. Its id is not
@@ -306,6 +311,7 @@ export function toBufferDocument(buffer: LaunchBuffer): OpenDocument {
             eol: 'lf',
             invalidUTF8: false,
             deleted: false,
+            pinned: buffer.pinned,
         };
     }
     return {
@@ -323,6 +329,7 @@ export function toBufferDocument(buffer: LaunchBuffer): OpenDocument {
         eol: buffer.eol === 'crlf' ? 'crlf' : 'lf',
         invalidUTF8: buffer.invalid_utf8,
         deleted: false,
+        pinned: buffer.pinned,
     };
 }
 

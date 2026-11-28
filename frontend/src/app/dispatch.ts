@@ -50,6 +50,7 @@ export interface CommandHandlers {
     goToTab: (position: number) => void;
     stepTab: (direction: 1 | -1) => void;
     reopenClosedTab: () => void;
+    togglePinTab: () => void;
     closeAllTabs: () => void;
     closeAllFolders: () => void;
     moveTabToNewWindow: () => void;
@@ -116,6 +117,7 @@ const COMMAND_TABLE: Record<string, CommandAction> = {
     'close-all-tabs': (handlers) => handlers.closeAllTabs(),
     'close-all-folders': (handlers) => handlers.closeAllFolders(),
     'reopen-closed-tab': (handlers) => handlers.reopenClosedTab(),
+    'toggle-pin-tab': (handlers) => handlers.togglePinTab(),
     'next-tab': (handlers) => handlers.stepTab(1),
     'previous-tab': (handlers) => handlers.stepTab(-1),
     'move-tab-new-window': (handlers) => handlers.moveTabToNewWindow(),

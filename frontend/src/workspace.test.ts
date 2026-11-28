@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toWorkspaceItems } from './workspace';
+import { toWindowSession, toWorkspaceItems, toWorkspaceSession } from './workspace';
 
 describe('toWorkspaceItems', () => {
     it('labels a workspace with its file name and its folder', () => {
@@ -28,5 +28,33 @@ describe('toWorkspaceItems', () => {
         const items = toWorkspaceItems(['/b/second.kaze-workspace', '/a/first.kaze-workspace']);
 
         expect(items.map((item) => item.name)).toEqual(['second', 'first']);
+    });
+});
+
+describe('session pinned list', () => {
+    it('reads the pinned paths of a window session', () => {
+        const session = toWindowSession({
+            workspace: '',
+            folders: null,
+            open_files: ['/a.ts', '/b.ts'],
+            pinned: ['/a.ts'],
+            active: '/a.ts',
+            expanded: null,
+        });
+
+        expect(session.pinned).toEqual(['/a.ts']);
+        expect(session.openFiles).toEqual(['/a.ts', '/b.ts']);
+    });
+
+    it('defaults a session written before pinning existed', () => {
+        const session = toWorkspaceSession({
+            folders: null,
+            open_files: ['/a.ts'],
+            active: '',
+            expanded: null,
+            updated: 0,
+        });
+
+        expect(session.pinned).toEqual([]);
     });
 });

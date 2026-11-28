@@ -80,6 +80,7 @@
     import {
         type SidebarView,
     } from './git';
+    import { shortcutFor } from './keybindings';
     import type { PaletteItem } from './palette';
     import { previewKindFor, type PreviewKind } from './preview';
     import { folderSearchInclude } from './search';
@@ -653,14 +654,11 @@
         switchSidebarView,
         zoom,
         addFolder: () => void workspaces.addFolderFromDialog(),
-        closeActiveTab: () => {
-            if (ctx.activeId !== '') {
-                void documents.closeTab(ctx.activeId);
-            }
-        },
+        closeActiveTab: () => documents.closeActiveTabFromKeyboard(),
         goToTab: documents.goToTab,
         stepTab: documents.stepTab,
         reopenClosedTab: () => void documents.reopenClosedTab(),
+        togglePinTab: documents.togglePinTab,
         closeAllTabs: () => void closeAllTabs(),
         closeAllFolders: () => void workspaces.closeAllFolders(),
         moveTabToNewWindow: () => void documents.moveTabToNewWindow(),
@@ -699,6 +697,7 @@
             search.open,
             ctx.folders,
             configFiles,
+            (command) => shortcutFor(appearance.keybindings, appearance.menuAccelerators, command),
         ),
     );
 
@@ -746,6 +745,9 @@
                 break;
             case 'close-tab':
                 await documents.closeTab(tabId);
+                break;
+            case 'pin-tab':
+                documents.togglePinTab(tabId);
                 break;
             case 'move-tab-new-window':
                 await documents.moveTabToNewWindow(tabId);
@@ -1035,6 +1037,7 @@
             return;
         }
         const files = workspaces.sessionFiles;
+        const pinned = workspaces.sessionPinned;
         const activePath = workspaces.sessionActive;
         const workspacePath = workspaces.activeWorkspace?.path ?? '';
         const currentFolders = ctx.folders;
@@ -1047,6 +1050,7 @@
             workspace: workspacePath,
             folders: currentFolders,
             openFiles: files,
+            pinned,
             active: activePath,
             expanded,
             sidebarWidth: savedSidebarWidth,
@@ -1179,11 +1183,7 @@
             const off = await subscribeAll(ctx.windowName, {
                 launch: (request) => void workspaces.applyLaunch(request),
                 addFolder: () => void workspaces.addFolderFromDialog(),
-                closeTab: () => {
-                    if (ctx.activeId !== '') {
-                        void documents.closeTab(ctx.activeId);
-                    }
-                },
+                closeTab: () => documents.closeActiveTabFromKeyboard(),
                 quickOpen: () => void showQuickOpen(),
                 commandPalette: showCommandPalette,
                 menuCommand: selectCommand,
@@ -1331,6 +1331,7 @@
                     ctx.searchActive = false;
                 }}
                 onClose={(id) => void documents.closeTab(id)}
+                onTogglePin={documents.togglePinTab}
                 onContextMenu={(event, tab) => showTabContextMenu(event, tab)}
                 onReorder={documents.reorderTab}
                 onSelectSearch={() => {

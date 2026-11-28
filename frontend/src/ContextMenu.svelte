@@ -56,7 +56,7 @@
                 type="button"
                 disabled={item.disabled === true}
                 onclick={() => onSelect(item.id)}
-            >{item.label}</button>
+            ><span>{item.label}</span>{#if item.shortcut !== undefined}<span class="menu__shortcut">{item.shortcut}</span>{/if}</button>
         {/if}
     {/each}
 </div>
@@ -74,7 +74,9 @@
     }
 
     .menu__item {
-        display: block;
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
         width: 100%;
         padding: 4px 10px;
         border: none;
@@ -97,6 +99,10 @@
         color: var(--fg-muted);
         opacity: 0.6;
         cursor: default;
+    }
+
+    .menu__shortcut {
+        color: var(--fg-muted);
     }
 
     .menu__separator {

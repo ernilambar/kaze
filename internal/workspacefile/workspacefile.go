@@ -48,8 +48,11 @@ type codeWorkspaceFile struct {
 type WorkspaceSession struct {
 	Folders   []string `json:"folders"`
 	OpenFiles []string `json:"open_files"`
-	Active    string   `json:"active"`
-	Expanded  []string `json:"expanded"`
+	// Pinned names the tabs in OpenFiles that stay at the left of the strip and
+	// out of the bulk close commands, so switching back restores the group.
+	Pinned   []string `json:"pinned,omitempty"`
+	Active   string   `json:"active"`
+	Expanded []string `json:"expanded"`
 	// SidebarWidth is the sidebar width in CSS pixels; 0 means the default.
 	SidebarWidth int   `json:"sidebar_width,omitempty"`
 	Updated      int64 `json:"updated"`

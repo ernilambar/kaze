@@ -4,6 +4,8 @@ export interface ContextMenuItem {
     id: string;
     label: string;
     disabled?: boolean;
+    // shortcut is the key hint drawn right-aligned after the label.
+    shortcut?: string;
 }
 
 // ROOT_LOCKED_COMMANDS are the tree commands that would duplicate, move or

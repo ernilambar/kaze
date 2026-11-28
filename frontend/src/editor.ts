@@ -420,6 +420,7 @@ export function editorOptions(
 const EDITOR_CHORDS: readonly { command: string; second: number }[] = [
     { command: 'close-all-tabs', second: monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyW },
     { command: 'close-all-folders', second: monaco.KeyCode.KeyF },
+    { command: 'toggle-pin-tab', second: monaco.KeyMod.Shift | monaco.KeyCode.Enter },
 ];
 
 // installEditorKeybindings moves Monaco's defaults onto Kaze's keymap. It runs

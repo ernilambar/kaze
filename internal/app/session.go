@@ -39,8 +39,12 @@ type WindowSession struct {
 	Workspace string   `json:"workspace"`
 	Folders   []string `json:"folders"`
 	OpenFiles []string `json:"open_files"`
-	Active    string   `json:"active"`
-	Expanded  []string `json:"expanded"`
+	// Pinned names the tabs in OpenFiles that stay at the left of the strip and
+	// out of the bulk close commands. It is a parallel list so an older build
+	// reads the tab list unchanged.
+	Pinned   []string `json:"pinned,omitempty"`
+	Active   string   `json:"active"`
+	Expanded []string `json:"expanded"`
 	// SidebarWidth is the sidebar width in CSS pixels; 0 means the default.
 	SidebarWidth int `json:"sidebar_width,omitempty"`
 }
@@ -283,6 +287,7 @@ func normalizeWindowSession(session WindowSession) WindowSession {
 	}
 	session.Folders = canonicalFolderList(session.Folders)
 	session.OpenFiles = normalizeSessionFiles(session.OpenFiles)
+	session.Pinned = normalizePinnedFiles(session.Pinned, session.OpenFiles)
 	session.Active = strings.TrimSpace(session.Active)
 	session.Expanded = canonicalFolderList(session.Expanded)
 	session.SidebarWidth = max(session.SidebarWidth, 0)
@@ -292,6 +297,7 @@ func normalizeWindowSession(session WindowSession) WindowSession {
 func normalizeWorkspaceSession(session workspacefile.WorkspaceSession) workspacefile.WorkspaceSession {
 	session.Folders = canonicalFolderList(session.Folders)
 	session.OpenFiles = normalizeSessionFiles(session.OpenFiles)
+	session.Pinned = normalizePinnedFiles(session.Pinned, session.OpenFiles)
 	session.Active = strings.TrimSpace(session.Active)
 	session.Expanded = canonicalFolderList(session.Expanded)
 	session.SidebarWidth = max(session.SidebarWidth, 0)
@@ -306,6 +312,29 @@ func normalizeSessionFiles(files []string) []string {
 	}
 	if normalized == nil {
 		return []string{}
+	}
+	return normalized
+}
+
+// normalizePinnedFiles keeps the pinned markers that still name an open tab.
+// A hand-edited or stale session cannot pin a tab the window will not restore.
+func normalizePinnedFiles(pinned, openFiles []string) []string {
+	if len(pinned) == 0 {
+		return []string{}
+	}
+	open := make(map[string]bool, len(openFiles))
+	for _, file := range openFiles {
+		open[file] = true
+	}
+	normalized := make([]string, 0, len(pinned))
+	seen := make(map[string]bool, len(pinned))
+	for _, file := range pinned {
+		file = strings.TrimSpace(file)
+		if file == "" || seen[file] || !open[file] {
+			continue
+		}
+		seen[file] = true
+		normalized = append(normalized, file)
 	}
 	return normalized
 }
@@ -371,6 +400,7 @@ func (a *App) SetSession(window string, session WindowSession) error {
 		state.Workspaces[key] = workspacefile.WorkspaceSession{
 			Folders:      session.Folders,
 			OpenFiles:    session.OpenFiles,
+			Pinned:       session.Pinned,
 			Active:       session.Active,
 			Expanded:     session.Expanded,
 			SidebarWidth: session.SidebarWidth,
