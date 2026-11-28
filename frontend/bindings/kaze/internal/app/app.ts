@@ -87,6 +87,15 @@ export function CloseWindow(window: string): $CancellablePromise<void> {
 }
 
 /**
+ * ConfigFiles returns the paths of settings.json and keybindings.json without
+ * creating them, so the tab menu can refuse to rename, move or delete the files
+ * the app reads its configuration from.
+ */
+export function ConfigFiles(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(2554599558);
+}
+
+/**
  * CopyPath copies path into targetDir, keeping its name. A name already taken
  * there gets the next free " copy" name instead of failing, so pasting the same
  * file twice is not an error.

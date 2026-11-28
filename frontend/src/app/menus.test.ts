@@ -70,7 +70,7 @@ describe('contextMenuRoute', () => {
 });
 
 describe('documentTabMenuItems', () => {
-    it('offers the tab commands, then the group closes, then Reveal, then Move', () => {
+    it('offers the tab commands, then the group closes, then Reveal, then the file commands, then Move', () => {
         const tabs = [tab('a.ts'), tab('b.ts')];
         const ids = documentTabMenuItems(tabs[0], tabs, false)
             .map((entry) => entry.id)
@@ -83,8 +83,59 @@ describe('documentTabMenuItems', () => {
             'close-deleted-tabs',
             'close-all-tabs',
             'reveal',
+            'rename',
+            'move',
+            'duplicate',
+            'trash',
             'move-tab-new-window',
         ]);
+    });
+
+    it('offers the file commands only for a tab with a file on disk', () => {
+        const untitled: OpenDocument = {
+            ...tab('Untitled-1'),
+            id: 'untitled:Untitled-1',
+            path: '',
+            realPath: '',
+        };
+        const diff: OpenDocument = {
+            ...tab('a.ts'),
+            id: 'diff:/repo/a.ts',
+            path: '',
+            realPath: '',
+            kind: 'diff',
+            sourcePath: '/repo/a.ts',
+        };
+
+        for (const target of [untitled, diff]) {
+            const ids = documentTabMenuItems(target, [target], false).map((entry) => entry.id);
+            expect(ids).not.toContain('rename');
+            expect(ids).not.toContain('trash');
+        }
+    });
+
+    it('disables the file commands for the settings and keybindings files', () => {
+        const settings = tab('settings.json', { path: '/config/settings.json' });
+        const keys = tab('keybindings.json', { path: '/config/keybindings.json' });
+        const config = ['/config/settings.json', '/config/keybindings.json'];
+
+        for (const target of [settings, keys]) {
+            const items = documentTabMenuItems(target, [target], false, config);
+            for (const id of ['rename', 'move', 'duplicate', 'trash']) {
+                expect(item(items, id)?.disabled).toBe(true);
+            }
+        }
+        expect(item(documentTabMenuItems(tab('a.ts'), [tab('a.ts')], false, config), 'rename'))
+            .toEqual({ id: 'rename', label: 'Rename…', disabled: false });
+    });
+
+    it('disables the file commands for a deleted file', () => {
+        const deleted = tab('a.ts', { deleted: true });
+        const items = documentTabMenuItems(deleted, [deleted], false);
+
+        for (const id of ['rename', 'move', 'duplicate', 'trash']) {
+            expect(item(items, id)?.disabled).toBe(true);
+        }
     });
 
     it('disables Close Other Tabs for a lone tab', () => {

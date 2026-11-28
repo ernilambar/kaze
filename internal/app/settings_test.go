@@ -261,6 +261,27 @@ func TestUpdateSettingsFillsEmptySection(t *testing.T) {
 	}
 }
 
+func TestConfigFilesDoesNotCreateFiles(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	got, err := NewApp().ConfigFiles()
+	if err != nil {
+		t.Fatalf("ConfigFiles() error = %v", err)
+	}
+
+	dir := filepath.Join(home, "Library", "Application Support", appMeta.ProductName)
+	want := []string{filepath.Join(dir, "settings.json"), filepath.Join(dir, "keybindings.json")}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("ConfigFiles() = %q, want %q", got, want)
+	}
+	for _, path := range want {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Errorf("%s exists after ConfigFiles(), err = %v", path, err)
+		}
+	}
+}
+
 func TestSettingsFileCreatesDefaults(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

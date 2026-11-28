@@ -22,13 +22,14 @@ export function contextMenuItems(
     clipboardPath: string,
     searchOpen: boolean,
     roots: readonly string[],
+    configFiles: readonly string[] = [],
 ): ContextMenuItem[] {
     if (target === null) {
         return [];
     }
     if (target.tabId !== undefined) {
         const tab = tabs.find((entry) => entry.id === target.tabId);
-        return tab === undefined ? [] : documentTabMenuItems(tab, tabs, searchOpen);
+        return tab === undefined ? [] : documentTabMenuItems(tab, tabs, searchOpen, configFiles);
     }
     return treeMenuItems(
         clipboardPath,
@@ -77,6 +78,7 @@ export function documentTabMenuItems(
     tab: OpenDocument,
     tabs: readonly OpenDocument[],
     searchOpen: boolean,
+    configFiles: readonly string[] = [],
 ): ContextMenuItem[] {
     const reveal = tab.path || tab.sourcePath || '';
     const index = tabs.findIndex((entry) => entry.id === tab.id);
@@ -109,6 +111,21 @@ export function documentTabMenuItems(
         items.push(
             { id: '', label: '' },
             { id: 'reveal', label: 'Reveal in Finder' },
+        );
+    }
+    // The file commands need a file on disk: an untitled buffer and a diff
+    // snapshot have none, and a deleted file has nothing left to act on. The
+    // settings and keybindings files are read at fixed paths, so they stay put.
+    if (tab.path !== '') {
+        const disabled =
+            tab.deleted ||
+            configFiles.some((path) => path === tab.path || path === tab.realPath);
+        items.push(
+            { id: '', label: '' },
+            { id: 'rename', label: 'Rename…', disabled },
+            { id: 'move', label: 'Move…', disabled },
+            { id: 'duplicate', label: 'Duplicate…', disabled },
+            { id: 'trash', label: 'Delete', disabled },
         );
     }
     items.push(

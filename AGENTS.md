@@ -56,7 +56,8 @@ No frontend linter/formatter is configured; don't add one unprompted.
   AppKit, main thread). Move takes a full typed path and creates missing
   folders; Rename edits the file name only. The row context menu
   (`ContextMenu.svelte`) is the tree's only
-  file-manager UI; `NamePrompt.svelte` stays open on backend errors.
+  file-manager UI; the tab menu reuses its Rename/Move/Duplicate/Delete via
+  `TreeOps.runTreeCommand`. `NamePrompt.svelte` stays open on backend errors.
 - **Rename/move keeps tabs open.** `retargetDocumentPaths` (`tabs.ts`) rewrites
   paths; the tab `id` survives, so Monaco keeps model, undo and dirty state.
 - **Frontend controllers** (`src/app/*.svelte.ts`). `App.svelte` builds one set

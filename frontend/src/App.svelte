@@ -4,6 +4,7 @@
     import {
         BringAllToFront,
         CloseWindow,
+        ConfigFiles,
         CopyText,
         DefaultSettingsFile,
         GetProductName,
@@ -161,6 +162,10 @@
     let sidebarAutoReveal = $state(true);
 
     let imageSize = $state<{ id: string; width: number; height: number } | null>(null);
+
+    // configFiles are settings.json and keybindings.json. Their tabs offer no
+    // Rename, Move, Duplicate or Delete: the app reads them at fixed paths.
+    let configFiles = $state<string[]>([]);
 
     // contextMenu is the right-click menu in the tab bar or the tree, anchored
     // where the pointer was. tabId marks a tab; otherwise path is the tree entry
@@ -687,7 +692,14 @@
     // right-clicked tab closed while the menu was up, and the menu then closes
     // instead of drawing an empty box.
     let contextMenuItems = $derived(
-        buildContextMenuItems(contextMenu, ctx.tabs, treeops.clipboardPath, search.open, ctx.folders),
+        buildContextMenuItems(
+            contextMenu,
+            ctx.tabs,
+            treeops.clipboardPath,
+            search.open,
+            ctx.folders,
+            configFiles,
+        ),
     );
 
     // A menu with nothing to offer is closed rather than kept hidden, so a tab
@@ -737,6 +749,12 @@
                 break;
             case 'move-tab-new-window':
                 await documents.moveTabToNewWindow(tabId);
+                break;
+            case 'rename':
+            case 'move':
+            case 'duplicate':
+            case 'trash':
+                await treeops.runTreeCommand(id, tab.path, false);
                 break;
             case 'close-other-tabs':
                 await closeOtherTabs(tabId);
@@ -1088,6 +1106,7 @@
             ctx.windowName = name;
             setWindowName(name);
             appName = await GetProductName();
+            configFiles = (await ConfigFiles()) ?? [];
 
             // The request this window was created with decides two things: the
             // paths or buffers to open, and whether this is the window that

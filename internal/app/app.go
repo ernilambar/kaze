@@ -440,6 +440,21 @@ func (a *App) DefaultSettingsFile() (string, error) {
 	return defaultPath, nil
 }
 
+// ConfigFiles returns the paths of settings.json and keybindings.json without
+// creating them, so the tab menu can refuse to rename, move or delete the files
+// the app reads its configuration from.
+func (a *App) ConfigFiles() ([]string, error) {
+	settings, err := settingsFilePath()
+	if err != nil {
+		return nil, err
+	}
+	keys, err := keybindingsFilePath()
+	if err != nil {
+		return nil, err
+	}
+	return []string{settings, keys}, nil
+}
+
 // addFolderEvent asks the sidebar to open the folder picker. A menu click has no
 // caller to return to, so the frontend runs the same code path as its own
 // button: one busy state, one place errors are reported.
