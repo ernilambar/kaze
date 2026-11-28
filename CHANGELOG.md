@@ -1,7 +1,13 @@
 # Changelog
 
-## X.X.X - YYYY-MM-DD
-- Added: pinned tabs that stay left and survive relaunch
+## 0.1.7 - 2026-11-28
+- Added: pinned tabs that stay left, survive relaunch
+- Added: Find in Folder in the folder context menu
+- Added: rename, move, duplicate and delete in the tab context menu
+- Added: editor links open in the system browser
+- Fixed: word completions and link detection work in the editor
+- Fixed: rename cannot turn into a move when a path is typed
+- Fixed: expanded folders stay open when switching views or moving folders
 
 ## 0.1.6 - 2026-11-25
 - Added: expanded folders are restored with the tree
