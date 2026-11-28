@@ -36,6 +36,13 @@ export function entryName(path: string): string {
     return parts.length === 0 ? path : parts[parts.length - 1];
 }
 
+// entryNameError refuses a name that carries a path. The backend reads a rename
+// target as a path so Move can share the operation, but Rename asks for a file
+// name only; this keeps a typed folder from turning the rename into a move.
+export function entryNameError(name: string): string {
+    return /[\\/]/.test(name) ? 'A name cannot contain a path separator' : '';
+}
+
 // parentPath is the folder path lives in. The root has no parent here, which the
 // caller treats as "the folder itself".
 export function parentPath(path: string): string {

@@ -53,8 +53,9 @@ No frontend linter/formatter is configured; don't add one unprompted.
 - **File tree** (`filetree.go`, `internal/fileops`).
   Create/rename/move/duplicate refuse taken names; `MovePath`
   copies-then-deletes only on `EXDEV`; nothing deletes permanently (`TrashPath`,
-  AppKit, main thread). Rename/Move take a full typed path and create missing
-  folders. The row context menu (`ContextMenu.svelte`) is the tree's only
+  AppKit, main thread). Move takes a full typed path and creates missing
+  folders; Rename edits the file name only. The row context menu
+  (`ContextMenu.svelte`) is the tree's only
   file-manager UI; `NamePrompt.svelte` stays open on backend errors.
 - **Rename/move keeps tabs open.** `retargetDocumentPaths` (`tabs.ts`) rewrites
   paths; the tab `id` survives, so Monaco keeps model, undo and dirty state.

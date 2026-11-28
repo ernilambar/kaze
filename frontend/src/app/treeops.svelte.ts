@@ -7,6 +7,7 @@ import {
     duplicatePath,
     duplicatePathSuggestion,
     entryName,
+    entryNameError,
     movePath,
     parentPath,
     renamePath,
@@ -195,20 +196,25 @@ export class TreeOps {
         });
     };
 
-    // renameEntry accepts a new name and, when the text carries a folder, a new
-    // location too. The field holds the whole path with only the file stem
-    // selected, so typing replaces the name and leaves the folder alone. The tab
+    // renameEntry asks for the entry's name only. The field holds the last
+    // segment with its stem selected and a path separator is refused, so a
+    // rename can never move the entry; Move… is the command for that. The tab
     // that holds the file follows the new path, so the buffer stays open and
     // keeps its edits and undo history.
     renameEntry = async (path: string): Promise<void> => {
         await this.prompts.askName({
             title: 'Rename',
-            value: path,
+            value: entryName(path),
             selectStem: true,
             submitLabel: 'Rename',
-            run: async (target) => {
+            run: async (name) => {
+                const refusal = entryNameError(name);
+                if (refusal !== '') {
+                    this.ctx.notice = '';
+                    return refusal;
+                }
                 try {
-                    const entry = await renamePath(path, target);
+                    const entry = await renamePath(path, name);
                     this.applyTreeMove(path, entry.path);
                     this.refreshTree();
                     this.revealInTree(entry.path);
@@ -340,9 +346,9 @@ export class TreeOps {
 
     // moveTreeEntry is Move…: the field holds the entry's full path with the
     // folder selected, so typing replaces where it lives and the file name stays
-    // visible and intact. Move and Rename share the path operation; only the
-    // initial selection differs. A refusal reopens the prompt on the same text
-    // so a typo is corrected in place.
+    // visible and intact. A Move can also rename in the same text; Rename… is
+    // the command that only edits the name. A refusal reopens the prompt on the
+    // same text so a typo is corrected in place.
     moveTreeEntry = async (path: string): Promise<void> => {
         await this.prompts.askName({
             title: 'Move',

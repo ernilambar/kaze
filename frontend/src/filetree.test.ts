@@ -4,6 +4,7 @@ import {
     draggingPath,
     dropSource,
     entryName,
+    entryNameError,
     fileDragPaths,
     parentPath,
     setDraggingPath,
@@ -49,6 +50,19 @@ describe('entryName', () => {
     ])('names %j as %j', (path, expected) => {
         expect(entryName(path)).toBe(expected);
     });
+});
+
+describe('entryNameError', () => {
+    it.each(['notes.txt', 'my folder', '.env', 'name.with.dots.ts'])('accepts %j', (name) => {
+        expect(entryNameError(name)).toBe('');
+    });
+
+    it.each(['src/notes.txt', '/tmp/notes.txt', '..\\notes.txt', 'a/b'])(
+        'refuses the path in %j',
+        (name) => {
+            expect(entryNameError(name)).toBe('A name cannot contain a path separator');
+        },
+    );
 });
 
 describe('parentPath', () => {
