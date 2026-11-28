@@ -34,6 +34,11 @@ export interface LaunchBuffer {
     "bom": boolean;
     "eol": string;
     "invalid_utf8": boolean;
+
+    /**
+     * Pinned keeps a pinned tab in the pinned group of the window it moves to.
+     */
+    "pinned": boolean;
 }
 
 /**

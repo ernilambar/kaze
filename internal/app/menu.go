@@ -225,6 +225,11 @@ func goMenu(m *application.Menu, app *App, b *menuBuilder) {
 	b.item(m, "previous-tab", "Previous Tab", "Ctrl+Shift+Tab", func(*application.Context) {
 		app.emitPreviousTab()
 	})
+	// Pin/Unpin Tab is Cmd+K Shift+Enter, a chord a native accelerator cannot
+	// hold, so the frontend keybinding runs it.
+	b.item(m, "toggle-pin-tab", "Pin/Unpin Tab", "", func(*application.Context) {
+		app.emitCommand("toggle-pin-tab")
+	})
 	goToTab := m.AddSubmenu("Go to Tab")
 	for index := 1; index <= 9; index++ {
 		id := fmt.Sprintf("go-to-tab-%d", index)

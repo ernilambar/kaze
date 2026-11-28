@@ -211,6 +211,7 @@ describe('toBufferDocument', () => {
                 bom: true,
                 eol: 'crlf',
                 invalid_utf8: false,
+                pinned: false,
             }),
         ).toEqual({
             id: '/tmp/notes.txt',
@@ -227,6 +228,7 @@ describe('toBufferDocument', () => {
             eol: 'crlf',
             invalidUTF8: false,
             deleted: false,
+            pinned: false,
         });
     });
 
@@ -245,6 +247,7 @@ describe('toBufferDocument', () => {
                 bom: false,
                 eol: 'lf',
                 invalid_utf8: false,
+                pinned: false,
             }).id,
         ).toBe('untitled:Untitled-2');
     });
@@ -263,6 +266,7 @@ describe('toBufferDocument', () => {
             bom: false,
             eol: 'lf',
             invalid_utf8: false,
+            pinned: false,
         });
         expect(moved.id).toBe('diff:/tmp/notes.txt');
         expect(moved.sourcePath).toBe('/tmp/notes.txt');

@@ -180,6 +180,59 @@ export function chordFromEvent(event: KeyboardEvent): string {
     return [...modifiers, key].join('+');
 }
 
+// MODIFIER_SYMBOLS lists the modifiers in the order macOS menus draw them.
+const MODIFIER_SYMBOLS: readonly [string, string][] = [
+    ['ctrl', '⌃'],
+    ['alt', '⌥'],
+    ['shift', '⇧'],
+    ['cmd', '⌘'],
+    ['meta', 'Meta+'],
+];
+
+const KEY_SYMBOLS: Readonly<Record<string, string>> = {
+    enter: '↩',
+    escape: '⎋',
+    tab: '⇥',
+    backspace: '⌫',
+    delete: '⌦',
+    up: '↑',
+    down: '↓',
+    left: '←',
+    right: '→',
+    home: '↖',
+    end: '↘',
+    pageup: '⇞',
+    pagedown: '⇟',
+    space: 'Space',
+};
+
+// formatKeySequence draws a keybinding the way macOS menus do: "cmd+k
+// shift+enter" becomes "⌘K ⇧↩". An unparseable key gives an empty string.
+export function formatKeySequence(key: string): string {
+    const sequence = normalizeSequence(key);
+    if (sequence.length === 0 || sequence.some((chord) => chord === '')) {
+        return '';
+    }
+    return sequence
+        .map((chord) => {
+            const parts = chord.split('+');
+            const name = parts[parts.length - 1];
+            const modifiers = MODIFIER_SYMBOLS.filter(([modifier]) => parts.includes(modifier))
+                .map(([, symbol]) => symbol)
+                .join('');
+            return modifiers + (KEY_SYMBOLS[name] ?? name.toUpperCase());
+        })
+        .join(' ');
+}
+
+// shortcutFor is the formatted key of the first usable binding for command, or
+// an empty string when nothing runs it. User entries come first in the list
+// withDefaultKeybindings builds, so a rebinding wins over the default.
+export function shortcutFor(bindings: readonly Keybinding[], command: string): string {
+    const binding = bindings.find((entry) => entry.command === command && isUsableBinding(entry));
+    return binding === undefined ? '' : formatKeySequence(binding.key);
+}
+
 // isUsableBinding rejects shortcuts that would swallow ordinary typing. A
 // binding needs a modifier unless its key is inherently non-printable.
 export function isUsableBinding(binding: Keybinding): boolean {
@@ -329,6 +382,7 @@ export const DEFAULT_KEYBINDINGS: readonly Keybinding[] = [
     { key: 'cmd+k f', command: 'close-all-folders', when: '!editorFocus' },
     { key: 'cmd+shift+]', command: 'next-tab' },
     { key: 'cmd+shift+[', command: 'previous-tab' },
+    { key: 'cmd+k shift+enter', command: 'toggle-pin-tab', when: '!editorFocus' },
     // F4 is Launchpad on Apple keyboards unless fn is held.
     { key: 'cmd+alt+g', command: 'find-next-result' },
     { key: 'cmd+alt+shift+g', command: 'find-previous-result' },

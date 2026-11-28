@@ -5,10 +5,12 @@ import {
     moveDocumentTab,
     openDocumentTab,
     pathWithin,
+    pinnedCount,
     retargetDocumentPath,
     retargetDocumentPaths,
     retargetPaths,
     setDocumentDirty,
+    setDocumentPinned,
     stepTabId,
     tabIdAt,
     tabNameDetails,
@@ -63,6 +65,14 @@ function untitled(name: string): OpenDocument {
 const notes = document('/tmp/notes.txt');
 const readme = document('/tmp/README.md');
 const todo = document('/tmp/todo.md');
+const pinnedNotes: OpenDocument = { ...notes, pinned: true };
+const pinnedTodo: OpenDocument = { ...todo, pinned: true };
+
+// expectPinnedPrefix asserts the strip's invariant: no unpinned tab sits
+// before a pinned one.
+function expectPinnedPrefix(tabs: readonly OpenDocument[]): void {
+    expect(pinnedCount(tabs)).toBe(tabs.filter((tab) => tab.pinned).length);
+}
 
 describe('openDocumentTab', () => {
     it('appends a document that is not open yet', () => {
@@ -183,6 +193,44 @@ describe('tabsToClose', () => {
         expect(tabsToClose(tabs, document('/tmp/gone.txt').id, 'others')).toEqual([]);
         expect(tabsToClose(tabs, document('/tmp/gone.txt').id, 'right')).toEqual([]);
     });
+
+    it('never closes a pinned tab in bulk', () => {
+        const gone: OpenDocument = { ...pinnedTodo, deleted: true };
+        const strip = [pinnedNotes, readme, gone];
+
+        expect(tabsToClose(strip, readme.id, 'others')).toEqual([]);
+        expect(tabsToClose(strip, readme.id, 'right')).toEqual([]);
+        expect(tabsToClose(strip, '', 'all')).toEqual([readme]);
+        expect(tabsToClose(strip, '', 'deleted')).toEqual([]);
+    });
+});
+
+describe('setDocumentPinned', () => {
+    it('puts a pinned tab at the end of the pinned group', () => {
+        const strip = [pinnedNotes, readme, todo];
+        const result = setDocumentPinned(strip, todo.id, true);
+
+        expect(result.map((tab) => tab.id)).toEqual([notes.id, todo.id, readme.id]);
+        expect(result[1]?.pinned).toBe(true);
+        expectPinnedPrefix(result);
+    });
+
+    it('puts an unpinned tab at the start of the unpinned group', () => {
+        const strip = [pinnedNotes, pinnedTodo, readme];
+        const result = setDocumentPinned(strip, notes.id, false);
+
+        expect(result.map((tab) => tab.id)).toEqual([todo.id, notes.id, readme.id]);
+        expect(result[1]?.pinned).toBe(false);
+        expectPinnedPrefix(result);
+    });
+
+    it('leaves the list alone when the pin already matches', () => {
+        const strip = [pinnedNotes, readme];
+
+        expect(setDocumentPinned(strip, notes.id, true)).toBe(strip);
+        expect(setDocumentPinned(strip, readme.id, false)).toBe(strip);
+        expect(setDocumentPinned(strip, todo.id, true)).toBe(strip);
+    });
 });
 
 describe('moveDocumentTab', () => {
@@ -221,6 +269,31 @@ describe('moveDocumentTab', () => {
         moveDocumentTab(tabs, notes.id, todo.id, true);
 
         expect(tabs).toEqual([notes, readme, todo]);
+    });
+
+    it('keeps the group when a tab moves within it', () => {
+        const strip = [pinnedNotes, pinnedTodo, readme];
+        const result = moveDocumentTab(strip, notes.id, todo.id, true);
+
+        expect(result.map((tab) => tab.id)).toEqual([todo.id, notes.id, readme.id]);
+        expect(result.every((tab) => tab.id === readme.id || tab.pinned)).toBe(true);
+        expectPinnedPrefix(result);
+    });
+
+    it('pins a tab dragged into the pinned group', () => {
+        const result = moveDocumentTab([pinnedNotes, readme], readme.id, notes.id, false);
+
+        expect(result.map((tab) => tab.id)).toEqual([readme.id, notes.id]);
+        expect(result[0]?.pinned).toBe(true);
+        expectPinnedPrefix(result);
+    });
+
+    it('unpins a tab dragged out of the pinned group', () => {
+        const result = moveDocumentTab([pinnedNotes, readme], notes.id, readme.id, true);
+
+        expect(result.map((tab) => tab.id)).toEqual([readme.id, notes.id]);
+        expect(result[1]?.pinned).toBe(false);
+        expectPinnedPrefix(result);
     });
 });
 
@@ -344,6 +417,12 @@ describe('retargetDocumentPath', () => {
         const dirty: OpenDocument = { ...notes, dirty: true };
 
         expect(retargetDocumentPath(dirty, '/tmp/notes.txt', '/tmp/journal.txt')?.dirty).toBe(true);
+    });
+
+    it('keeps a pinned buffer pinned', () => {
+        expect(retargetDocumentPath(pinnedNotes, '/tmp/notes.txt', '/tmp/journal.txt')?.pinned).toBe(
+            true,
+        );
     });
 
     it('moves the tabs of files inside a renamed folder', () => {

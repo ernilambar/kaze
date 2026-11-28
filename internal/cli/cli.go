@@ -30,6 +30,8 @@ type LaunchBuffer struct {
 	BOM         bool   `json:"bom"`
 	EOL         string `json:"eol"`
 	InvalidUTF8 bool   `json:"invalid_utf8"`
+	// Pinned keeps a pinned tab in the pinned group of the window it moves to.
+	Pinned bool `json:"pinned"`
 }
 
 // LaunchRequest is what a command line invocation asked the app to open. It travels

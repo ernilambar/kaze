@@ -12,6 +12,9 @@
         searchActive?: boolean;
         onSelect: (id: string) => void;
         onClose: (id: string) => void;
+        // onTogglePin pins or unpins a tab. A pinned tab shows a pin in place
+        // of the close button; clicking it unpins the tab.
+        onTogglePin: (id: string) => void;
         // onContextMenu opens the tab's row menu; the tab carries the document
         // so the menu can act on the file under the pointer.
         onContextMenu?: (event: MouseEvent, tab: OpenDocument) => void;
@@ -31,6 +34,7 @@
         searchActive = false,
         onSelect,
         onClose,
+        onTogglePin,
         onContextMenu,
         onReorder,
         onSelectSearch,
@@ -48,6 +52,13 @@
             return tab.sourcePath ?? tab.name;
         }
         return tab.path !== '' ? tab.path : `${tab.name} (unsaved)`;
+    }
+
+    // compactName is the pinned tab's label: the first three characters, split
+    // by code point so a multi-byte character is never cut in half. The full
+    // name stays in the tooltip and the accessible label.
+    function compactName(tab: OpenDocument): string {
+        return Array.from(tab.name).slice(0, 3).join('');
     }
 
     // draggedId is the tab being dragged; dropTarget is the tab whose left or
@@ -166,6 +177,7 @@
                 class="tab"
                 role="presentation"
                 class:tab--active={tab.id === activeId}
+                class:tab--pinned={tab.pinned}
                 class:tab--deleted={tab.deleted}
                 class:tab--dragging={draggedId === tab.id}
                 class:tab--drop-before={dropTarget?.id === tab.id && !dropTarget.after}
@@ -192,9 +204,10 @@
                     class="tab__label"
                     role="tab"
                     aria-selected={tab.id === activeId}
+                    aria-label={tab.pinned ? tab.name : undefined}
                     title={tab.deleted ? `${label(tab)} (deleted)` : label(tab)}
                     onclick={() => onSelect(tab.id)}
-                ><span class="tab__name">{tab.name}</span>{#if detail !== ''}<span class="tab__detail">{detail}</span>{/if}</button>
+                ><span class="tab__name">{tab.pinned ? compactName(tab) : tab.name}</span>{#if detail !== '' && !tab.pinned}<span class="tab__detail">{detail}</span>{/if}</button>
                 {#if tab.deleted}
                     <span
                         class="tab__dot tab__dot--deleted"
@@ -205,16 +218,32 @@
                 {:else if tab.dirty}
                     <span class="tab__dot" role="img" aria-label="Unsaved changes" title="Unsaved changes"></span>
                 {/if}
-                <button
-                    class="tab__close"
-                    aria-label={`Close ${tab.name}`}
-                    title={`Close ${tab.name}`}
-                    onclick={() => onClose(tab.id)}
-                >
-                    <svg aria-hidden="true" height="10" viewBox="0 0 10 10" width="10">
-                        <path d="M1.5 1.5 L8.5 8.5 M8.5 1.5 L1.5 8.5" fill="none" stroke="currentColor" stroke-width="1.4" />
-                    </svg>
-                </button>
+                {#if tab.pinned}
+                    <button
+                        class="tab__close tab__pin"
+                        aria-label={`Unpin ${tab.name}`}
+                        title={`Unpin ${tab.name}`}
+                        onclick={() => onTogglePin(tab.id)}
+                    >
+                        <svg aria-hidden="true" height="12" viewBox="0 0 16 16" width="12">
+                            <path
+                                d="M10.1 1.3a1 1 0 0 1 1.4 0l3.2 3.2a1 1 0 0 1 0 1.4l-1.2 1.2-1.7-.4-2.5 2.5.3 1.8-1.4 1.4-2.6-2.6-3.9 3.9-1-1 3.9-3.9-2.6-2.6L3.4 4.8l1.8.3 2.5-2.5-.4-1.7 1.2-1.2Z"
+                                fill="currentColor"
+                            />
+                        </svg>
+                    </button>
+                {:else}
+                    <button
+                        class="tab__close"
+                        aria-label={`Close ${tab.name}`}
+                        title={`Close ${tab.name}`}
+                        onclick={() => onClose(tab.id)}
+                    >
+                        <svg aria-hidden="true" height="10" viewBox="0 0 10 10" width="10">
+                            <path d="M1.5 1.5 L8.5 8.5 M8.5 1.5 L1.5 8.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+                        </svg>
+                    </button>
+                {/if}
             </div>
         {/each}
         {#if searchOpen}
@@ -278,6 +307,36 @@
 
     .tab:hover {
         background: var(--bg-hover);
+    }
+
+    /* A pinned tab is as wide as its compact label needs, and the group ends
+       with a line that sets it apart from the unpinned tabs after it. */
+    .tab--pinned {
+        max-width: none;
+    }
+
+    /* The last pinned tab's own separator is the divider, tinted so it reads as
+       a group boundary without doubling the line. */
+    .tab--pinned:has(+ .tab:not(.tab--pinned)) {
+        border-right-color: color-mix(in srgb, var(--fg-muted) 45%, var(--border));
+    }
+
+    .tab--pinned .tab__label {
+        padding: 0 4px 0 8px;
+    }
+
+    .tab--pinned .tab__icon {
+        margin-left: 6px;
+    }
+
+    /* The pin replaces the close button, so it stays visible and leaves the
+       dirty dot where the close button used to hide it. */
+    .tab__close.tab__pin {
+        opacity: 1;
+    }
+
+    .tab.tab--pinned:hover .tab__dot {
+        display: flex;
     }
 
     .tab--active {

@@ -8,6 +8,7 @@ import {
     withDefaultKeybindings,
     type KeyContext,
 } from '../keybindings';
+import type { Keybinding } from '../../bindings/kaze/internal/keybindings/models';
 import {
     defaultEditorSettings,
     defaultFileSettings,
@@ -71,6 +72,9 @@ export class Appearance {
     themes = $state<ThemeInfo[]>([]);
     themeErrors = $state<string[]>([]);
     keybindingError = $state('');
+    // keybindings is the list the listener runs, user entries first, so menus
+    // can show the keys that actually trigger a command.
+    keybindings = $state<Keybinding[]>(withDefaultKeybindings([]));
     disposeKeybindings: (() => void) | undefined;
 
     settingsWarning = $derived(
@@ -347,8 +351,9 @@ export class Appearance {
             this.keybindingError = `${this.keybindingError === '' ? '' : `${this.keybindingError}; `}${dropped} binding(s) need a modifier or a non-printing key`;
         }
         this.disposeKeybindings?.();
+        this.keybindings = withDefaultKeybindings(bindings);
         // installKeybindings skips "-command" removals and unusable entries.
-        this.disposeKeybindings = installKeybindings(withDefaultKeybindings(bindings), {
+        this.disposeKeybindings = installKeybindings(this.keybindings, {
             run: this.runKeybindingCommand,
             context: this.keybindingContext,
         });

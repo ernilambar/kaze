@@ -78,6 +78,7 @@ const TAB_COMMANDS: readonly Command[] = [
     { id: 'next-tab', name: 'Next Tab', detail: 'Go' },
     { id: 'previous-tab', name: 'Previous Tab', detail: 'Go' },
     { id: 'reopen-closed-tab', name: 'Reopen Closed Tab', detail: 'File' },
+    { id: 'toggle-pin-tab', name: 'Pin/Unpin Tab', detail: 'Go' },
     ...Array.from({ length: 9 }, (_, index) => ({
         id: `go-to-tab-${index + 1}`,
         name: index === 8 ? 'Go to Last Tab' : `Go to Tab ${index + 1}`,

@@ -113,28 +113,37 @@ export type TabCloseScope = 'others' | 'right' | 'all' | 'deleted';
 
 // tabsToClose returns the tabs a context menu command closes, in their current
 // order. An unknown target means there is nothing to close for the scopes that
-// depend on it, while "all" and "deleted" still describe the tab set.
+// depend on it, while "all" and "deleted" still describe the tab set. Pinned
+// tabs are never closed in bulk, only by their own Close Tab command.
 export function tabsToClose(
     tabs: readonly OpenDocument[],
     id: string,
     scope: TabCloseScope,
 ): OpenDocument[] {
+    const closable = tabs.filter((tab) => !tab.pinned);
     const index = tabs.findIndex((tab) => tab.id === id);
     switch (scope) {
         case 'others':
-            return index === -1 ? [] : tabs.filter((_, position) => position !== index);
-        case 'right':
-            return index === -1 ? [] : tabs.slice(index + 1);
+            return index === -1 ? [] : closable.filter((tab) => tab.id !== id);
+        case 'right': {
+            if (index === -1) {
+                return [];
+            }
+            const targets = new Set(tabs.slice(index + 1).map((tab) => tab.id));
+            return closable.filter((tab) => targets.has(tab.id));
+        }
         case 'all':
-            return tabs.slice();
+            return closable;
         case 'deleted':
-            return tabs.filter((tab) => tab.deleted);
+            return closable.filter((tab) => tab.deleted);
     }
 }
 
-// moveDocumentTab drags id next to targetId, before it or after it. The array
-// comes back unchanged (same identity) when the drop would not move anything,
-// so callers can skip the session write a no-op reorder would cause.
+// moveDocumentTab drags id next to targetId, before it or after it. The moved
+// tab joins the target's group, so dragging across the pinned boundary flips
+// its state and the pinned prefix stays intact. The array comes back unchanged
+// (same identity) when the drop would not move or repin the tab, so callers can
+// skip the session write a no-op reorder would cause.
 export function moveDocumentTab(
     tabs: readonly OpenDocument[],
     id: string,
@@ -148,17 +157,48 @@ export function moveDocumentTab(
     if (from === -1) {
         return tabs as OpenDocument[];
     }
-    const next = tabs.slice();
-    const [moved] = next.splice(from, 1);
-    const target = next.findIndex((tab) => tab.id === targetId);
+    const rest = tabs.slice();
+    const [moved] = rest.splice(from, 1);
+    const target = rest.findIndex((tab) => tab.id === targetId);
     if (target === -1) {
         return tabs as OpenDocument[];
     }
     const to = target + (placeAfter ? 1 : 0);
-    if (to === from) {
+    const pinned = rest[target].pinned === true;
+    if (to === from && (moved.pinned === true) === pinned) {
         return tabs as OpenDocument[];
     }
-    next.splice(to, 0, moved);
+    rest.splice(to, 0, pinned === (moved.pinned === true) ? moved : { ...moved, pinned });
+    return rest;
+}
+
+// pinnedCount returns how many tabs at the left of the strip are pinned. The
+// list keeps them as a prefix, so this is also the index of the first unpinned
+// tab.
+export function pinnedCount(tabs: readonly OpenDocument[]): number {
+    let count = 0;
+    while (count < tabs.length && tabs[count].pinned) {
+        count++;
+    }
+    return count;
+}
+
+// setDocumentPinned flips a tab's pin and moves it to the boundary: pinning
+// puts it at the end of the pinned group, unpinning at the start of the
+// unpinned one. Nothing changes when the tab is already in that state, so the
+// caller can rely on identity.
+export function setDocumentPinned(
+    tabs: readonly OpenDocument[],
+    id: string,
+    pinned: boolean,
+): OpenDocument[] {
+    const index = tabs.findIndex((tab) => tab.id === id);
+    if (index === -1 || (tabs[index].pinned === true) === pinned) {
+        return tabs as OpenDocument[];
+    }
+    const rest = tabs.filter((_, position) => position !== index);
+    const next = rest.slice();
+    next.splice(pinnedCount(rest), 0, { ...tabs[index], pinned });
     return next;
 }
 

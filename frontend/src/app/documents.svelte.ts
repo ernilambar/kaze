@@ -22,6 +22,7 @@ import {
     findDocumentByPath,
     moveDocumentTab,
     openDocumentTab,
+    setDocumentPinned,
     stepTabId,
     tabIdAt,
     updateDocument,
@@ -132,6 +133,33 @@ export class Documents {
         const result = closeDocumentTab(this.ctx.tabs, id, this.ctx.activeId);
         this.ctx.tabs = result.tabs;
         this.ctx.activeId = result.activeId;
+    };
+
+    // setPinned records a tab's pin. The tab moves to its group's boundary, so
+    // the pinned prefix the rest of the strip relies on stays intact.
+    setPinned = (id: string, pinned: boolean): void => {
+        this.ctx.tabs = setDocumentPinned(this.ctx.tabs, id, pinned);
+    };
+
+    togglePinTab = (id: string = this.ctx.activeId): void => {
+        const tab = this.ctx.findTab(id);
+        if (tab === undefined) {
+            return;
+        }
+        this.setPinned(id, !tab.pinned);
+    };
+
+    // closeActiveTabFromKeyboard is Cmd+W and File ▸ Close Tab. A pinned tab is
+    // not closed by it; the context menu's Close Tab still is.
+    closeActiveTabFromKeyboard = (): void => {
+        const tab = this.ctx.active;
+        if (tab?.pinned) {
+            this.ctx.notice = 'Unpin the tab to close it.';
+            return;
+        }
+        if (this.ctx.activeId !== '') {
+            void this.closeTab(this.ctx.activeId);
+        }
     };
 
     // bufferText is what the editor holds right now. A tab that has never been
@@ -429,6 +457,9 @@ export class Documents {
             const opened = await readDocument(saved.path);
             if (opened !== undefined) {
                 this.showDocument(opened);
+                if (saved.pinned) {
+                    this.setPinned(this.ctx.activeId, true);
+                }
                 this.ctx.notice = '';
                 return;
             }
@@ -445,6 +476,7 @@ export class Documents {
         }
         this.showDocument({
             ...restored,
+            pinned: false,
             content: closed.content,
             // The model's clean baseline is the file's text (nothing for an
             // untitled buffer), not the edited snapshot, or undo could mark
@@ -455,6 +487,9 @@ export class Documents {
                 restored.kind === 'text' &&
                 (restored.dirty || (restored.path === '' && closed.content !== '')),
         });
+        if (saved.pinned) {
+            this.setPinned(this.ctx.activeId, true);
+        }
         this.ctx.notice = '';
     };
 
@@ -613,6 +648,7 @@ export class Documents {
             bom: tab.bom,
             eol: tab.eol,
             invalid_utf8: tab.invalidUTF8,
+            pinned: tab.pinned ?? false,
         };
         try {
             await MoveTabToNewWindow(buffer);

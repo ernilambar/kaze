@@ -23,13 +23,14 @@ export function contextMenuItems(
     searchOpen: boolean,
     roots: readonly string[],
     configFiles: readonly string[] = [],
+    pinShortcut = '',
 ): ContextMenuItem[] {
     if (target === null) {
         return [];
     }
     if (target.tabId !== undefined) {
         const tab = tabs.find((entry) => entry.id === target.tabId);
-        return tab === undefined ? [] : documentTabMenuItems(tab, tabs, searchOpen, configFiles);
+        return tab === undefined ? [] : documentTabMenuItems(tab, tabs, searchOpen, configFiles, pinShortcut);
     }
     return treeMenuItems(
         clipboardPath,
@@ -79,40 +80,46 @@ export function documentTabMenuItems(
     tabs: readonly OpenDocument[],
     searchOpen: boolean,
     configFiles: readonly string[] = [],
+    pinShortcut = '',
 ): ContextMenuItem[] {
     const reveal = tab.path || tab.sourcePath || '';
     const index = tabs.findIndex((entry) => entry.id === tab.id);
+    // Bulk closes skip pinned tabs, so they only count the tabs they can close.
+    const others = tabs.filter((entry) => entry.id !== tab.id && !entry.pinned).length;
+    const toRight = index === -1 ? 0 : tabs.slice(index + 1).filter((entry) => !entry.pinned).length;
+    const unpinned = tabs.filter((entry) => !entry.pinned).length;
     const items: ContextMenuItem[] = [
         { id: 'close-tab', label: 'Close Tab' },
         { id: '', label: '' },
         {
             id: 'close-other-tabs',
             label: 'Close Other Tabs',
-            disabled: tabs.length === 1 && !searchOpen,
+            disabled: others === 0 && !searchOpen,
         },
         {
             id: 'close-right-tabs',
             label: 'Close Tabs to Right',
-            disabled: index === -1 || (index === tabs.length - 1 && !searchOpen),
+            disabled: index === -1 || (toRight === 0 && !searchOpen),
         },
         {
             id: 'close-deleted-tabs',
             label: 'Close Tabs with Deleted Files',
-            disabled: !tabs.some((entry) => entry.deleted),
+            disabled: !tabs.some((entry) => entry.deleted && !entry.pinned),
         },
         { id: '', label: '' },
         {
             id: 'close-all-tabs',
             label: 'Close All',
-            disabled: tabs.length === 0 && !searchOpen,
+            disabled: unpinned === 0 && !searchOpen,
         },
     ];
+    items.push({ id: '', label: '' });
     if (reveal !== '') {
-        items.push(
-            { id: '', label: '' },
-            { id: 'reveal', label: 'Reveal in Finder' },
-        );
+        items.push({ id: 'reveal', label: 'Reveal in Finder' });
     }
+    // pinShortcut is the live key for toggle-pin-tab; none means no hint.
+    const pin: ContextMenuItem = { id: 'pin-tab', label: tab.pinned ? 'Unpin' : 'Pin' };
+    items.push(pinShortcut === '' ? pin : { ...pin, shortcut: pinShortcut });
     // The file commands need a file on disk: an untitled buffer and a diff
     // snapshot have none, and a deleted file has nothing left to act on. The
     // settings and keybindings files are read at fixed paths, so they stay put.

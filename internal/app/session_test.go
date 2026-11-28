@@ -68,6 +68,46 @@ func TestSessionKeepsSidebarWidthPerWorkspace(t *testing.T) {
 	}
 }
 
+func TestSessionPersistsPinnedTabs(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	app := NewApp()
+	folder := t.TempDir()
+	workspace := writeWorkspaceTestFileAt(t, folder, "work"+workspacefile.Extension)
+	pinned := filepath.Join(folder, "a.txt")
+	other := filepath.Join(folder, "b.txt")
+
+	if err := app.SetSession("", WindowSession{
+		Workspace: workspace,
+		Folders:   []string{folder},
+		OpenFiles: []string{pinned, other},
+		// The second entry names no open tab, so it must be dropped instead of
+		// restoring a pin for a tab the window will never have.
+		Pinned: []string{pinned, filepath.Join(folder, "gone.txt")},
+		Active: pinned,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// A fresh app reads the JSON back, so the assertions cover the written form
+	// rather than the normalized struct still in memory.
+	reader := NewApp()
+	window, err := reader.GetWindowSession("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{pinned}; !reflect.DeepEqual(window.Pinned, want) {
+		t.Fatalf("window pinned = %q, want %q", window.Pinned, want)
+	}
+
+	info, err := reader.LoadWorkspace(workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{pinned}; !reflect.DeepEqual(info.Session.Pinned, want) {
+		t.Fatalf("parked pinned = %q, want %q", info.Session.Pinned, want)
+	}
+}
+
 func TestWorkspaceSessionFollowsRenamedWorkspaceByFolderSet(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	app := NewApp()

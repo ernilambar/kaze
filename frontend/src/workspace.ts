@@ -34,6 +34,7 @@ export interface SavedWindowSession {
     workspace: string;
     folders: string[];
     openFiles: string[];
+    pinned: string[];
     active: string;
     expanded: string[];
     // sidebarWidth is in CSS pixels; 0 means the default width.
@@ -44,6 +45,7 @@ export interface SavedWindowSession {
 export interface SavedWorkspaceSession {
     folders: string[];
     openFiles: string[];
+    pinned: string[];
     active: string;
     expanded: string[];
     // sidebarWidth is in CSS pixels; 0 means the default width.
@@ -55,6 +57,7 @@ export function toWindowSession(session: models.WindowSession): SavedWindowSessi
         workspace: session.workspace ?? '',
         folders: session.folders ?? [],
         openFiles: session.open_files ?? [],
+        pinned: session.pinned ?? [],
         active: session.active ?? '',
         expanded: session.expanded ?? [],
         sidebarWidth: session.sidebar_width ?? 0,
@@ -65,6 +68,7 @@ export function toWorkspaceSession(session: workspacefile.WorkspaceSession): Sav
     return {
         folders: session.folders ?? [],
         openFiles: session.open_files ?? [],
+        pinned: session.pinned ?? [],
         active: session.active ?? '',
         expanded: session.expanded ?? [],
         sidebarWidth: session.sidebar_width ?? 0,
@@ -98,7 +102,7 @@ export async function loadWindowSession(window: string): Promise<SavedWindowSess
         return toWindowSession(await GetWindowSession(window));
     } catch (error) {
         console.error('Failed to load the window session.', error);
-        return { workspace: '', folders: [], openFiles: [], active: '', expanded: [], sidebarWidth: 0 };
+        return { workspace: '', folders: [], openFiles: [], pinned: [], active: '', expanded: [], sidebarWidth: 0 };
     }
 }
 
@@ -124,6 +128,7 @@ export async function saveSession(
         workspace: session.workspace,
         folders: session.folders.slice(),
         open_files: session.openFiles.slice(),
+        pinned: session.pinned.slice(),
         active: session.active,
         expanded: session.expanded.slice(),
         sidebar_width: session.sidebarWidth,

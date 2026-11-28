@@ -1,5 +1,8 @@
 # Changelog
 
+## X.X.X - YYYY-MM-DD
+- Added: pinned tabs that stay left and survive relaunch
+
 ## 0.1.6 - 2026-11-25
 - Added: expanded folders are restored with the tree
 

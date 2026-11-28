@@ -22,6 +22,12 @@ export interface WorkspaceInfo {
 export interface WorkspaceSession {
     "folders": string[] | null;
     "open_files": string[] | null;
+
+    /**
+     * Pinned names the tabs in OpenFiles that stay at the left of the strip and
+     * out of the bulk close commands, so switching back restores the group.
+     */
+    "pinned"?: string[] | null;
     "active": string;
     "expanded": string[] | null;
 
