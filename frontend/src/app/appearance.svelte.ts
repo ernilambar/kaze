@@ -1,5 +1,5 @@
 import * as monaco from 'monaco-editor';
-import { GetKeybindings, SetAppearanceMode, SetViewOption } from '../../bindings/kaze/internal/app/app';
+import { GetKeybindings, MenuAccelerators, SetAppearanceMode, SetViewOption } from '../../bindings/kaze/internal/app/app';
 import { COMMANDS } from '../commands';
 import { VIEW_OPTIONS, type ViewOption } from '../editorcommands';
 import {
@@ -75,6 +75,8 @@ export class Appearance {
     // keybindings is the list the listener runs, user entries first, so menus
     // can show the keys that actually trigger a command.
     keybindings = $state<Keybinding[]>(withDefaultKeybindings([]));
+    // menuAccelerators are the native menu's live accelerators by command id.
+    menuAccelerators = $state<Record<string, string>>({});
     disposeKeybindings: (() => void) | undefined;
 
     settingsWarning = $derived(
@@ -324,6 +326,9 @@ export class Appearance {
     };
 
     refreshKeybindings = async (): Promise<void> => {
+        // Go rebuilds the menu before it reports a keybindings change, so this
+        // read already reflects the new file.
+        void this.loadMenuAccelerators();
         let state;
         try {
             state = await GetKeybindings();
@@ -359,6 +364,17 @@ export class Appearance {
         });
         if (this.keybindingError !== '') {
             this.ctx.notice = this.keybindingError;
+        }
+    };
+
+    loadMenuAccelerators = async (): Promise<void> => {
+        try {
+            const accelerators = (await MenuAccelerators()) ?? {};
+            this.menuAccelerators = Object.fromEntries(
+                Object.entries(accelerators).filter((entry): entry is [string, string] => entry[1] !== undefined),
+            );
+        } catch (error) {
+            console.error('Failed to load the menu accelerators.', error);
         }
     };
 

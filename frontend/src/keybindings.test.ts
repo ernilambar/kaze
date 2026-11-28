@@ -207,17 +207,25 @@ describe('shortcutFor', () => {
     it('prefers a user binding over the default', () => {
         const bindings = withDefaultKeybindings([{ key: 'cmd+alt+p', command: 'toggle-pin-tab' }]);
 
-        expect(shortcutFor(bindings, 'toggle-pin-tab')).toBe('⌥⌘P');
+        expect(shortcutFor(bindings, {}, 'toggle-pin-tab')).toBe('⌥⌘P');
     });
 
     it('falls back to the default binding', () => {
-        expect(shortcutFor(withDefaultKeybindings([]), 'toggle-pin-tab')).toBe('⌘K ⇧↩');
+        expect(shortcutFor(withDefaultKeybindings([]), {}, 'toggle-pin-tab')).toBe('⌘K ⇧↩');
     });
 
     it('gives nothing once the default is removed', () => {
         const bindings = withDefaultKeybindings([{ key: '', command: '-toggle-pin-tab' }]);
 
-        expect(shortcutFor(bindings, 'toggle-pin-tab')).toBe('');
+        expect(shortcutFor(bindings, {}, 'toggle-pin-tab')).toBe('');
+    });
+
+    it('falls back to the native menu accelerator', () => {
+        const accelerators = { 'reveal-file': 'CmdOrCtrl+Alt+r', 'next-tab': 'Ctrl+Tab' };
+
+        expect(shortcutFor([], accelerators, 'reveal-file')).toBe('⌥⌘R');
+        expect(shortcutFor([], accelerators, 'next-tab')).toBe('⌃⇥');
+        expect(shortcutFor([], accelerators, 'copy-file-name')).toBe('');
     });
 });
 

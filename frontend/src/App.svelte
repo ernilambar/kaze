@@ -697,7 +697,7 @@
             search.open,
             ctx.folders,
             configFiles,
-            shortcutFor(appearance.keybindings, 'toggle-pin-tab'),
+            (command) => shortcutFor(appearance.keybindings, appearance.menuAccelerators, command),
         ),
     );
 

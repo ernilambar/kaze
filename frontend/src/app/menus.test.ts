@@ -152,10 +152,11 @@ describe('documentTabMenuItems', () => {
     });
 
     it('labels the pin command for its state and shows a shortcut only when given', () => {
+        const keys = (command: string) => (command === 'toggle-pin-tab' ? '⌘K ⇧↩' : '');
         const unpinned = tab('a.ts');
         const pinned = tab('a.ts', { pinned: true });
 
-        expect(item(documentTabMenuItems(unpinned, [unpinned], false, [], '⌘K ⇧↩'), 'pin-tab')).toEqual({
+        expect(item(documentTabMenuItems(unpinned, [unpinned], false, [], keys), 'pin-tab')).toEqual({
             id: 'pin-tab',
             label: 'Pin',
             shortcut: '⌘K ⇧↩',
@@ -164,6 +165,31 @@ describe('documentTabMenuItems', () => {
             id: 'pin-tab',
             label: 'Unpin',
         });
+    });
+
+    it('shows the keys of the commands behind the tab items', () => {
+        const keys: Record<string, string> = {
+            'close-tab': '⌘W',
+            'close-all-tabs': '⌘K ⌘W',
+            'reveal-file': '⌥⌘R',
+            'toggle-pin-tab': '⌘K ⇧↩',
+        };
+        const lookup = (command: string) => keys[command] ?? '';
+        const shortcuts = (entry: OpenDocument) =>
+            Object.fromEntries(
+                documentTabMenuItems(entry, [entry], false, [], lookup)
+                    .filter((menuItem) => menuItem.shortcut !== undefined)
+                    .map((menuItem) => [menuItem.id, menuItem.shortcut]),
+            );
+
+        expect(shortcuts(tab('a.ts'))).toEqual({
+            'close-tab': '⌘W',
+            'close-all-tabs': '⌘K ⌘W',
+            reveal: '⌥⌘R',
+            'pin-tab': '⌘K ⇧↩',
+        });
+        // Cmd+W leaves a pinned tab open, so its Close Tab shows no key.
+        expect(shortcuts(tab('a.ts', { pinned: true }))['close-tab']).toBeUndefined();
     });
 
     it('disables the bulk closes when only pinned tabs would be closed', () => {
@@ -266,6 +292,15 @@ describe('contextMenuItems', () => {
         expect(contextMenuItems(treeTarget, tabs, '', false, [])).toEqual(
             treeMenuItems('', false, true),
         );
+    });
+
+    it('shows the keys of the commands behind the tree items', () => {
+        const keys: Record<string, string> = { 'reveal-file': '⌥⌘R', 'copy-file-path': '⌥⌘C' };
+        const items = contextMenuItems(treeTarget, tabs, '', false, [], [], (command) => keys[command] ?? '');
+
+        expect(item(items, 'reveal')?.shortcut).toBe('⌥⌘R');
+        expect(item(items, 'copy-path')?.shortcut).toBe('⌥⌘C');
+        expect(item(items, 'copy')?.shortcut).toBeUndefined();
     });
 
     it('disables moving or deleting a sidebar root', () => {

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"maps"
 	"path/filepath"
 	"strings"
 
@@ -33,6 +34,14 @@ func (a *App) GetKeybindings() keybindings.KeybindingsState {
 		Error:    strings.Join(problems, "; "),
 		Parsed:   true,
 	}
+}
+
+// MenuAccelerators returns the native menu's accelerators by command id, as
+// the menu was last built. Context menus show them beside matching items.
+func (a *App) MenuAccelerators() map[string]string {
+	a.menuItemsMu.Lock()
+	defer a.menuItemsMu.Unlock()
+	return maps.Clone(a.menuAccelerators)
 }
 
 // KeybindingsFile returns the path of keybindings.json for the frontend to

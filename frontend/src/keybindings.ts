@@ -225,12 +225,21 @@ export function formatKeySequence(key: string): string {
         .join(' ');
 }
 
-// shortcutFor is the formatted key of the first usable binding for command, or
-// an empty string when nothing runs it. User entries come first in the list
-// withDefaultKeybindings builds, so a rebinding wins over the default.
-export function shortcutFor(bindings: readonly Keybinding[], command: string): string {
+// shortcutFor is the formatted key that runs command, or an empty string when
+// nothing does. A keybindings.json entry or frontend default comes first (user
+// entries lead the list withDefaultKeybindings builds); otherwise the native
+// menu's accelerator, which Go already dropped when the user rebound it.
+export function shortcutFor(
+    bindings: readonly Keybinding[],
+    accelerators: Readonly<Record<string, string>>,
+    command: string,
+): string {
     const binding = bindings.find((entry) => entry.command === command && isUsableBinding(entry));
-    return binding === undefined ? '' : formatKeySequence(binding.key);
+    if (binding !== undefined) {
+        return formatKeySequence(binding.key);
+    }
+    const accelerator = accelerators[command];
+    return accelerator === undefined ? '' : formatKeySequence(accelerator);
 }
 
 // isUsableBinding rejects shortcuts that would swallow ordinary typing. A

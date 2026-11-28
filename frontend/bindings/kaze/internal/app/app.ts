@@ -339,6 +339,14 @@ export function LoadWorkspace(path: string): $CancellablePromise<workspacefile$0
 }
 
 /**
+ * MenuAccelerators returns the native menu's accelerators by command id, as
+ * the menu was last built. Context menus show them beside matching items.
+ */
+export function MenuAccelerators(): $CancellablePromise<{ [_ in string]?: string } | null> {
+    return $Call.ByID(4162224846);
+}
+
+/**
  * MinimiseWindow minimises one window. The native Window menu calls it for the
  * focused one; the command palette reaches it through the generated binding.
  */

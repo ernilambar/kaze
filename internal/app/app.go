@@ -66,7 +66,10 @@ type App struct {
 	// appearanceItems are the Appearance submenu's radio items by mode, so a
 	// change made in the settings overlay moves the menu's checkmark.
 	appearanceItems map[string]*application.MenuItem
-	// menuItemsMu guards both maps: a menu rebuild swaps them while bindings
+	// menuAccelerators are the accelerators the native menu carries by command
+	// id, after keybindings.json suppression, so context menus can show them.
+	menuAccelerators map[string]string
+	// menuItemsMu guards these maps: a menu rebuild swaps them while bindings
 	// read them.
 	menuItemsMu sync.Mutex
 	// meta is the bundle metadata, kept so a menu rebuild after a keybindings

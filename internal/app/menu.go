@@ -22,6 +22,7 @@ type menuBuilder struct {
 	// because bindings read those maps from other goroutines.
 	viewItems       map[string]*application.MenuItem
 	appearanceItems map[string]*application.MenuItem
+	accelerators    map[string]string
 }
 
 func newMenuBuilder(app *App, bindings []keybindings.Keybinding) *menuBuilder {
@@ -32,6 +33,7 @@ func newMenuBuilder(app *App, bindings []keybindings.Keybinding) *menuBuilder {
 		claimed:         claimed,
 		viewItems:       map[string]*application.MenuItem{},
 		appearanceItems: map[string]*application.MenuItem{},
+		accelerators:    map[string]string{},
 	}
 }
 
@@ -55,6 +57,9 @@ func (b *menuBuilder) item(
 func (b *menuBuilder) accelerate(item *application.MenuItem, id string, accelerator string) {
 	if accelerator != "" && !b.suppressed[id] && !b.claimed[keybindings.NormalizeAccelerator(accelerator)] {
 		item.SetAccelerator(accelerator)
+		if id != "" {
+			b.accelerators[id] = accelerator
+		}
 	}
 }
 
@@ -513,6 +518,7 @@ func buildMenu(
 	app.menuItemsMu.Lock()
 	app.viewItems = builder.viewItems
 	app.appearanceItems = builder.appearanceItems
+	app.menuAccelerators = builder.accelerators
 	app.menuItemsMu.Unlock()
 	return menu
 }
